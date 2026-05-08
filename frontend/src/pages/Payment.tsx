@@ -384,7 +384,10 @@ export default function PaymentPage() {
                 </div>
 
                 {paymentMethod === 'PIX_INSTALLMENT' && (
-                  <div className="mt-4 pt-4 border-t">
+                  <div
+                    className="mt-4 pt-4 border-t"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Número de parcelas:
                     </label>
@@ -441,7 +444,10 @@ export default function PaymentPage() {
                 </div>
 
                 {paymentMethod === 'CREDIT_CARD' && (
-                  <div className="mt-4 pt-4 border-t">
+                  <div
+                    className="mt-4 pt-4 border-t"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Número de Parcelas
                     </label>
