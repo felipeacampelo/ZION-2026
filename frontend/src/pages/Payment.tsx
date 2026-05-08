@@ -48,6 +48,45 @@ export default function PaymentPage() {
     { number: 3, title: 'Confirmação', description: 'Inscrição concluída' },
   ];
 
+  const getPaymentErrorMessage = (err: any) => {
+    const data = err?.response?.data;
+
+    if (!data) {
+      return err?.message || 'Erro ao criar pagamento';
+    }
+
+    if (typeof data === 'string') {
+      return data;
+    }
+
+    if (data.error) {
+      return Array.isArray(data.error) ? data.error[0] : data.error;
+    }
+
+    if (data.detail) {
+      return Array.isArray(data.detail) ? data.detail[0] : data.detail;
+    }
+
+    const fieldPriority = ['enrollment_id', 'installments', 'credit_card', 'payment_method'];
+
+    for (const field of fieldPriority) {
+      if (data[field]) {
+        return Array.isArray(data[field]) ? data[field][0] : data[field];
+      }
+    }
+
+    const firstValue = Object.values(data)[0];
+    if (typeof firstValue === 'string') {
+      return firstValue;
+    }
+
+    if (Array.isArray(firstValue) && firstValue.length > 0) {
+      return String(firstValue[0]);
+    }
+
+    return err?.message || 'Erro ao criar pagamento';
+  };
+
   useEffect(() => {
     if (enrollmentId && !hasLoadedRef.current) {
       hasLoadedRef.current = true;
@@ -147,7 +186,7 @@ export default function PaymentPage() {
       // Mark payment as loaded to prevent overwriting
       setPaymentLoaded(true);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Erro ao criar pagamento');
+      setError(getPaymentErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -179,7 +218,7 @@ export default function PaymentPage() {
       // Mark payment as loaded to prevent overwriting
       setPaymentLoaded(true);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Erro ao processar cartão');
+      setError(getPaymentErrorMessage(err));
     } finally {
       setLoading(false);
     }
