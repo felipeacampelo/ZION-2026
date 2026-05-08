@@ -41,6 +41,7 @@ export default function PaymentPage() {
   const pixCashPrice = Math.max(0, batchPixCashPrice - discountAmount);
   const pixInstallmentPrice = Math.max(0, batchPixInstallmentPrice - discountAmount);
   const creditCardPrice = Math.max(0, batchCreditCardPrice - discountAmount);
+  const maxInstallments = enrollment?.max_installments || 6;
 
   const steps = [
     { number: 1, title: 'Dados Pessoais', description: 'Informações básicas' },
@@ -86,6 +87,19 @@ export default function PaymentPage() {
 
     return err?.message || 'Erro ao criar pagamento';
   };
+
+  useEffect(() => {
+    if (paymentMethod === 'PIX_CASH') {
+      if (installments !== 1) {
+        setInstallments(1);
+      }
+      return;
+    }
+
+    if (installments > maxInstallments) {
+      setInstallments(paymentMethod === 'PIX_INSTALLMENT' ? Math.max(2, maxInstallments) : maxInstallments);
+    }
+  }, [installments, maxInstallments, paymentMethod]);
 
   useEffect(() => {
     if (enrollmentId && !hasLoadedRef.current) {
@@ -179,7 +193,7 @@ export default function PaymentPage() {
       const response = await createPayment({
         enrollment_id: Number(enrollmentId),
         payment_method: paymentMethod,
-        installments: paymentMethod === 'PIX_CASH' ? 1 : installments,
+        installments: paymentMethod === 'PIX_CASH' ? 1 : Math.min(installments, maxInstallments),
       });
 
       setPayment(response.data);
@@ -204,7 +218,7 @@ export default function PaymentPage() {
       const response = await createPayment({
         enrollment_id: Number(enrollmentId),
         payment_method: 'CREDIT_CARD',
-        installments,
+        installments: Math.min(installments, maxInstallments),
         credit_card_data: {
           number: cardData.number.replace(/\s/g, ''),
           holderName: cardData.holderName,
@@ -336,7 +350,10 @@ export default function PaymentPage() {
               <div
                 onClick={() => {
                   setPaymentMethod('PIX_INSTALLMENT');
-                  if (installments === 1) setInstallments(3); // Default to 3 installments
+                  setInstallments((current) => {
+                    const desired = current === 1 ? 3 : current;
+                    return Math.min(Math.max(2, desired), maxInstallments);
+                  });
                 }}
                 className="border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-all"
                 style={{
@@ -349,7 +366,7 @@ export default function PaymentPage() {
                     <QrCode className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
                     <div>
                       <h3 className="font-semibold text-base sm:text-lg">PIX Parcelado</h3>
-                      <p className="text-xs sm:text-sm text-gray-600">Parcele em até {enrollment?.max_installments || 6}x via PIX</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Parcele em até {maxInstallments}x via PIX</p>
                     </div>
                   </div>
                   {enrollment && (
@@ -376,7 +393,7 @@ export default function PaymentPage() {
                       onChange={(e) => setInstallments(Number(e.target.value))}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-gray-900 bg-white"
                     >
-                      {Array.from({ length: (enrollment?.max_installments || 6) - 1 }, (_, i) => i + 2).map((num) => (
+                      {Array.from({ length: maxInstallments - 1 }, (_, i) => i + 2).map((num) => (
                         <option key={num} value={num}>
                           {num}x de R$ {(pixInstallmentPrice / num).toFixed(2)}
                         </option>
@@ -390,7 +407,10 @@ export default function PaymentPage() {
               <div
                 onClick={() => {
                   setPaymentMethod('CREDIT_CARD');
-                  if (installments === 1) setInstallments(3); // Default to 3 installments
+                  setInstallments((current) => {
+                    const desired = current === 1 ? 3 : current;
+                    return Math.min(desired, maxInstallments);
+                  });
                 }}
                 className="border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-all"
                 style={{
@@ -403,7 +423,7 @@ export default function PaymentPage() {
                     <CreditCardIcon className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
                     <div>
                       <h3 className="font-semibold text-base sm:text-lg">Cartão de Crédito</h3>
-                      <p className="text-xs sm:text-sm text-gray-600">Parcele em até {enrollment?.max_installments || 7}x no cartão</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Parcele em até {maxInstallments}x no cartão</p>
                     </div>
                   </div>
                   {enrollment && (
@@ -431,7 +451,7 @@ export default function PaymentPage() {
                         onChange={(e) => setInstallments(Number(e.target.value))}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white text-gray-900"
                       >
-                        {Array.from({ length: enrollment?.max_installments || 7 }, (_, i) => i + 1).map((num) => (
+                        {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((num) => (
                           <option key={num} value={num}>
                             {num}x de R$ {(creditCardPrice / num).toFixed(2)}
                           </option>
