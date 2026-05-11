@@ -352,6 +352,18 @@ class Settings(models.Model):
     """
     Global settings for the application.
     """
+    enable_pix_installment = models.BooleanField(
+        default=True,
+        verbose_name='Permitir PIX Parcelado',
+        help_text='Controla a disponibilidade do PIX parcelado para novos pagamentos'
+    )
+
+    enable_shirt_size_field = models.BooleanField(
+        default=True,
+        verbose_name='Exibir Campo Tamanho da Camiseta',
+        help_text='Controla a exibição do campo de tamanho da camiseta em novas inscrições'
+    )
+
     max_installments = models.IntegerField(
         default=6,
         validators=[MinValueValidator(1), MaxValueValidator(12)],

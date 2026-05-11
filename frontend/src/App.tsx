@@ -12,6 +12,7 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminSettings from './pages/AdminSettings'
 
 function App() {
   return (
@@ -64,6 +65,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/settings" 
+            element={
+              <AdminRoute>
+                <AdminSettings />
               </AdminRoute>
             } 
           />

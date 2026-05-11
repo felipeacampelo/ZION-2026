@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.enrollments.models import Enrollment
+from apps.enrollments.models import Settings
 from apps.payments.models import Payment
 from apps.products.models import Batch, Product
 
@@ -190,6 +191,26 @@ class PaymentSecurityTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['final_amount'], 100.0)
 
+    def test_calculate_payment_rejects_pix_installment_when_disabled(self):
+        settings = Settings.get_settings()
+        settings.enable_pix_installment = False
+        settings.save(update_fields=['enable_pix_installment'])
+
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            reverse('payments:calculate'),
+            {
+                'enrollment_id': self.owner_enrollment.id,
+                'payment_method': 'PIX_INSTALLMENT',
+                'installments': 2,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('detail', response.data)
+
     def test_simulate_pix_is_hidden_outside_debug(self):
         with override_settings(DEBUG=False):
             response = self.client.post(
@@ -240,3 +261,23 @@ class PaymentSecurityTests(APITestCase):
         self.assertEqual(recreated.pix_copy_paste, 'pix-copy-paste')
         self.assertEqual(recreated.due_date, timezone.now().date() + timedelta(days=3))
         self.assertEqual(recreated.raw_webhook_data['created']['id'], 'pay-owner-reissued')
+
+    def test_create_payment_rejects_pix_installment_when_disabled(self):
+        settings = Settings.get_settings()
+        settings.enable_pix_installment = False
+        settings.save(update_fields=['enable_pix_installment'])
+
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            reverse('payments:payment-list'),
+            {
+                'enrollment_id': self.owner_enrollment.id,
+                'payment_method': 'PIX_INSTALLMENT',
+                'installments': 2,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('payment_method', response.data)

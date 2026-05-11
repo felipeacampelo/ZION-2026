@@ -193,7 +193,7 @@ def calculate_payment(request):
         "installments": 1
     }
     """
-    from apps.enrollments.models import Enrollment
+    from apps.enrollments.models import Enrollment, Settings
     
     enrollment_id = request.data.get('enrollment_id')
     payment_method = request.data.get('payment_method')
@@ -209,6 +209,12 @@ def calculate_payment(request):
 
     if not (request.user.is_staff or request.user.is_superuser or enrollment.user_id == request.user.id):
         raise PermissionDenied('Você não tem permissão para consultar esta inscrição.')
+
+    if payment_method == 'PIX_INSTALLMENT' and not Settings.get_settings().enable_pix_installment:
+        return Response(
+            {'detail': 'PIX parcelado está desativado no momento'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     # Calculate amounts
     enrollment.payment_method = payment_method

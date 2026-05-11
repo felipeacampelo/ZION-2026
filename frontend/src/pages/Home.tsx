@@ -11,6 +11,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [eventDate, setEventDate] = useState<Date | null>(null);
   const [maxInstallments, setMaxInstallments] = useState(6);
+  const [enablePixInstallment, setEnablePixInstallment] = useState(true);
 
   useEffect(() => {
     loadProducts();
@@ -42,6 +43,7 @@ export default function Home() {
     try {
       const response = await getSettings();
       setMaxInstallments(response.data.max_installments);
+      setEnablePixInstallment(response.data.enable_pix_installment);
     } catch (err) {
       console.error('Erro ao carregar configurações:', err);
       // Keep default value of 6 if API fails
@@ -305,22 +307,23 @@ export default function Home() {
               </div>
             </div>
 
-            {/* PIX Parcelado */}
-            <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-              <div className="text-center">
-                <h3 className="text-2xl font-bold mb-2">PIX Parcelado</h3>
-                <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                  R$ {pixInstallmentPrice.toFixed(2)}
+            {enablePixInstallment && (
+              <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold mb-2">PIX Parcelado</h3>
+                  <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+                    R$ {pixInstallmentPrice.toFixed(2)}
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    Até {maxInstallments}x de R$ {pixInstallmentValue}<br/>
+                    via PIX
+                  </p>
+                  <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
+                    Inscrever-se
+                  </button>
                 </div>
-                <p className="text-gray-600 mb-6">
-                  Até {maxInstallments}x de R$ {pixInstallmentValue}<br/>
-                  via PIX
-                </p>
-                <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                  Inscrever-se
-                </button>
               </div>
-            </div>
+            )}
 
             {/* Cartão de Crédito */}
             <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>

@@ -43,7 +43,7 @@ class PaymentCreateSerializer(serializers.Serializer):
     
     def validate(self, data):
         """Validate payment data."""
-        from apps.enrollments.models import Enrollment
+        from apps.enrollments.models import Enrollment, Settings
         request = self.context.get('request')
         
         # Validate enrollment
@@ -66,18 +66,21 @@ class PaymentCreateSerializer(serializers.Serializer):
         # Validate installments
         payment_method = data['payment_method']
         installments = data['installments']
-        
+        settings = Settings.get_settings()
+
+        if payment_method == 'PIX_INSTALLMENT' and not settings.enable_pix_installment:
+            raise serializers.ValidationError({
+                'payment_method': 'PIX parcelado está desativado no momento'
+            })
+
         if payment_method == 'PIX_CASH' and installments != 1:
             raise serializers.ValidationError({'installments': 'PIX à vista deve ter 1 parcela'})
-        
+
         if payment_method in ['PIX_INSTALLMENT', 'CREDIT_CARD']:
             # Get max installments from coupon or global settings
-            from apps.enrollments.models import Settings
-            
             if enrollment.coupon and enrollment.coupon.enable_12x_installments:
                 max_installments = enrollment.coupon.max_installments
             else:
-                settings = Settings.get_settings()
                 max_installments = settings.max_installments
             
             if installments > max_installments:

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Phone, FileText, Calendar, CreditCard, Check, Ticket, X } from 'lucide-react';
-import { getProducts, getProduct, createEnrollment, getEnrollments, validateCoupon, type Product, type Enrollment } from '../services/api'; // getEnrollments used in handleSubmit
+import { getProducts, getProduct, createEnrollment, getEnrollments, getSettings, validateCoupon, type Product, type Enrollment } from '../services/api'; // getEnrollments used in handleSubmit
 import ProgressSteps from '../components/ProgressSteps';
 
 export default function Enrollment() {
@@ -23,6 +23,7 @@ export default function Enrollment() {
   // Refund policy modal
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundPolicyAccepted, setRefundPolicyAccepted] = useState(false);
+  const [enableShirtSizeField, setEnableShirtSizeField] = useState(true);
 
   const steps = [
     { number: 1, title: 'Dados Pessoais', description: 'Informações básicas' },
@@ -48,7 +49,17 @@ export default function Enrollment() {
   useEffect(() => {
     loadProducts();
     checkCompletedEnrollment();
+    loadSettings();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const response = await getSettings();
+      setEnableShirtSizeField(response.data.enable_shirt_size_field);
+    } catch (err) {
+      console.error('Erro ao carregar configurações do formulário:', err);
+    }
+  };
 
   const checkCompletedEnrollment = async () => {
     try {
@@ -463,26 +474,28 @@ export default function Enrollment() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tamanho da Camiseta *
-              </label>
-              <select
-                required
-                value={formData.tamanho_camiseta}
-                onChange={(e) => setFormData({ ...formData, tamanho_camiseta: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white appearance-none cursor-pointer"
-                style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.25rem' }}
-              >
-                <option value="">Selecione o tamanho...</option>
-                <option value="PP">PP</option>
-                <option value="P">P</option>
-                <option value="M">M</option>
-                <option value="G">G</option>
-                <option value="GG">GG</option>
-                <option value="XG">XG</option>
-              </select>
-            </div>
+            {enableShirtSizeField && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tamanho da Camiseta *
+                </label>
+                <select
+                  required
+                  value={formData.tamanho_camiseta}
+                  onChange={(e) => setFormData({ ...formData, tamanho_camiseta: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white appearance-none cursor-pointer"
+                  style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.25rem' }}
+                >
+                  <option value="">Selecione o tamanho...</option>
+                  <option value="PP">PP</option>
+                  <option value="P">P</option>
+                  <option value="M">M</option>
+                  <option value="G">G</option>
+                  <option value="GG">GG</option>
+                  <option value="XG">XG</option>
+                </select>
+              </div>
+            )}
             
             <div className="border-t pt-6 mt-6">
               <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>

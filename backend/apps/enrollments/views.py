@@ -190,4 +190,6 @@ def get_settings(request):
     return Response({
         'max_installments': settings.max_installments,
         'max_installments_with_coupon': settings.max_installments_with_coupon,
+        'enable_pix_installment': settings.enable_pix_installment,
+        'enable_shirt_size_field': settings.enable_shirt_size_field,
     })

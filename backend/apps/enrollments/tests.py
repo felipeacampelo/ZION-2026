@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.enrollments.models import Settings
 from apps.products.models import Batch, Product
 
 
@@ -68,3 +69,42 @@ class EnrollmentSecurityTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['product']['id'], self.product.id)
         self.assertEqual(response.data['batch']['id'], self.batch.id)
+
+    def test_public_settings_exposes_feature_flags(self):
+        settings = Settings.get_settings()
+        settings.enable_pix_installment = False
+        settings.enable_shirt_size_field = False
+        settings.max_installments = 4
+        settings.save()
+
+        response = self.client.get(reverse('enrollments:get-settings'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['max_installments'], 4)
+        self.assertFalse(response.data['enable_pix_installment'])
+        self.assertFalse(response.data['enable_shirt_size_field'])
+
+    @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
+    def test_create_enrollment_ignores_shirt_size_when_disabled(self, mock_send_email):
+        settings = Settings.get_settings()
+        settings.enable_shirt_size_field = False
+        settings.save(update_fields=['enable_shirt_size_field'])
+
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': {
+                    'email': self.user.email,
+                    'nome_completo': 'Participant User',
+                    'tamanho_camiseta': 'G',
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertNotIn('tamanho_camiseta', response.data['form_data'])

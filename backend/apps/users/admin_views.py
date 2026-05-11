@@ -4,7 +4,7 @@ Admin views for managing system data.
 from collections import OrderedDict
 from decimal import Decimal
 
-from rest_framework import generics, permissions, status
+from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -13,11 +13,23 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .permissions import IsAdminUser
-from apps.enrollments.models import Enrollment
+from apps.enrollments.models import Enrollment, Settings as AppSettings
 from apps.enrollments.serializers import EnrollmentSerializer
 from apps.payments.models import Payment
 from apps.products.models import Product, Batch
 from apps.products.serializers import ProductSerializer, BatchSerializer
+
+
+class AdminSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppSettings
+        fields = [
+            'max_installments',
+            'max_installments_with_coupon',
+            'enable_pix_installment',
+            'enable_shirt_size_field',
+        ]
+        read_only_fields = ['max_installments_with_coupon']
 
 
 class AdminEnrollmentPagination(PageNumberPagination):
@@ -293,6 +305,23 @@ def admin_enrollment_update(request, pk):
     
     serializer = EnrollmentSerializer(enrollment)
     return Response(serializer.data)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAdminUser])
+def admin_settings(request):
+    """Read and update global admin settings."""
+    settings = AppSettings.get_settings()
+
+    if request.method == 'GET':
+        serializer = AdminSettingsSerializer(settings)
+        return Response(serializer.data)
+
+    serializer = AdminSettingsSerializer(settings, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])

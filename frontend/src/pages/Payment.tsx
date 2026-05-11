@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Copy, Check, QrCode, CreditCard as CreditCardIcon } from 'lucide-react';
-import { getEnrollment, createPayment, type Enrollment, type Payment } from '../services/api';
+import { getEnrollment, createPayment, getSettings, type Enrollment, type Payment } from '../services/api';
 import ProgressSteps from '../components/ProgressSteps';
 import CreditCardForm, { type CardData } from '../components/CreditCardForm';
 
@@ -27,6 +27,7 @@ export default function PaymentPage() {
   const [paymentMethod, setPaymentMethod] = useState<'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD'>('PIX_CASH');
   const [installments, setInstallments] = useState(1);
   const [showCardForm, setShowCardForm] = useState(false);
+  const [enablePixInstallment, setEnablePixInstallment] = useState(true);
   
   // Calculate prices based on batch and discount
   const batchPixCashPrice = enrollment?.batch?.price ? parseFloat(String(enrollment.batch.price)) : 0;
@@ -89,6 +90,19 @@ export default function PaymentPage() {
   };
 
   useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await getSettings();
+        setEnablePixInstallment(response.data.enable_pix_installment);
+      } catch (err) {
+        console.error('Error loading payment settings:', err);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  useEffect(() => {
     if (paymentMethod === 'PIX_CASH') {
       if (installments !== 1) {
         setInstallments(1);
@@ -100,6 +114,14 @@ export default function PaymentPage() {
       setInstallments(paymentMethod === 'PIX_INSTALLMENT' ? Math.max(2, maxInstallments) : maxInstallments);
     }
   }, [installments, maxInstallments, paymentMethod]);
+
+  useEffect(() => {
+    if (!enablePixInstallment && paymentMethod === 'PIX_INSTALLMENT') {
+      setPaymentMethod('PIX_CASH');
+      setInstallments(1);
+      setShowCardForm(false);
+    }
+  }, [enablePixInstallment, paymentMethod]);
 
   useEffect(() => {
     if (enrollmentId && !hasLoadedRef.current) {
@@ -346,65 +368,66 @@ export default function PaymentPage() {
                 </div>
               </div>
 
-              {/* PIX Parcelado */}
-              <div
-                onClick={() => {
-                  setPaymentMethod('PIX_INSTALLMENT');
-                  setInstallments((current) => {
-                    const desired = current === 1 ? 3 : current;
-                    return Math.min(Math.max(2, desired), maxInstallments);
-                  });
-                }}
-                className="border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-all"
-                style={{
-                  borderColor: paymentMethod === 'PIX_INSTALLMENT' ? 'rgb(165, 44, 240)' : '#e5e7eb',
-                  backgroundColor: paymentMethod === 'PIX_INSTALLMENT' ? 'rgba(165, 44, 240, 0.05)' : 'transparent'
-                }}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                  <div className="flex items-center">
-                    <QrCode className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
-                    <div>
-                      <h3 className="font-semibold text-base sm:text-lg">PIX Parcelado</h3>
-                      <p className="text-xs sm:text-sm text-gray-600">Parcele em até {maxInstallments}x via PIX</p>
-                    </div>
-                  </div>
-                  {enrollment && (
-                    <div className="text-right">
-                      {hasDiscount && (
-                        <div className="text-sm text-gray-400 line-through">
-                          R$ {batchPixInstallmentPrice.toFixed(2)}
-                        </div>
-                      )}
-                      <div className="text-xl sm:text-2xl font-bold text-gray-900">
-                        R$ {pixInstallmentPrice.toFixed(2)}
+              {enablePixInstallment && (
+                <div
+                  onClick={() => {
+                    setPaymentMethod('PIX_INSTALLMENT');
+                    setInstallments((current) => {
+                      const desired = current === 1 ? 3 : current;
+                      return Math.min(Math.max(2, desired), maxInstallments);
+                    });
+                  }}
+                  className="border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-all"
+                  style={{
+                    borderColor: paymentMethod === 'PIX_INSTALLMENT' ? 'rgb(165, 44, 240)' : '#e5e7eb',
+                    backgroundColor: paymentMethod === 'PIX_INSTALLMENT' ? 'rgba(165, 44, 240, 0.05)' : 'transparent'
+                  }}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <div className="flex items-center">
+                      <QrCode className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
+                      <div>
+                        <h3 className="font-semibold text-base sm:text-lg">PIX Parcelado</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">Parcele em até {maxInstallments}x via PIX</p>
                       </div>
+                    </div>
+                    {enrollment && (
+                      <div className="text-right">
+                        {hasDiscount && (
+                          <div className="text-sm text-gray-400 line-through">
+                            R$ {batchPixInstallmentPrice.toFixed(2)}
+                          </div>
+                        )}
+                        <div className="text-xl sm:text-2xl font-bold text-gray-900">
+                          R$ {pixInstallmentPrice.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {paymentMethod === 'PIX_INSTALLMENT' && (
+                    <div
+                      className="mt-4 pt-4 border-t"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Número de parcelas:
+                      </label>
+                      <select
+                        value={installments}
+                        onChange={(e) => setInstallments(Number(e.target.value))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-gray-900 bg-white"
+                      >
+                        {Array.from({ length: maxInstallments - 1 }, (_, i) => i + 2).map((num) => (
+                          <option key={num} value={num}>
+                            {num}x de R$ {(pixInstallmentPrice / num).toFixed(2)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
                 </div>
-
-                {paymentMethod === 'PIX_INSTALLMENT' && (
-                  <div
-                    className="mt-4 pt-4 border-t"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Número de parcelas:
-                    </label>
-                    <select
-                      value={installments}
-                      onChange={(e) => setInstallments(Number(e.target.value))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-gray-900 bg-white"
-                    >
-                      {Array.from({ length: maxInstallments - 1 }, (_, i) => i + 2).map((num) => (
-                        <option key={num} value={num}>
-                          {num}x de R$ {(pixInstallmentPrice / num).toFixed(2)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* Cartão de Crédito */}
               <div

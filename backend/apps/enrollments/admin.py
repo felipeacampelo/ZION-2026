@@ -371,6 +371,10 @@ class SettingsAdmin(admin.ModelAdmin):
         return False
     
     fieldsets = (
+        (_('Disponibilidade'), {
+            'fields': ('enable_pix_installment', 'enable_shirt_size_field'),
+            'description': 'Controla opções visíveis para novas inscrições e novos pagamentos'
+        }),
         (_('Parcelamento Padrão'), {
             'fields': ('max_installments',),
             'description': 'Máximo de parcelas permitidas sem cupom especial'

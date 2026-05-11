@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.enrollments.models import Enrollment
+from apps.enrollments.models import Settings
 from apps.products.models import Batch, Product
 
 
@@ -87,3 +88,68 @@ class AdminEnrollmentSearchTests(APITestCase):
         self.assertEqual(response.data['count'], 1)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['id'], self.matching_enrollment.id)
+
+
+class AdminSettingsTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email='admin-settings@example.com',
+            password='password123',
+            is_staff=True,
+        )
+        self.user = User.objects.create_user(
+            email='member@example.com',
+            password='password123',
+        )
+
+    def test_admin_can_get_settings(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(reverse('users:admin-settings'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('max_installments', response.data)
+        self.assertIn('enable_pix_installment', response.data)
+        self.assertIn('enable_shirt_size_field', response.data)
+
+    def test_admin_can_patch_settings(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.patch(
+            reverse('users:admin-settings'),
+            {
+                'max_installments': 5,
+                'enable_pix_installment': False,
+                'enable_shirt_size_field': False,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        settings = Settings.get_settings()
+        self.assertEqual(settings.max_installments, 5)
+        self.assertFalse(settings.enable_pix_installment)
+        self.assertFalse(settings.enable_shirt_size_field)
+
+    def test_non_admin_cannot_patch_settings(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(
+            reverse('users:admin-settings'),
+            {'max_installments': 5},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_settings_reject_invalid_installments(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.patch(
+            reverse('users:admin-settings'),
+            {'max_installments': 13},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('max_installments', response.data)

@@ -19,6 +19,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { getAdminDashboard, getAdminEnrollments, getAdminOverdueEnrollments, type Enrollment, type OverdueEnrollmentSummary } from '../services/api';
+import AdminShell from '../components/AdminShell';
 
 interface BatchStats {
   id: number;
@@ -340,18 +341,20 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'rgb(165, 44, 240)' }}></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
+      <AdminShell>
+        <div className="min-h-[40vh] flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'rgb(165, 44, 240)' }}></div>
+            <p className="mt-4 text-gray-600">Carregando...</p>
+          </div>
         </div>
-      </div>
+      </AdminShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
+    <AdminShell>
+      <div className="min-h-screen">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex items-center gap-3 sm:gap-4">
@@ -1142,6 +1145,6 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
-    </div>
+    </AdminShell>
   );
 }

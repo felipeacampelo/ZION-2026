@@ -91,6 +91,7 @@ class EnrollmentCreateSerializer(serializers.Serializer):
     def validate(self, data):
         """Validate product and batch."""
         from apps.products.models import Product, Batch
+        from .models import Settings
         
         try:
             product = Product.objects.get(id=data['product_id'], is_active=True)
@@ -109,7 +110,13 @@ class EnrollmentCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError({'batch_id': 'Lote não está ativo'})
         
         # Validate age (block anyone born in 2010 or later)
-        form_data = data.get('form_data', {})
+        form_data = dict(data.get('form_data', {}))
+        settings = Settings.get_settings()
+
+        if not settings.enable_shirt_size_field:
+            form_data.pop('tamanho_camiseta', None)
+            data['form_data'] = form_data
+
         data_nascimento = form_data.get('data_nascimento')
         
         if data_nascimento:
