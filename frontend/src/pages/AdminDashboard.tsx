@@ -10,12 +10,10 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  ArrowLeft,
   Search,
   Filter,
   Download,
   Eye,
-  Settings,
   ArrowUpDown
 } from 'lucide-react';
 import { getAdminDashboard, getAdminEnrollments, getAdminOverdueEnrollments, type Enrollment, type OverdueEnrollmentSummary } from '../services/api';
@@ -357,17 +355,7 @@ export default function AdminDashboard() {
       <div className="min-h-screen">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-1 sm:gap-2 font-medium text-sm sm:text-base"
-              style={{ color: 'rgb(165, 44, 240)' }}
-            >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">Voltar</span>
-            </button>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Painel Admin</h1>
-          </div>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Painel Admin</h1>
           <div className="flex gap-2 sm:gap-3">
             <button
               onClick={exportToCSV}
@@ -378,16 +366,6 @@ export default function AdminDashboard() {
               <span className="hidden sm:inline">{exporting ? 'Exportando CSV' : 'Exportar CSV'}</span>
               <span className="sm:hidden">{exporting ? '...' : 'CSV'}</span>
             </button>
-            <a
-              href="https://gestao-areamais-production.up.railway.app/admin"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
-              style={{ backgroundColor: 'rgb(165, 44, 240)', color: 'white' }}
-            >
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Admin</span>
-            </a>
           </div>
         </div>
 

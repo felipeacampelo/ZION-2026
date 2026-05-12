@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Loader2, Save } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Loader2, Save } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import { getAdminSettings, updateAdminSettings, type AppSettings } from '../services/api';
 
 type SettingsForm = Pick<AppSettings, 'max_installments' | 'enable_pix_installment' | 'enable_shirt_size_field'>;
 
 export default function AdminSettings() {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState<SettingsForm>({
     max_installments: 6,
     enable_pix_installment: true,
@@ -71,17 +69,7 @@ export default function AdminSettings() {
   return (
     <AdminShell>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 font-medium"
-            style={{ color: 'rgb(165, 44, 240)' }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </button>
-          <h2 className="text-3xl font-bold text-gray-900">Opções do Admin</h2>
-        </div>
+        <h2 className="text-3xl font-bold text-gray-900">Opções do Admin</h2>
 
         <div className="rounded-2xl bg-white p-6 shadow-lg">
           {loading ? (

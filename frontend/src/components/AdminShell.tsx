@@ -1,37 +1,181 @@
-import type { ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
-import { BarChart3, Settings } from 'lucide-react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import {
+  BarChart3,
+  Settings,
+  Menu,
+  X,
+  LogOut,
+  User,
+  ArrowLeft,
+} from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AdminShellProps {
   children: ReactNode;
 }
 
-const navLinkClassName = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-    isActive ? 'bg-white text-black shadow-sm' : 'text-white/80 hover:bg-white/10 hover:text-white'
-  }`;
+const NAV_ITEMS = [
+  { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
+  { to: '/admin/settings', label: 'Opções', icon: Settings, end: false },
+];
 
 export default function AdminShell({ children }: AdminShellProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  // Close drawer when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        mobileOpen &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(e.target as Node)
+      ) {
+        setMobileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [mobileOpen]);
+
+  // Close drawer on resize to desktop
+  useEffect(() => {
+    function handleResize() {
+      if (window.innerWidth >= 1024) setMobileOpen(false);
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const handleNavClick = () => {
+    if (window.innerWidth < 1024) {
+      setMobileOpen(false);
+    }
+  };
+
+  const userName = user
+    ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email
+    : '';
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:flex-row">
-        <aside className="w-full rounded-2xl bg-gray-950 p-4 text-white shadow-xl lg:sticky lg:top-6 lg:w-72 lg:self-start">
-          <div className="mb-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-white/50">Admin</p>
-            <h1 className="mt-2 text-2xl font-bold">Área Mais</h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile top bar */}
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100"
+            aria-label="Abrir menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <span className="text-lg font-bold tracking-tight text-gray-900">
+            Área Mais
+          </span>
+          <span className="ml-1 rounded-md bg-purple/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple">
+            Admin
+          </span>
+        </div>
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1 rounded-lg p-2 text-sm font-medium text-purple transition-colors hover:bg-purple/5"
+          title="Voltar ao site"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+      </header>
+
+      {/* Mobile drawer overlay */}
+      <div
+        className={`fixed inset-0 z-50 bg-black/40 transition-opacity lg:hidden ${
+          mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
+      <div className="flex min-h-screen">
+        {/* Sidebar */}
+        <aside
+          ref={sidebarRef}
+          className={`fixed inset-y-0 left-0 z-50 w-64 transform border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+            mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+          }`}
+        >
+          {/* Sidebar header */}
+          <div className="flex h-14 items-center justify-between border-b border-gray-100 px-4 lg:h-16 lg:px-5">
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold tracking-tight text-gray-900">
+                Área Mais
+              </span>
+              <span className="rounded-md bg-purple/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple">
+                Admin
+              </span>
+            </div>
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 lg:hidden"
+              aria-label="Fechar menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <nav className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-            <NavLink to="/admin" end className={navLinkClassName}>
-              <BarChart3 className="h-4 w-4" />
-              Dashboard
-            </NavLink>
-            <NavLink to="/admin/settings" className={navLinkClassName}>
-              <Settings className="h-4 w-4" />
-              Opções
-            </NavLink>
+
+          {/* Navigation */}
+          <nav className="flex flex-col gap-1 px-3 py-4">
+            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                onClick={handleNavClick}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-purple/10 text-purple'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`
+                }
+              >
+                <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+                {label}
+              </NavLink>
+            ))}
           </nav>
+
+          {/* Bottom section */}
+          <div className="absolute inset-x-0 bottom-0 border-t border-gray-100 bg-white px-3 py-3">
+            <div className="mb-3 flex items-center gap-3 rounded-lg px-3 py-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple/10">
+                <User className="h-4 w-4 text-purple" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-gray-900">
+                  {userName}
+                </p>
+                {user && (
+                  <p className="truncate text-xs text-gray-500">{user.email}</p>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+            >
+              <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
+              Sair
+            </button>
+          </div>
         </aside>
-        <main className="min-w-0 flex-1">{children}</main>
+
+        {/* Main content */}
+        <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
       </div>
     </div>
   );
