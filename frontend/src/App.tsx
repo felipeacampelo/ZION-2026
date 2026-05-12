@@ -14,6 +14,7 @@ import ResetPassword from './pages/ResetPassword'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminPaymentSettings from './pages/AdminPaymentSettings'
 import AdminFormSettings from './pages/AdminFormSettings'
+import AdminBatchSettings from './pages/AdminBatchSettings'
 
 function App() {
   return (
@@ -86,6 +87,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminFormSettings />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/settings/batches" 
+            element={
+              <AdminRoute>
+                <AdminBatchSettings />
               </AdminRoute>
             } 
           />

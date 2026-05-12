@@ -80,6 +80,30 @@ class AdminEnrollmentPagination(PageNumberPagination):
     max_page_size = 100
 
 
+class AdminBatchListSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    current_enrollments = serializers.IntegerField(read_only=True)
+    is_full = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Batch
+        fields = [
+            'id',
+            'product',
+            'product_name',
+            'name',
+            'start_date',
+            'end_date',
+            'price',
+            'pix_installment_price',
+            'credit_card_price',
+            'max_enrollments',
+            'current_enrollments',
+            'is_full',
+            'status',
+        ]
+
+
 def calculate_asaas_fee(payment_amount, payment_method, installments):
     """
     Calculate Asaas fee based on payment method and installments.
@@ -373,6 +397,16 @@ def admin_products_list(request):
     
     products = Product.objects.prefetch_related('batches').all()
     serializer = ProductSerializer(products, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_batches_list(request):
+    """List all batches with product data for admin management."""
+
+    batches = Batch.objects.select_related('product').all().order_by('start_date')
+    serializer = AdminBatchListSerializer(batches, many=True)
     return Response(serializer.data)
 
 

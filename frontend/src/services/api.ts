@@ -52,6 +52,8 @@ export interface Product {
 
 export interface Batch {
   id: number;
+  product?: number;
+  product_name?: string;
   name: string;
   start_date: string;
   end_date: string;
@@ -252,6 +254,8 @@ export const updateAdminEnrollment = (id: number, data: { status: string }) =>
   api.patch(`/users/admin/enrollments/${id}/`, data);
 
 export const getAdminProducts = () => api.get('/users/admin/products/');
+
+export const getAdminBatches = () => api.get<Batch[]>('/users/admin/batches/');
 
 export const createAdminProduct = (data: any) =>
   api.post('/users/admin/products/create/', data);
