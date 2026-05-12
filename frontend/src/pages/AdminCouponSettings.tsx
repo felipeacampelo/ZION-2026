@@ -60,8 +60,17 @@ export default function AdminCouponSettings() {
   const [showCreate, setShowCreate] = useState(false);
   const [formData, setFormData] = useState<CouponForm>(emptyCouponForm);
 
+  const isSoldOut = (coupon: Coupon) =>
+    coupon.max_uses !== null && coupon.max_uses !== undefined && coupon.uses_count >= coupon.max_uses;
+
   const sortedCoupons = useMemo(
-    () => [...coupons].sort((a, b) => new Date(b.created_at || b.valid_from).getTime() - new Date(a.created_at || a.valid_from).getTime()),
+    () =>
+      [...coupons].sort((a, b) => {
+        const aUnused = a.uses_count === 0 ? 1 : 0;
+        const bUnused = b.uses_count === 0 ? 1 : 0;
+        if (aUnused !== bUnused) return bUnused - aUnused;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }),
     [coupons],
   );
 
@@ -251,7 +260,7 @@ export default function AdminCouponSettings() {
           ) : (
             <div className="space-y-4">
               {sortedCoupons.map((coupon) => (
-                <div key={coupon.id} className="rounded-xl border border-gray-200 p-4">
+                <div key={coupon.id} className={`rounded-xl border border-gray-200 p-4 ${isSoldOut(coupon) ? 'opacity-60' : ''}`}>
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-semibold text-gray-900">{coupon.code}</p>
