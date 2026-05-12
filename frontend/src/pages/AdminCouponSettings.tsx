@@ -258,69 +258,66 @@ export default function AdminCouponSettings() {
               Carregando cupons...
             </div>
           ) : (
-            <div className="space-y-4">
-              {sortedCoupons.map((coupon) => (
-                <div key={coupon.id} className={`rounded-xl border border-gray-200 p-4 ${isSoldOut(coupon) ? 'opacity-60' : ''}`}>
-                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-semibold text-gray-900">{coupon.code}</p>
-                      <p className="text-sm text-gray-600">{coupon.description || 'Sem descrição'}</p>
-                    </div>
-                    <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-medium ${coupon.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'}`}>
-                      {coupon.active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
-                    <p className="rounded-lg bg-gray-50 px-3 py-2 text-gray-700">
-                      Desconto: <strong>{coupon.discount_type === 'PERCENTAGE' ? `${coupon.discount_value}%` : `R$ ${coupon.discount_value}`}</strong>
-                    </p>
-                    <p className="rounded-lg bg-gray-50 px-3 py-2 text-gray-700">
-                      Parcelamento especial: <strong>{coupon.enable_12x_installments ? `Sim (${coupon.max_installments}x)` : 'Não'}</strong>
-                    </p>
-                    <p className="rounded-lg bg-gray-50 px-3 py-2 text-gray-700">
-                      Parcelado permitido: <strong>{coupon.allow_installments ? 'Sim' : 'Não'}</strong>
-                    </p>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700">
-                      Usos: {coupon.uses_count}/{coupon.max_uses ?? '∞'}
-                    </span>
-                    {coupon.allowed_payment_methods.length > 0 ? (
-                      <span className="rounded-full bg-purple/10 px-2 py-1 text-purple">
-                        Pagamentos: {coupon.allowed_payment_methods.join(', ')}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-purple/10 px-2 py-1 text-purple">Pagamentos: todos</span>
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void toggleCouponActive(coupon)}
-                      disabled={saving}
-                      className="flex items-center gap-3 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-60"
-                    >
-                      <span className={`inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors ${coupon.active ? 'bg-green-500' : 'bg-gray-300'}`}>
-                        <span className={`h-4 w-4 rounded-full bg-white transition-transform ${coupon.active ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </span>
-                      {coupon.active ? 'Ativo' : 'Inativo'}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => void removeCoupon(coupon.id)}
-                      disabled={saving}
-                      className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left text-gray-500">
+                    <th className="pb-2 pr-4 font-medium">Código</th>
+                    <th className="pb-2 pr-4 font-medium">Desconto</th>
+                    <th className="pb-2 pr-4 font-medium">Usos</th>
+                    <th className="pb-2 pr-4 font-medium hidden md:table-cell">Parcelas</th>
+                    <th className="pb-2 pr-4 font-medium hidden lg:table-cell">Pagamento</th>
+                    <th className="pb-2 pr-4 font-medium">Status</th>
+                    <th className="pb-2 font-medium text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedCoupons.map((coupon) => (
+                    <tr key={coupon.id} className={`border-b border-gray-100 ${isSoldOut(coupon) ? 'opacity-60' : ''}`}>
+                      <td className="py-3 pr-4">
+                        <p className="font-semibold text-gray-900">{coupon.code}</p>
+                        <p className="text-xs text-gray-500">{coupon.description || 'Sem descrição'}</p>
+                      </td>
+                      <td className="py-3 pr-4 text-gray-700 whitespace-nowrap">
+                        {coupon.discount_type === 'PERCENTAGE' ? `${coupon.discount_value}%` : `R$ ${coupon.discount_value}`}
+                      </td>
+                      <td className="py-3 pr-4 text-gray-700 whitespace-nowrap">
+                        {coupon.uses_count}/{coupon.max_uses ?? '∞'}
+                      </td>
+                      <td className="py-3 pr-4 text-gray-700 whitespace-nowrap hidden md:table-cell">
+                        {coupon.enable_12x_installments ? `${coupon.max_installments}x` : '-'}
+                      </td>
+                      <td className="py-3 pr-4 text-gray-700 hidden lg:table-cell">
+                        {coupon.allowed_payment_methods.length > 0 ? coupon.allowed_payment_methods.join(', ') : 'Todos'}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <button
+                          type="button"
+                          onClick={() => void toggleCouponActive(coupon)}
+                          disabled={saving}
+                          className="inline-flex items-center disabled:opacity-60"
+                          title={coupon.active ? 'Desativar' : 'Ativar'}
+                        >
+                          <span className={`inline-flex h-5 w-9 items-center rounded-full p-0.5 transition-colors ${coupon.active ? 'bg-green-500' : 'bg-gray-300'}`}>
+                            <span className={`h-4 w-4 rounded-full bg-white transition-transform ${coupon.active ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </span>
+                        </button>
+                      </td>
+                      <td className="py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => void removeCoupon(coupon.id)}
+                          disabled={saving}
+                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-60"
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
               {sortedCoupons.length === 0 && (
                 <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-600">
