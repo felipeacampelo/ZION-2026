@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Phone, FileText, Calendar, CreditCard, Check, Ticket, X } from 'lucide-react';
-import { getProducts, getProduct, createEnrollment, getEnrollments, getSettings, validateCoupon, type Product, type Enrollment } from '../services/api'; // getEnrollments used in handleSubmit
+import { getProducts, getProduct, createEnrollment, getEnrollments, getSettings, validateCoupon, type FormFieldConfig, type Product, type Enrollment } from '../services/api'; // getEnrollments used in handleSubmit
 import ProgressSteps from '../components/ProgressSteps';
 
 export default function Enrollment() {
@@ -23,7 +23,7 @@ export default function Enrollment() {
   // Refund policy modal
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundPolicyAccepted, setRefundPolicyAccepted] = useState(false);
-  const [enableShirtSizeField, setEnableShirtSizeField] = useState(true);
+  const [formFieldsConfig, setFormFieldsConfig] = useState<Record<string, FormFieldConfig>>({});
 
   const steps = [
     { number: 1, title: 'Dados Pessoais', description: 'Informações básicas' },
@@ -55,10 +55,16 @@ export default function Enrollment() {
   const loadSettings = async () => {
     try {
       const response = await getSettings();
-      setEnableShirtSizeField(response.data.enable_shirt_size_field);
+      setFormFieldsConfig(response.data.form_fields_config);
     } catch (err) {
       console.error('Erro ao carregar configurações do formulário:', err);
     }
+  };
+
+  const getFieldConfig = (fieldName: string) => formFieldsConfig[fieldName] || {
+    enabled: true,
+    required: false,
+    label: fieldName,
   };
 
   const checkCompletedEnrollment = async () => {
@@ -365,76 +371,85 @@ export default function Enrollment() {
 
           {/* Formulário */}
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+            {getFieldConfig('nome_completo').enabled && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <User className="w-4 h-4 inline mr-2" />
-                Nome Completo *
+                Nome Completo {getFieldConfig('nome_completo').required ? '*' : ''}
               </label>
               <input
                 type="text"
-                required
+                required={getFieldConfig('nome_completo').required}
                 value={formData.nome_completo}
                 onChange={(e) => setFormData({ ...formData, nome_completo: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
                 placeholder="Seu nome completo"
               />
             </div>
+            )}
 
+            {getFieldConfig('email').enabled && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email *
+                Email {getFieldConfig('email').required ? '*' : ''}
               </label>
               <input
                 type="email"
-                required
+                required={getFieldConfig('email').required}
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
                 placeholder="seu@email.com"
               />
             </div>
+            )}
 
             <div className="grid md:grid-cols-2 gap-6">
+              {getFieldConfig('telefone').enabled && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Phone className="w-4 h-4 inline mr-2" />
-                  Telefone *
+                  Telefone {getFieldConfig('telefone').required ? '*' : ''}
                 </label>
                 <input
                   type="tel"
-                  required
+                  required={getFieldConfig('telefone').required}
                   value={formData.telefone}
                   onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
                   placeholder="(11) 99999-9999"
                 />
               </div>
+              )}
 
+              {getFieldConfig('data_nascimento').enabled && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Calendar className="w-4 h-4 inline mr-2" />
-                  Data de Nascimento
+                  Data de Nascimento {getFieldConfig('data_nascimento').required ? '*' : ''}
                 </label>
                 <input
                   type="date"
-                  required
+                  required={getFieldConfig('data_nascimento').required}
                   value={formData.data_nascimento}
                   onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
                   max="2009-12-31"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
                 />
               </div>
+              )}
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
+              {getFieldConfig('cpf').enabled && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <FileText className="w-4 h-4 inline mr-2" />
-                  CPF *
+                  CPF {getFieldConfig('cpf').required ? '*' : ''}
                 </label>
                 <input
                   type="text"
-                  required
+                  required={getFieldConfig('cpf').required}
                   value={formData.cpf}
                   onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
@@ -442,30 +457,34 @@ export default function Enrollment() {
                   maxLength={14}
                 />
               </div>
+              )}
 
+              {getFieldConfig('rg').enabled && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <CreditCard className="w-4 h-4 inline mr-2" />
-                  RG *
+                  RG {getFieldConfig('rg').required ? '*' : ''}
                 </label>
                 <input
                   type="text"
-                  required
+                  required={getFieldConfig('rg').required}
                   value={formData.rg}
                   onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
                   placeholder="00.000.000-0"
                 />
               </div>
+              )}
             </div>
 
+            {getFieldConfig('cep').enabled && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                CEP *
+                CEP {getFieldConfig('cep').required ? '*' : ''}
               </label>
               <input
                 type="text"
-                required
+                required={getFieldConfig('cep').required}
                 value={formData.cep}
                 onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
@@ -473,14 +492,15 @@ export default function Enrollment() {
                 maxLength={9}
               />
             </div>
+            )}
 
-            {enableShirtSizeField && (
+            {getFieldConfig('tamanho_camiseta').enabled && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tamanho da Camiseta *
+                  Tamanho da Camiseta {getFieldConfig('tamanho_camiseta').required ? '*' : ''}
                 </label>
                 <select
-                  required
+                  required={getFieldConfig('tamanho_camiseta').required}
                   value={formData.tamanho_camiseta}
                   onChange={(e) => setFormData({ ...formData, tamanho_camiseta: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white appearance-none cursor-pointer"
@@ -501,12 +521,13 @@ export default function Enrollment() {
               <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
               </h3>
               
+              {getFieldConfig('membro_batista_capital').enabled && (
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Você é membro da Batista Capital? *
+                  Você é membro da Batista Capital? {getFieldConfig('membro_batista_capital').required ? '*' : ''}
                 </label>
                 <select
-                  required
+                  required={getFieldConfig('membro_batista_capital').required}
                   value={formData.membro_batista_capital}
                   onChange={(e) => setFormData({ ...formData, membro_batista_capital: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white appearance-none cursor-pointer"
@@ -517,15 +538,16 @@ export default function Enrollment() {
                   <option value="nao">Não</option>
                 </select>
               </div>
+              )}
 
-              {formData.membro_batista_capital === 'nao' && (
+              {getFieldConfig('igreja').enabled && formData.membro_batista_capital === 'nao' && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Qual sua igreja? *
+                    Qual sua igreja? {getFieldConfig('igreja').required ? '*' : ''}
                   </label>
                   <input
                     type="text"
-                    required
+                    required={getFieldConfig('igreja').required}
                     value={formData.igreja}
                     onChange={(e) => setFormData({ ...formData, igreja: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
@@ -534,12 +556,13 @@ export default function Enrollment() {
                 </div>
               )}
 
+              {getFieldConfig('lider_pg').enabled && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quem é seu líder de PG? *
+                  Quem é seu líder de PG? {getFieldConfig('lider_pg').required ? '*' : ''}
                 </label>
                 <select
-                  required
+                  required={getFieldConfig('lider_pg').required}
                   value={formData.lider_pg}
                   onChange={(e) => setFormData({ ...formData, lider_pg: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white appearance-none cursor-pointer"
@@ -558,13 +581,16 @@ export default function Enrollment() {
                   <option value="Não tenho PG">Não tenho PG</option>
                 </select>
               </div>
+              )}
             </div>
 
+            {getFieldConfig('observacoes').enabled && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Observações Adicionais
+                Observações Adicionais {getFieldConfig('observacoes').required ? '*' : ''}
               </label>
               <textarea
+                required={getFieldConfig('observacoes').required}
                 value={formData.observacoes}
                 onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
                 rows={4}
@@ -572,6 +598,7 @@ export default function Enrollment() {
                 placeholder="Deseja ficar no quarto com alguém? Restrições alimentares, necessidades especiais, etc..."
               />
             </div>
+            )}
 
             {/* Cupom de Desconto */}
             <div className="border-t pt-6">

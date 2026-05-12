@@ -125,6 +125,12 @@ export interface OverdueEnrollmentSummary extends Enrollment {
   oldest_due_date: string | null;
 }
 
+export interface FormFieldConfig {
+  enabled: boolean;
+  required: boolean;
+  label: string;
+}
+
 // Auth (old - to be removed or migrated)
 // export const login = (email: string, password: string) =>
 //   api.post('/auth/login/', { email, password });
@@ -269,16 +275,16 @@ export const deleteAdminBatch = (id: number) =>
 export interface AppSettings {
   max_installments: number;
   max_installments_with_coupon: number;
+  enable_pix_cash: boolean;
   enable_pix_installment: boolean;
+  enable_credit_card: boolean;
   enable_shirt_size_field: boolean;
+  form_fields_config: Record<string, FormFieldConfig>;
 }
 
 export const getSettings = () => api.get<AppSettings>('/enrollments/settings/');
 export const getAdminSettings = () => api.get<AppSettings>('/users/admin/settings/');
-export const updateAdminSettings = (data: {
-  max_installments: number;
-  enable_pix_installment: boolean;
-  enable_shirt_size_field: boolean;
-}) => api.patch<AppSettings>('/users/admin/settings/', data);
+export const updateAdminSettings = (data: Partial<AppSettings>) =>
+  api.patch<AppSettings>('/users/admin/settings/', data);
 
 export default api;

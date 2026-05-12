@@ -21,15 +21,57 @@ from apps.products.serializers import ProductSerializer, BatchSerializer
 
 
 class AdminSettingsSerializer(serializers.ModelSerializer):
+    form_fields_config = serializers.JSONField(required=False)
+
     class Meta:
         model = AppSettings
         fields = [
             'max_installments',
             'max_installments_with_coupon',
+            'enable_pix_cash',
             'enable_pix_installment',
+            'enable_credit_card',
             'enable_shirt_size_field',
+            'form_fields_config',
         ]
         read_only_fields = ['max_installments_with_coupon']
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['form_fields_config'] = instance.get_form_fields_config()
+        return data
+
+    def validate(self, attrs):
+        enable_pix_cash = attrs.get('enable_pix_cash', self.instance.enable_pix_cash if self.instance else True)
+        enable_pix_installment = attrs.get('enable_pix_installment', self.instance.enable_pix_installment if self.instance else True)
+        enable_credit_card = attrs.get('enable_credit_card', self.instance.enable_credit_card if self.instance else True)
+
+        if not any([enable_pix_cash, enable_pix_installment, enable_credit_card]):
+            raise serializers.ValidationError('Pelo menos uma forma de pagamento deve permanecer ativa.')
+
+        raw_form_fields = attrs.get('form_fields_config')
+        if raw_form_fields is not None:
+            normalized = self.instance.get_form_fields_config() if self.instance else AppSettings().get_form_fields_config()
+            for field_name, current in normalized.items():
+                incoming = raw_form_fields.get(field_name, {})
+                enabled = bool(incoming.get('enabled', current['enabled']))
+                required = bool(incoming.get('required', current['required'])) if enabled else False
+                normalized[field_name] = {
+                    'enabled': enabled,
+                    'required': required,
+                    'label': current['label'],
+                }
+
+            attrs['form_fields_config'] = {
+                field_name: {
+                    'enabled': config['enabled'],
+                    'required': config['required'],
+                }
+                for field_name, config in normalized.items()
+            }
+            attrs['enable_shirt_size_field'] = normalized['tamanho_camiseta']['enabled']
+
+        return attrs
 
 
 class AdminEnrollmentPagination(PageNumberPagination):

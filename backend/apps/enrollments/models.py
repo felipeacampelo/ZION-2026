@@ -9,6 +9,22 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 
 
+DEFAULT_FORM_FIELDS_CONFIG = {
+    'nome_completo': {'enabled': True, 'required': True, 'label': 'Nome Completo'},
+    'email': {'enabled': True, 'required': True, 'label': 'Email'},
+    'telefone': {'enabled': True, 'required': True, 'label': 'Telefone'},
+    'data_nascimento': {'enabled': True, 'required': True, 'label': 'Data de Nascimento'},
+    'cpf': {'enabled': True, 'required': True, 'label': 'CPF'},
+    'rg': {'enabled': True, 'required': True, 'label': 'RG'},
+    'cep': {'enabled': True, 'required': True, 'label': 'CEP'},
+    'tamanho_camiseta': {'enabled': True, 'required': True, 'label': 'Tamanho da Camiseta'},
+    'membro_batista_capital': {'enabled': True, 'required': True, 'label': 'Membro Batista Capital'},
+    'igreja': {'enabled': True, 'required': True, 'label': 'Igreja'},
+    'lider_pg': {'enabled': True, 'required': True, 'label': 'Líder de PG'},
+    'observacoes': {'enabled': True, 'required': False, 'label': 'Observações'},
+}
+
+
 class Enrollment(models.Model):
     """
     Represents a user enrollment in a product/batch.
@@ -352,16 +368,35 @@ class Settings(models.Model):
     """
     Global settings for the application.
     """
+    enable_pix_cash = models.BooleanField(
+        default=True,
+        verbose_name='Permitir PIX à Vista',
+        help_text='Controla a disponibilidade do PIX à vista para novos pagamentos'
+    )
+
     enable_pix_installment = models.BooleanField(
         default=True,
         verbose_name='Permitir PIX Parcelado',
         help_text='Controla a disponibilidade do PIX parcelado para novos pagamentos'
     )
 
+    enable_credit_card = models.BooleanField(
+        default=True,
+        verbose_name='Permitir Cartão de Crédito',
+        help_text='Controla a disponibilidade do cartão de crédito para novos pagamentos'
+    )
+
     enable_shirt_size_field = models.BooleanField(
         default=True,
         verbose_name='Exibir Campo Tamanho da Camiseta',
         help_text='Controla a exibição do campo de tamanho da camiseta em novas inscrições'
+    )
+
+    form_fields_config = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='Configuração dos Campos do Formulário',
+        help_text='Define quais campos do formulário ficam visíveis e obrigatórios'
     )
 
     max_installments = models.IntegerField(
@@ -386,6 +421,49 @@ class Settings(models.Model):
     
     def __str__(self):
         return 'Configurações Globais'
+
+    def get_form_fields_config(self):
+        """Return form field configuration merged with defaults."""
+        merged = {}
+        saved = self.form_fields_config or {}
+
+        for field_name, default_config in DEFAULT_FORM_FIELDS_CONFIG.items():
+            field_config = saved.get(field_name, {})
+            merged[field_name] = {
+                'enabled': field_config.get('enabled', default_config['enabled']),
+                'required': field_config.get('required', default_config['required']),
+                'label': default_config['label'],
+            }
+
+        # Keep legacy shirt toggle consistent.
+        merged['tamanho_camiseta']['enabled'] = self.enable_shirt_size_field
+        if not merged['tamanho_camiseta']['enabled']:
+            merged['tamanho_camiseta']['required'] = False
+
+        return merged
+
+    def save(self, *args, **kwargs):
+        """Normalize cross-field settings before saving."""
+        merged = self.get_form_fields_config()
+
+        for field_config in merged.values():
+            if not field_config['enabled']:
+                field_config['required'] = False
+
+        self.enable_shirt_size_field = merged['tamanho_camiseta']['enabled']
+        self.form_fields_config = {
+            field_name: {
+                'enabled': config['enabled'],
+                'required': config['required'],
+            }
+            for field_name, config in merged.items()
+        }
+
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            kwargs['update_fields'] = set(update_fields) | {'form_fields_config', 'enable_shirt_size_field'}
+
+        super().save(*args, **kwargs)
     
     @classmethod
     def get_settings(cls):

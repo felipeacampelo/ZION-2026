@@ -68,9 +68,20 @@ class PaymentCreateSerializer(serializers.Serializer):
         installments = data['installments']
         settings = Settings.get_settings()
 
-        if payment_method == 'PIX_INSTALLMENT' and not settings.enable_pix_installment:
+        payment_availability = {
+            'PIX_CASH': settings.enable_pix_cash,
+            'PIX_INSTALLMENT': settings.enable_pix_installment,
+            'CREDIT_CARD': settings.enable_credit_card,
+        }
+
+        if not payment_availability.get(payment_method, True):
+            labels = {
+                'PIX_CASH': 'PIX à vista',
+                'PIX_INSTALLMENT': 'PIX parcelado',
+                'CREDIT_CARD': 'cartão de crédito',
+            }
             raise serializers.ValidationError({
-                'payment_method': 'PIX parcelado está desativado no momento'
+                'payment_method': f'{labels[payment_method]} está desativado no momento'
             })
 
         if payment_method == 'PIX_CASH' and installments != 1:

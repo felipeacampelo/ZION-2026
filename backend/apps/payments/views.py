@@ -210,9 +210,21 @@ def calculate_payment(request):
     if not (request.user.is_staff or request.user.is_superuser or enrollment.user_id == request.user.id):
         raise PermissionDenied('Você não tem permissão para consultar esta inscrição.')
 
-    if payment_method == 'PIX_INSTALLMENT' and not Settings.get_settings().enable_pix_installment:
+    settings = Settings.get_settings()
+    payment_availability = {
+        'PIX_CASH': settings.enable_pix_cash,
+        'PIX_INSTALLMENT': settings.enable_pix_installment,
+        'CREDIT_CARD': settings.enable_credit_card,
+    }
+
+    if payment_method in payment_availability and not payment_availability[payment_method]:
+        labels = {
+            'PIX_CASH': 'PIX à vista',
+            'PIX_INSTALLMENT': 'PIX parcelado',
+            'CREDIT_CARD': 'cartão de crédito',
+        }
         return Response(
-            {'detail': 'PIX parcelado está desativado no momento'},
+            {'detail': f'{labels[payment_method]} está desativado no momento'},
             status=status.HTTP_400_BAD_REQUEST
         )
     

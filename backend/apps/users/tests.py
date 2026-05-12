@@ -109,8 +109,11 @@ class AdminSettingsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('max_installments', response.data)
+        self.assertIn('enable_pix_cash', response.data)
         self.assertIn('enable_pix_installment', response.data)
+        self.assertIn('enable_credit_card', response.data)
         self.assertIn('enable_shirt_size_field', response.data)
+        self.assertIn('form_fields_config', response.data)
 
     def test_admin_can_patch_settings(self):
         self.client.force_authenticate(user=self.admin)
@@ -119,7 +122,9 @@ class AdminSettingsTests(APITestCase):
             reverse('users:admin-settings'),
             {
                 'max_installments': 5,
+                'enable_pix_cash': True,
                 'enable_pix_installment': False,
+                'enable_credit_card': True,
                 'enable_shirt_size_field': False,
             },
             format='json',
@@ -130,6 +135,21 @@ class AdminSettingsTests(APITestCase):
         self.assertEqual(settings.max_installments, 5)
         self.assertFalse(settings.enable_pix_installment)
         self.assertFalse(settings.enable_shirt_size_field)
+
+    def test_admin_settings_reject_disabling_all_payment_methods(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.patch(
+            reverse('users:admin-settings'),
+            {
+                'enable_pix_cash': False,
+                'enable_pix_installment': False,
+                'enable_credit_card': False,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_non_admin_cannot_patch_settings(self):
         self.client.force_authenticate(user=self.user)

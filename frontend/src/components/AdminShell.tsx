@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
-  Settings,
+  CreditCard,
+  FileText,
   Menu,
   X,
   LogOut,
@@ -17,7 +18,8 @@ interface AdminShellProps {
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
-  { to: '/admin/settings', label: 'Opções', icon: Settings, end: false },
+  { to: '/admin/settings/payment', label: 'Pagamentos', icon: CreditCard, end: false },
+  { to: '/admin/settings/form', label: 'Formulário', icon: FileText, end: false },
 ];
 
 export default function AdminShell({ children }: AdminShellProps) {

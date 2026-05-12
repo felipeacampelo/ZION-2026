@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import PrivateRoute from './components/PrivateRoute'
 import AdminRoute from './components/AdminRoute'
@@ -12,7 +12,8 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AdminDashboard from './pages/AdminDashboard'
-import AdminSettings from './pages/AdminSettings'
+import AdminPaymentSettings from './pages/AdminPaymentSettings'
+import AdminFormSettings from './pages/AdminFormSettings'
 
 function App() {
   return (
@@ -70,9 +71,21 @@ function App() {
           />
           <Route 
             path="/admin/settings" 
+            element={<Navigate to="/admin/settings/payment" replace />}
+          />
+          <Route 
+            path="/admin/settings/payment" 
             element={
               <AdminRoute>
-                <AdminSettings />
+                <AdminPaymentSettings />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/settings/form" 
+            element={
+              <AdminRoute>
+                <AdminFormSettings />
               </AdminRoute>
             } 
           />

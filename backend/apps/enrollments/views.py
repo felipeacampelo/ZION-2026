@@ -190,6 +190,9 @@ def get_settings(request):
     return Response({
         'max_installments': settings.max_installments,
         'max_installments_with_coupon': settings.max_installments_with_coupon,
+        'enable_pix_cash': settings.enable_pix_cash,
         'enable_pix_installment': settings.enable_pix_installment,
+        'enable_credit_card': settings.enable_credit_card,
         'enable_shirt_size_field': settings.enable_shirt_size_field,
+        'form_fields_config': settings.get_form_fields_config(),
     })

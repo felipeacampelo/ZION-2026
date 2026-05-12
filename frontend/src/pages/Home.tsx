@@ -11,7 +11,9 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [eventDate, setEventDate] = useState<Date | null>(null);
   const [maxInstallments, setMaxInstallments] = useState(6);
+  const [enablePixCash, setEnablePixCash] = useState(true);
   const [enablePixInstallment, setEnablePixInstallment] = useState(true);
+  const [enableCreditCard, setEnableCreditCard] = useState(true);
 
   useEffect(() => {
     loadProducts();
@@ -43,7 +45,9 @@ export default function Home() {
     try {
       const response = await getSettings();
       setMaxInstallments(response.data.max_installments);
+      setEnablePixCash(response.data.enable_pix_cash);
       setEnablePixInstallment(response.data.enable_pix_installment);
+      setEnableCreditCard(response.data.enable_credit_card);
     } catch (err) {
       console.error('Erro ao carregar configurações:', err);
       // Keep default value of 6 if API fails
@@ -290,22 +294,23 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {/* PIX à Vista */}
-            <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-              <div className="text-center">
-                <div className="inline-block px-4 py-1 rounded-full text-sm font-semibold mb-4" style={{ backgroundColor: 'rgb(220, 253, 97)', color: '#000000' }}>
-                  Melhor Preço
+            {enablePixCash && (
+              <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
+                <div className="text-center">
+                  <div className="inline-block px-4 py-1 rounded-full text-sm font-semibold mb-4" style={{ backgroundColor: 'rgb(220, 253, 97)', color: '#000000' }}>
+                    Melhor Preço
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">PIX à Vista</h3>
+                  <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+                    R$ {pixCashPrice.toFixed(2)}
+                  </div>
+                  <p className="text-gray-600 mb-6">Pagamento único via PIX</p>
+                  <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
+                    Inscrever-se
+                  </button>
                 </div>
-                <h3 className="text-2xl font-bold mb-2">PIX à Vista</h3>
-                <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                  R$ {pixCashPrice.toFixed(2)}
-                </div>
-                <p className="text-gray-600 mb-6">Pagamento único via PIX</p>
-                <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                  Inscrever-se
-                </button>
               </div>
-            </div>
+            )}
 
             {enablePixInstallment && (
               <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
@@ -325,22 +330,23 @@ export default function Home() {
               </div>
             )}
 
-            {/* Cartão de Crédito */}
-            <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-              <div className="text-center">
-                <h3 className="text-2xl font-bold mb-2">Cartão de Crédito</h3>
-                <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                  R$ {creditCardPrice.toFixed(2)}
+            {enableCreditCard && (
+              <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold mb-2">Cartão de Crédito</h3>
+                  <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+                    R$ {creditCardPrice.toFixed(2)}
+                  </div>
+                  <p className="text-gray-600 mb-6">
+                    Até {maxInstallments}x de R$ {creditCardInstallmentValue}<br/>
+                    no cartão
+                  </p>
+                  <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
+                    Inscrever-se
+                  </button>
                 </div>
-                <p className="text-gray-600 mb-6">
-                  Até {maxInstallments}x de R$ {creditCardInstallmentValue}<br/>
-                  no cartão
-                </p>
-                <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                  Inscrever-se
-                </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </section>

@@ -3,7 +3,7 @@ Enrollment serializers.
 """
 from decimal import Decimal
 from rest_framework import serializers
-from .models import Enrollment
+from .models import DEFAULT_FORM_FIELDS_CONFIG, Enrollment
 from apps.products.serializers import ProductSerializer, BatchSerializer
 
 
@@ -109,13 +109,31 @@ class EnrollmentCreateSerializer(serializers.Serializer):
         if batch.status != 'ACTIVE':
             raise serializers.ValidationError({'batch_id': 'Lote não está ativo'})
         
-        # Validate age (block anyone born in 2010 or later)
         form_data = dict(data.get('form_data', {}))
         settings = Settings.get_settings()
+        form_fields_config = settings.get_form_fields_config()
+        conditional_required_fields = {
+            'igreja': form_data.get('membro_batista_capital') == 'nao',
+        }
 
-        if not settings.enable_shirt_size_field:
-            form_data.pop('tamanho_camiseta', None)
-            data['form_data'] = form_data
+        for field_name in DEFAULT_FORM_FIELDS_CONFIG:
+            field_config = form_fields_config[field_name]
+            value = form_data.get(field_name)
+
+            if not field_config['enabled']:
+                form_data.pop(field_name, None)
+                continue
+
+            is_required = field_config['required']
+            if field_name in conditional_required_fields:
+                is_required = is_required and conditional_required_fields[field_name]
+
+            if is_required and (value is None or str(value).strip() == ''):
+                raise serializers.ValidationError({
+                    'form_data': f'O campo "{field_config["label"]}" é obrigatório.'
+                })
+
+        data['form_data'] = form_data
 
         data_nascimento = form_data.get('data_nascimento')
         

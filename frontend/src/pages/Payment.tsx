@@ -27,7 +27,9 @@ export default function PaymentPage() {
   const [paymentMethod, setPaymentMethod] = useState<'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD'>('PIX_CASH');
   const [installments, setInstallments] = useState(1);
   const [showCardForm, setShowCardForm] = useState(false);
+  const [enablePixCash, setEnablePixCash] = useState(true);
   const [enablePixInstallment, setEnablePixInstallment] = useState(true);
+  const [enableCreditCard, setEnableCreditCard] = useState(true);
   
   // Calculate prices based on batch and discount
   const batchPixCashPrice = enrollment?.batch?.price ? parseFloat(String(enrollment.batch.price)) : 0;
@@ -93,7 +95,9 @@ export default function PaymentPage() {
     const loadSettings = async () => {
       try {
         const response = await getSettings();
+        setEnablePixCash(response.data.enable_pix_cash);
         setEnablePixInstallment(response.data.enable_pix_installment);
+        setEnableCreditCard(response.data.enable_credit_card);
       } catch (err) {
         console.error('Error loading payment settings:', err);
       }
@@ -116,12 +120,22 @@ export default function PaymentPage() {
   }, [installments, maxInstallments, paymentMethod]);
 
   useEffect(() => {
-    if (!enablePixInstallment && paymentMethod === 'PIX_INSTALLMENT') {
-      setPaymentMethod('PIX_CASH');
-      setInstallments(1);
+    const availableMethods: Array<'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD'> = [];
+    if (enablePixCash) availableMethods.push('PIX_CASH');
+    if (enableCreditCard) availableMethods.push('CREDIT_CARD');
+    if (enablePixInstallment) availableMethods.push('PIX_INSTALLMENT');
+
+    if (availableMethods.length === 0) {
+      return;
+    }
+
+    if (!availableMethods.includes(paymentMethod)) {
+      const nextMethod = availableMethods[0];
+      setPaymentMethod(nextMethod);
+      setInstallments(nextMethod === 'PIX_CASH' ? 1 : Math.min(Math.max(installments, nextMethod === 'PIX_INSTALLMENT' ? 2 : 1), maxInstallments));
       setShowCardForm(false);
     }
-  }, [enablePixInstallment, paymentMethod]);
+  }, [enablePixCash, enablePixInstallment, enableCreditCard, paymentMethod, installments, maxInstallments]);
 
   useEffect(() => {
     if (enrollmentId && !hasLoadedRef.current) {
@@ -333,40 +347,41 @@ export default function PaymentPage() {
 
             {/* Opções de Pagamento */}
             <div className="space-y-4 mb-8">
-              {/* PIX à Vista */}
-              <div
-                onClick={() => {
-                  setPaymentMethod('PIX_CASH');
-                  setInstallments(1);
-                }}
-                className="border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-all"
-                style={{
-                  borderColor: paymentMethod === 'PIX_CASH' ? 'rgb(165, 44, 240)' : '#e5e7eb',
-                  backgroundColor: paymentMethod === 'PIX_CASH' ? 'rgba(165, 44, 240, 0.05)' : 'transparent'
-                }}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex items-center">
-                    <QrCode className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
-                    <div>
-                      <h3 className="font-semibold text-base sm:text-lg">PIX à Vista</h3>
-                      <p className="text-xs sm:text-sm text-gray-600">Pagamento único</p>
-                    </div>
-                  </div>
-                  {enrollment && (
-                    <div className="text-left sm:text-right">
-                      {hasDiscount && (
-                        <div className="text-sm text-gray-400 line-through">
-                          R$ {batchPixCashPrice.toFixed(2)}
-                        </div>
-                      )}
-                      <div className="text-xl sm:text-2xl font-bold text-gray-900">
-                        R$ {pixCashPrice.toFixed(2)}
+              {enablePixCash && (
+                <div
+                  onClick={() => {
+                    setPaymentMethod('PIX_CASH');
+                    setInstallments(1);
+                  }}
+                  className="border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-all"
+                  style={{
+                    borderColor: paymentMethod === 'PIX_CASH' ? 'rgb(165, 44, 240)' : '#e5e7eb',
+                    backgroundColor: paymentMethod === 'PIX_CASH' ? 'rgba(165, 44, 240, 0.05)' : 'transparent'
+                  }}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center">
+                      <QrCode className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
+                      <div>
+                        <h3 className="font-semibold text-base sm:text-lg">PIX à Vista</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">Pagamento único</p>
                       </div>
                     </div>
-                  )}
+                    {enrollment && (
+                      <div className="text-left sm:text-right">
+                        {hasDiscount && (
+                          <div className="text-sm text-gray-400 line-through">
+                            R$ {batchPixCashPrice.toFixed(2)}
+                          </div>
+                        )}
+                        <div className="text-xl sm:text-2xl font-bold text-gray-900">
+                          R$ {pixCashPrice.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {enablePixInstallment && (
                 <div
@@ -429,67 +444,68 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {/* Cartão de Crédito */}
-              <div
-                onClick={() => {
-                  setPaymentMethod('CREDIT_CARD');
-                  setInstallments((current) => {
-                    const desired = current === 1 ? 3 : current;
-                    return Math.min(desired, maxInstallments);
-                  });
-                }}
-                className="border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-all"
-                style={{
-                  borderColor: paymentMethod === 'CREDIT_CARD' ? 'rgb(165, 44, 240)' : '#e5e7eb',
-                  backgroundColor: paymentMethod === 'CREDIT_CARD' ? 'rgba(165, 44, 240, 0.05)' : 'transparent'
-                }}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                  <div className="flex items-center">
-                    <CreditCardIcon className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
-                    <div>
-                      <h3 className="font-semibold text-base sm:text-lg">Cartão de Crédito</h3>
-                      <p className="text-xs sm:text-sm text-gray-600">Parcele em até {maxInstallments}x no cartão</p>
+              {enableCreditCard && (
+                <div
+                  onClick={() => {
+                    setPaymentMethod('CREDIT_CARD');
+                    setInstallments((current) => {
+                      const desired = current === 1 ? 3 : current;
+                      return Math.min(desired, maxInstallments);
+                    });
+                  }}
+                  className="border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-all"
+                  style={{
+                    borderColor: paymentMethod === 'CREDIT_CARD' ? 'rgb(165, 44, 240)' : '#e5e7eb',
+                    backgroundColor: paymentMethod === 'CREDIT_CARD' ? 'rgba(165, 44, 240, 0.05)' : 'transparent'
+                  }}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <div className="flex items-center">
+                      <CreditCardIcon className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
+                      <div>
+                        <h3 className="font-semibold text-base sm:text-lg">Cartão de Crédito</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">Parcele em até {maxInstallments}x no cartão</p>
+                      </div>
                     </div>
-                  </div>
-                  {enrollment && (
-                    <div className="text-right">
-                      {hasDiscount && (
-                        <div className="text-sm text-gray-400 line-through">
-                          R$ {batchCreditCardPrice.toFixed(2)}
+                    {enrollment && (
+                      <div className="text-right">
+                        {hasDiscount && (
+                          <div className="text-sm text-gray-400 line-through">
+                            R$ {batchCreditCardPrice.toFixed(2)}
+                          </div>
+                        )}
+                        <div className="text-xl sm:text-2xl font-bold text-gray-900">
+                          R$ {creditCardPrice.toFixed(2)}
                         </div>
-                      )}
-                      <div className="text-xl sm:text-2xl font-bold text-gray-900">
-                        R$ {creditCardPrice.toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+
+                  {paymentMethod === 'CREDIT_CARD' && (
+                    <div
+                      className="mt-4 pt-4 border-t"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Número de Parcelas
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={installments}
+                          onChange={(e) => setInstallments(Number(e.target.value))}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white text-gray-900"
+                        >
+                          {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((num) => (
+                            <option key={num} value={num}>
+                              {num}x de R$ {(creditCardPrice / num).toFixed(2)}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   )}
                 </div>
-
-                {paymentMethod === 'CREDIT_CARD' && (
-                  <div
-                    className="mt-4 pt-4 border-t"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Número de Parcelas
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={installments}
-                        onChange={(e) => setInstallments(Number(e.target.value))}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white text-gray-900"
-                      >
-                        {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((num) => (
-                          <option key={num} value={num}>
-                            {num}x de R$ {(creditCardPrice / num).toFixed(2)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
             {!showCardForm ? (

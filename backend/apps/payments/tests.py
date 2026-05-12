@@ -211,6 +211,26 @@ class PaymentSecurityTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('detail', response.data)
 
+    def test_create_payment_rejects_pix_cash_when_disabled(self):
+        settings = Settings.get_settings()
+        settings.enable_pix_cash = False
+        settings.save(update_fields=['enable_pix_cash'])
+
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            reverse('payments:payment-list'),
+            {
+                'enrollment_id': self.owner_enrollment.id,
+                'payment_method': 'PIX_CASH',
+                'installments': 1,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('payment_method', response.data)
+
     def test_simulate_pix_is_hidden_outside_debug(self):
         with override_settings(DEBUG=False):
             response = self.client.post(
@@ -275,6 +295,33 @@ class PaymentSecurityTests(APITestCase):
                 'enrollment_id': self.owner_enrollment.id,
                 'payment_method': 'PIX_INSTALLMENT',
                 'installments': 2,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('payment_method', response.data)
+
+    def test_create_payment_rejects_credit_card_when_disabled(self):
+        settings = Settings.get_settings()
+        settings.enable_credit_card = False
+        settings.save(update_fields=['enable_credit_card'])
+
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            reverse('payments:payment-list'),
+            {
+                'enrollment_id': self.owner_enrollment.id,
+                'payment_method': 'CREDIT_CARD',
+                'installments': 1,
+                'credit_card_data': {
+                    'number': '4111111111111111',
+                    'holderName': 'Owner User',
+                    'expiryMonth': '12',
+                    'expiryYear': '2030',
+                    'ccv': '123',
+                },
             },
             format='json',
         )

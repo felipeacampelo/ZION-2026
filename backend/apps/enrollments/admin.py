@@ -372,7 +372,7 @@ class SettingsAdmin(admin.ModelAdmin):
     
     fieldsets = (
         (_('Disponibilidade'), {
-            'fields': ('enable_pix_installment', 'enable_shirt_size_field'),
+            'fields': ('enable_pix_cash', 'enable_pix_installment', 'enable_credit_card', 'enable_shirt_size_field'),
             'description': 'Controla opções visíveis para novas inscrições e novos pagamentos'
         }),
         (_('Parcelamento Padrão'), {
@@ -382,6 +382,10 @@ class SettingsAdmin(admin.ModelAdmin):
         (_('Parcelamento com Cupom'), {
             'fields': ('max_installments_with_coupon',),
             'description': 'Máximo de parcelas permitidas quando cupom especial é aplicado'
+        }),
+        (_('Campos do Formulário'), {
+            'fields': ('form_fields_config',),
+            'description': 'Configuração estruturada de exibição e obrigatoriedade dos campos'
         }),
     )
     
