@@ -330,17 +330,17 @@ export default function AdminCouponSettings() {
 
         {showCreate && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-5xl rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
               <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
                 <TicketPercent className="h-5 w-5 text-purple" />
                 Novo cupom
               </h3>
 
-              <form onSubmit={handleCreateCoupon} className="space-y-6">
+              <form onSubmit={handleCreateCoupon} className="space-y-5">
                 {/* Informações básicas */}
                 <div>
-                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Informações básicas</h4>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Informações básicas</h4>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Código do cupom</label>
                       <input
@@ -367,8 +367,8 @@ export default function AdminCouponSettings() {
 
                 {/* Desconto */}
                 <div>
-                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Desconto</h4>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Desconto</h4>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Tipo</label>
                       <select
@@ -410,8 +410,8 @@ export default function AdminCouponSettings() {
 
                 {/* Validade e uso */}
                 <div>
-                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Validade e uso</h4>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Validade e uso</h4>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Válido de</label>
                       <input
@@ -448,8 +448,8 @@ export default function AdminCouponSettings() {
 
                 {/* Restrições */}
                 <div>
-                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Restrições</h4>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Restrições</h4>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">Compra mínima (R$)</label>
                       <input
@@ -486,7 +486,7 @@ export default function AdminCouponSettings() {
                       <p className="mt-1 text-xs text-gray-500">Sem seleção = todas permitidas.</p>
                     </div>
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-3">
                     <label className="mb-2 block text-sm font-medium text-gray-700">Produtos permitidos</label>
                     <div className="flex flex-wrap gap-2">
                       {products.map((product) => {
@@ -509,10 +509,10 @@ export default function AdminCouponSettings() {
 
                 {/* Parcelamento */}
                 <div>
-                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Parcelamento</h4>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="rounded-lg border border-gray-200 p-4">
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Permitir uso em parcelado</label>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Parcelamento</h4>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Permitir uso em parcelado</label>
                       <div className="flex items-center gap-3">
                         <span className={`inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors ${formData.allow_installments ? 'bg-green-500' : 'bg-gray-300'}`}>
                           <button
@@ -524,8 +524,8 @@ export default function AdminCouponSettings() {
                         <span className="text-sm text-gray-600">{formData.allow_installments ? 'Sim' : 'Não'}</span>
                       </div>
                     </div>
-                    <div className="rounded-lg border border-gray-200 p-4">
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Parcelamento especial</label>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Parcelamento especial</label>
                       <div className="flex items-center gap-3">
                         <span className={`inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors ${formData.enable_12x_installments ? 'bg-green-500' : 'bg-gray-300'}`}>
                           <button
