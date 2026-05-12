@@ -69,6 +69,28 @@ export interface Batch {
   is_visible_on_site?: boolean;
 }
 
+export interface Coupon {
+  id: number;
+  code: string;
+  description?: string;
+  discount_type: 'PERCENTAGE' | 'FIXED';
+  discount_value: string;
+  max_discount?: string | null;
+  min_purchase: string;
+  max_uses?: number | null;
+  uses_count: number;
+  valid_from: string;
+  valid_until: string;
+  active: boolean;
+  enable_12x_installments: boolean;
+  max_installments: number;
+  products: number[];
+  allowed_payment_methods: Array<'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD'>;
+  allow_installments: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Enrollment {
   id: number;
   user_email?: string;
@@ -158,6 +180,8 @@ export const validateCoupon = (data: {
   code: string;
   product_id: number;
   amount: number;
+  payment_method?: string;
+  installments?: number;
 }) => api.post('/enrollments/validate-coupon/', data);
 
 export const getEnrollments = () => api.get<Enrollment[]>('/enrollments/');
@@ -258,6 +282,8 @@ export const getAdminProducts = () => api.get('/users/admin/products/');
 
 export const getAdminBatches = () => api.get<Batch[]>('/users/admin/batches/');
 
+export const getAdminCoupons = () => api.get<Coupon[]>('/users/admin/coupons/');
+
 export const createAdminProduct = (data: any) =>
   api.post('/users/admin/products/create/', data);
 
@@ -276,6 +302,15 @@ export const updateAdminBatch = (id: number, data: any) =>
 export const deleteAdminBatch = (id: number) =>
   api.delete(`/users/admin/batches/${id}/delete/`);
 
+export const createAdminCoupon = (data: Partial<Coupon>) =>
+  api.post('/users/admin/coupons/create/', data);
+
+export const updateAdminCoupon = (id: number, data: Partial<Coupon>) =>
+  api.patch(`/users/admin/coupons/${id}/`, data);
+
+export const deleteAdminCoupon = (id: number) =>
+  api.delete(`/users/admin/coupons/${id}/delete/`);
+
 // Settings endpoints
 export interface AppSettings {
   max_installments: number;
@@ -283,6 +318,7 @@ export interface AppSettings {
   enable_pix_cash: boolean;
   enable_pix_installment: boolean;
   enable_credit_card: boolean;
+  enable_coupons: boolean;
   enable_shirt_size_field: boolean;
   form_fields_config: Record<string, FormFieldConfig>;
 }

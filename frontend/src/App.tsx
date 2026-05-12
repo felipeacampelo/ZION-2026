@@ -15,6 +15,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminPaymentSettings from './pages/AdminPaymentSettings'
 import AdminFormSettings from './pages/AdminFormSettings'
 import AdminBatchSettings from './pages/AdminBatchSettings'
+import AdminCouponSettings from './pages/AdminCouponSettings'
 
 function App() {
   return (
@@ -95,6 +96,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminBatchSettings />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/settings/coupons" 
+            element={
+              <AdminRoute>
+                <AdminCouponSettings />
               </AdminRoute>
             } 
           />

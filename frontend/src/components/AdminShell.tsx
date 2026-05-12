@@ -5,6 +5,7 @@ import {
   CreditCard,
   FileText,
   Layers,
+  TicketPercent,
   Menu,
   X,
   LogOut,
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { to: '/admin/settings/payment', label: 'Pagamentos', icon: CreditCard, end: false },
   { to: '/admin/settings/form', label: 'Formulário', icon: FileText, end: false },
   { to: '/admin/settings/batches', label: 'Lotes', icon: Layers, end: false },
+  { to: '/admin/settings/coupons', label: 'Cupons', icon: TicketPercent, end: false },
 ];
 
 export default function AdminShell({ children }: AdminShellProps) {

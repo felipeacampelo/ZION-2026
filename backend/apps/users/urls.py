@@ -20,12 +20,16 @@ from .admin_views import (
     admin_settings,
     admin_products_list,
     admin_batches_list,
+    admin_coupons_list,
     admin_product_create,
     admin_product_update,
     admin_product_delete,
     admin_batch_create,
     admin_batch_update,
     admin_batch_delete,
+    admin_coupon_create,
+    admin_coupon_update,
+    admin_coupon_delete,
 )
 from .test_email_view import test_email, email_config
 
@@ -54,12 +58,16 @@ urlpatterns = [
     path('admin/enrollments/<int:pk>/', admin_enrollment_update, name='admin-enrollment-update'),
     path('admin/products/', admin_products_list, name='admin-products-list'),
     path('admin/batches/', admin_batches_list, name='admin-batches-list'),
+    path('admin/coupons/', admin_coupons_list, name='admin-coupons-list'),
     path('admin/products/create/', admin_product_create, name='admin-product-create'),
     path('admin/products/<int:pk>/', admin_product_update, name='admin-product-update'),
     path('admin/products/<int:pk>/delete/', admin_product_delete, name='admin-product-delete'),
     path('admin/batches/create/', admin_batch_create, name='admin-batch-create'),
     path('admin/batches/<int:pk>/', admin_batch_update, name='admin-batch-update'),
     path('admin/batches/<int:pk>/delete/', admin_batch_delete, name='admin-batch-delete'),
+    path('admin/coupons/create/', admin_coupon_create, name='admin-coupon-create'),
+    path('admin/coupons/<int:pk>/', admin_coupon_update, name='admin-coupon-update'),
+    path('admin/coupons/<int:pk>/delete/', admin_coupon_delete, name='admin-coupon-delete'),
     
     # Email testing endpoints (admin only)
     path('test-email/', test_email, name='test-email'),

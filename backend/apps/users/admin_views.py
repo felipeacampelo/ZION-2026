@@ -13,7 +13,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .permissions import IsAdminUser
-from apps.enrollments.models import Enrollment, Settings as AppSettings
+from apps.enrollments.models import Enrollment, Settings as AppSettings, Coupon
 from apps.enrollments.serializers import EnrollmentSerializer
 from apps.payments.models import Payment
 from apps.products.models import Product, Batch
@@ -31,6 +31,7 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
             'enable_pix_cash',
             'enable_pix_installment',
             'enable_credit_card',
+            'enable_coupons',
             'enable_shirt_size_field',
             'form_fields_config',
         ]
@@ -103,6 +104,52 @@ class AdminBatchListSerializer(serializers.ModelSerializer):
             'status',
             'is_visible_on_site',
         ]
+
+
+class AdminCouponSerializer(serializers.ModelSerializer):
+    products = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Product.objects.all(),
+        required=False,
+    )
+
+    class Meta:
+        model = Coupon
+        fields = [
+            'id',
+            'code',
+            'description',
+            'discount_type',
+            'discount_value',
+            'max_discount',
+            'min_purchase',
+            'max_uses',
+            'uses_count',
+            'valid_from',
+            'valid_until',
+            'active',
+            'enable_12x_installments',
+            'max_installments',
+            'products',
+            'allowed_payment_methods',
+            'allow_installments',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['uses_count', 'created_at', 'updated_at']
+
+    def validate_code(self, value):
+        return value.strip().upper()
+
+    def validate_allowed_payment_methods(self, value):
+        if value is None:
+            return []
+
+        valid_methods = {choice[0] for choice in Coupon.PAYMENT_METHOD_CHOICES}
+        invalid = [method for method in value if method not in valid_methods]
+        if invalid:
+            raise serializers.ValidationError('Forma de pagamento inválida para cupom.')
+        return value
 
 
 def calculate_asaas_fee(payment_amount, payment_method, installments):
@@ -409,6 +456,64 @@ def admin_batches_list(request):
     batches = Batch.objects.select_related('product').all().order_by('start_date')
     serializer = AdminBatchListSerializer(batches, many=True)
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_coupons_list(request):
+    """List all coupons for admin management."""
+
+    coupons = Coupon.objects.prefetch_related('products').all().order_by('-created_at')
+    serializer = AdminCouponSerializer(coupons, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_coupon_create(request):
+    """Create a coupon."""
+
+    serializer = AdminCouponSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdminUser])
+def admin_coupon_update(request, pk):
+    """Update a coupon."""
+
+    try:
+        coupon = Coupon.objects.get(pk=pk)
+    except Coupon.DoesNotExist:
+        return Response(
+            {'detail': 'Cupom não encontrado.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    serializer = AdminCouponSerializer(coupon, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def admin_coupon_delete(request, pk):
+    """Delete a coupon."""
+
+    try:
+        coupon = Coupon.objects.get(pk=pk)
+        coupon.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except Coupon.DoesNotExist:
+        return Response(
+            {'detail': 'Cupom não encontrado.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
 
 @api_view(['POST'])

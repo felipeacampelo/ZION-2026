@@ -106,6 +106,14 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         # Apply coupon if provided and enrollment doesn't have one yet
         if 'coupon_code' in request.data and not enrollment.coupon:
             coupon_code = request.data['coupon_code']
+            from .models import Settings
+
+            if not Settings.get_settings().enable_coupons:
+                return Response(
+                    {'detail': 'Cupons estão desativados no momento'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             try:
                 coupon = Coupon.objects.get(code=coupon_code.strip().upper())
                 

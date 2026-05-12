@@ -87,6 +87,11 @@ class PaymentCreateSerializer(serializers.Serializer):
         if payment_method == 'PIX_CASH' and installments != 1:
             raise serializers.ValidationError({'installments': 'PIX à vista deve ter 1 parcela'})
 
+        if enrollment.coupon:
+            can_apply, message = enrollment.coupon.can_apply_to_payment(payment_method, installments)
+            if not can_apply:
+                raise serializers.ValidationError({'payment_method': message})
+
         if payment_method in ['PIX_INSTALLMENT', 'CREDIT_CARD']:
             # Get max installments from coupon or global settings
             if enrollment.coupon and enrollment.coupon.enable_12x_installments:

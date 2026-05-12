@@ -233,7 +233,10 @@ class EnrollmentCreateSerializer(serializers.Serializer):
         # Validate and apply coupon if provided
         coupon = None
         if coupon_code:
-            from .models import Coupon
+            from .models import Coupon, Settings
+
+            if not Settings.get_settings().enable_coupons:
+                raise serializers.ValidationError({'coupon_code': 'Cupons estão desativados no momento'})
             try:
                 coupon = Coupon.objects.get(code=coupon_code.strip().upper())
                 

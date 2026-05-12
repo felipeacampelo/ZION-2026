@@ -208,6 +208,12 @@ class Coupon(models.Model):
         ('PERCENTAGE', 'Porcentagem'),
         ('FIXED', 'Valor Fixo'),
     ]
+
+    PAYMENT_METHOD_CHOICES = [
+        ('PIX_CASH', 'PIX à vista'),
+        ('PIX_INSTALLMENT', 'PIX parcelado'),
+        ('CREDIT_CARD', 'Cartão de crédito'),
+    ]
     
     code = models.CharField(
         max_length=50,
@@ -304,6 +310,19 @@ class Coupon(models.Model):
         verbose_name='Produtos',
         help_text='Deixe vazio para aplicar a todos os produtos'
     )
+
+    allowed_payment_methods = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Formas de Pagamento Permitidas',
+        help_text='Deixe vazio para permitir todas as formas de pagamento'
+    )
+
+    allow_installments = models.BooleanField(
+        default=True,
+        verbose_name='Permitir uso em parcelado',
+        help_text='Quando desmarcado, o cupom só pode ser usado em pagamentos à vista'
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -345,6 +364,16 @@ class Coupon(models.Model):
         if not self.products.exists():
             return True
         return self.products.filter(id=product.id).exists()
+
+    def can_apply_to_payment(self, payment_method, installments):
+        """Check if coupon can be applied to a specific payment method/installments."""
+        if self.allowed_payment_methods and payment_method not in self.allowed_payment_methods:
+            return False, 'Este cupom não está disponível para esta forma de pagamento'
+
+        if not self.allow_installments and installments > 1:
+            return False, 'Este cupom não permite pagamento parcelado'
+
+        return True, 'Forma de pagamento permitida'
     
     def calculate_discount(self, original_amount):
         """Calculate discount amount for given original amount."""
@@ -388,6 +417,12 @@ class Settings(models.Model):
         default=True,
         verbose_name='Permitir Cartão de Crédito',
         help_text='Controla a disponibilidade do cartão de crédito para novos pagamentos'
+    )
+
+    enable_coupons = models.BooleanField(
+        default=True,
+        verbose_name='Permitir Cupons',
+        help_text='Controla a disponibilidade global de cupons para novas inscrições'
     )
 
     enable_shirt_size_field = models.BooleanField(

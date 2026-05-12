@@ -5,8 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from django.utils import timezone
-from .models import Coupon
+from .models import Coupon, Settings
 
 
 @api_view(['POST'])
@@ -25,6 +24,14 @@ def validate_coupon(request):
     code = request.data.get('code', '').strip().upper()
     product_id = request.data.get('product_id')
     amount = request.data.get('amount')
+    payment_method = request.data.get('payment_method')
+    installments = request.data.get('installments', 1)
+
+    if not Settings.get_settings().enable_coupons:
+        return Response(
+            {'error': 'Cupons estão desativados no momento'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     if not code:
         return Response(
@@ -45,6 +52,11 @@ def validate_coupon(request):
             {'error': 'Valor inválido'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    try:
+        installments = int(installments)
+    except (ValueError, TypeError):
+        installments = 1
     
     # Find coupon
     try:
@@ -82,6 +94,14 @@ def validate_coupon(request):
             {'error': f'Valor mínimo para este cupom é R$ {coupon.min_purchase}'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    if payment_method:
+        can_apply, message = coupon.can_apply_to_payment(payment_method, installments)
+        if not can_apply:
+            return Response(
+                {'error': message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
     
     # Calculate discount
     discount = float(coupon.calculate_discount(amount))
