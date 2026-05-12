@@ -156,6 +156,54 @@ export interface FormFieldConfig {
   label: string;
 }
 
+export interface EmailTemplate {
+  key: string;
+  name: string;
+  subject: string;
+  html_content: string;
+  text_content: string;
+  is_active: boolean;
+  available_tokens: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailCampaignRecipient {
+  id: number;
+  enrollment_id: number | null;
+  email: string;
+  name: string;
+  status: 'PENDING' | 'SENT' | 'FAILED';
+  error_message: string;
+  sent_at: string | null;
+}
+
+export interface EmailCampaign {
+  id: number;
+  name: string;
+  subject: string;
+  html_content: string;
+  text_content: string;
+  filters: {
+    product?: number;
+    status?: string;
+    payment_method?: string;
+    search?: string;
+  };
+  status: 'DRAFT' | 'SENDING' | 'SENT' | 'FAILED' | 'PARTIAL';
+  recipient_count: number;
+  sent_count: number;
+  failed_count: number;
+  test_email: string;
+  started_at: string | null;
+  finished_at: string | null;
+  created_by: number | null;
+  created_by_email: string;
+  created_at: string;
+  updated_at: string;
+  recipients: EmailCampaignRecipient[];
+}
+
 // Auth (old - to be removed or migrated)
 // export const login = (email: string, password: string) =>
 //   api.post('/auth/login/', { email, password });
@@ -327,5 +375,49 @@ export const getSettings = () => api.get<AppSettings>('/enrollments/settings/');
 export const getAdminSettings = () => api.get<AppSettings>('/users/admin/settings/');
 export const updateAdminSettings = (data: Partial<AppSettings>) =>
   api.patch<AppSettings>('/users/admin/settings/', data);
+
+export const getAdminEmailTemplates = () =>
+  api.get<EmailTemplate[]>('/users/admin/email-templates/');
+
+export const getAdminEmailTemplate = (key: string) =>
+  api.get<EmailTemplate>(`/users/admin/email-templates/${key}/`);
+
+export const updateAdminEmailTemplate = (key: string, data: Partial<EmailTemplate>) =>
+  api.patch<EmailTemplate>(`/users/admin/email-templates/${key}/`, data);
+
+export const previewAdminEmailTemplate = (key: string) =>
+  api.post<{
+    subject: string;
+    html_content: string;
+    text_content: string;
+    context: Record<string, string>;
+  }>(`/users/admin/email-templates/${key}/preview/`, {});
+
+export const sendAdminEmailTemplateTest = (key: string, to_email: string) =>
+  api.post(`/users/admin/email-templates/${key}/send-test/`, { to_email });
+
+export const getAdminEmailCampaigns = () =>
+  api.get<EmailCampaign[]>('/users/admin/email-campaigns/');
+
+export const createAdminEmailCampaign = (data: Partial<EmailCampaign>) =>
+  api.post<EmailCampaign>('/users/admin/email-campaigns/', data);
+
+export const getAdminEmailCampaign = (id: number) =>
+  api.get<EmailCampaign>(`/users/admin/email-campaigns/${id}/`);
+
+export const updateAdminEmailCampaign = (id: number, data: Partial<EmailCampaign>) =>
+  api.patch<EmailCampaign>(`/users/admin/email-campaigns/${id}/`, data);
+
+export const previewAdminEmailCampaignRecipients = (id: number) =>
+  api.post<{
+    count: number;
+    sample: Array<{ enrollment_id: number; email: string; name: string }>;
+  }>(`/users/admin/email-campaigns/${id}/preview-recipients/`, {});
+
+export const sendAdminEmailCampaignTest = (id: number, to_email: string) =>
+  api.post(`/users/admin/email-campaigns/${id}/send-test/`, { to_email });
+
+export const sendAdminEmailCampaign = (id: number) =>
+  api.post<{ detail: string; recipient_count: number }>(`/users/admin/email-campaigns/${id}/send/`, {});
 
 export default api;

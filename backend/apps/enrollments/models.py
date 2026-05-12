@@ -509,3 +509,195 @@ class Settings(models.Model):
         """Get or create the singleton settings object."""
         obj, created = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class EmailTemplate(models.Model):
+    """Editable email template backed by database with code fallbacks."""
+
+    TEMPLATE_KEY_CHOICES = [
+        ('enrollment_confirmation', 'Confirmação de Inscrição'),
+        ('payment_confirmation', 'Confirmação de Pagamento'),
+        ('installment_reminder', 'Lembrete de Parcela'),
+        ('password_reset', 'Recuperação de Senha'),
+    ]
+
+    key = models.CharField(
+        max_length=64,
+        unique=True,
+        choices=TEMPLATE_KEY_CHOICES,
+        verbose_name='Chave',
+    )
+    name = models.CharField(
+        max_length=120,
+        verbose_name='Nome',
+    )
+    subject = models.CharField(
+        max_length=255,
+        verbose_name='Assunto',
+    )
+    html_content = models.TextField(
+        verbose_name='Conteúdo HTML',
+    )
+    text_content = models.TextField(
+        blank=True,
+        verbose_name='Conteúdo Texto',
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name='Ativo',
+        help_text='Quando desativado, o envio automático deste template é ignorado.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Template de Email'
+        verbose_name_plural = 'Templates de Email'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class EmailCampaign(models.Model):
+    """Bulk email campaign created from admin."""
+
+    STATUS_CHOICES = [
+        ('DRAFT', 'Rascunho'),
+        ('SENDING', 'Enviando'),
+        ('SENT', 'Enviado'),
+        ('FAILED', 'Falhou'),
+        ('PARTIAL', 'Parcial'),
+    ]
+
+    name = models.CharField(
+        max_length=160,
+        verbose_name='Nome Interno',
+    )
+    subject = models.CharField(
+        max_length=255,
+        verbose_name='Assunto',
+    )
+    html_content = models.TextField(
+        verbose_name='Conteúdo HTML',
+    )
+    text_content = models.TextField(
+        blank=True,
+        verbose_name='Conteúdo Texto',
+    )
+    filters = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name='Filtros',
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default='DRAFT',
+        verbose_name='Status',
+    )
+    recipient_count = models.IntegerField(
+        default=0,
+        verbose_name='Destinatários',
+    )
+    sent_count = models.IntegerField(
+        default=0,
+        verbose_name='Enviados',
+    )
+    failed_count = models.IntegerField(
+        default=0,
+        verbose_name='Falhas',
+    )
+    test_email = models.EmailField(
+        blank=True,
+        verbose_name='Email de Teste',
+    )
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Iniciado em',
+    )
+    finished_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Finalizado em',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='email_campaigns',
+        verbose_name='Criado por',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Campanha de Email'
+        verbose_name_plural = 'Campanhas de Email'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
+class EmailCampaignRecipient(models.Model):
+    """Snapshot of recipients for a bulk campaign."""
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Pendente'),
+        ('SENT', 'Enviado'),
+        ('FAILED', 'Falhou'),
+    ]
+
+    campaign = models.ForeignKey(
+        EmailCampaign,
+        on_delete=models.CASCADE,
+        related_name='recipients',
+        verbose_name='Campanha',
+    )
+    enrollment = models.ForeignKey(
+        Enrollment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='email_campaign_recipients',
+        verbose_name='Inscrição',
+    )
+    email = models.EmailField(
+        verbose_name='Email',
+    )
+    name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Nome',
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default='PENDING',
+        verbose_name='Status',
+    )
+    error_message = models.TextField(
+        blank=True,
+        verbose_name='Erro',
+    )
+    sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Enviado em',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Destinatário de Campanha'
+        verbose_name_plural = 'Destinatários de Campanha'
+        ordering = ['id']
+        constraints = [
+            models.UniqueConstraint(fields=['campaign', 'email'], name='unique_campaign_email')
+        ]
+
+    def __str__(self):
+        return f'{self.campaign.name} - {self.email}'

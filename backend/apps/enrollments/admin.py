@@ -8,7 +8,14 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
-from .models import Enrollment, Coupon, Settings
+from .models import (
+    Coupon,
+    EmailCampaign,
+    EmailCampaignRecipient,
+    EmailTemplate,
+    Enrollment,
+    Settings,
+)
 
 
 @admin.register(Enrollment)
@@ -390,3 +397,27 @@ class SettingsAdmin(admin.ModelAdmin):
     )
     
     readonly_fields = ['updated_at']
+
+
+@admin.register(EmailTemplate)
+class EmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ['name', 'key', 'is_active', 'updated_at']
+    list_filter = ['is_active', 'key']
+    search_fields = ['name', 'key', 'subject']
+    readonly_fields = ['created_at', 'updated_at']
+
+
+class EmailCampaignRecipientInline(admin.TabularInline):
+    model = EmailCampaignRecipient
+    extra = 0
+    can_delete = False
+    readonly_fields = ['email', 'name', 'status', 'error_message', 'sent_at', 'enrollment']
+
+
+@admin.register(EmailCampaign)
+class EmailCampaignAdmin(admin.ModelAdmin):
+    list_display = ['name', 'status', 'recipient_count', 'sent_count', 'failed_count', 'created_by', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['name', 'subject']
+    readonly_fields = ['recipient_count', 'sent_count', 'failed_count', 'started_at', 'finished_at', 'created_at', 'updated_at']
+    inlines = [EmailCampaignRecipientInline]
