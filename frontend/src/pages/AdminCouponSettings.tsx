@@ -336,172 +336,224 @@ export default function AdminCouponSettings() {
                 Novo cupom
               </h3>
 
-              <form onSubmit={handleCreateCoupon} className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData((current) => ({ ...current, code: e.target.value.toUpperCase() }))}
-                  placeholder="Código (ex: PROMO10)"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                  required
-                />
-
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData((current) => ({ ...current, description: e.target.value }))}
-                  placeholder="Descrição"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                />
-
-                <select
-                  value={formData.discount_type}
-                  onChange={(e) => setFormData((current) => ({ ...current, discount_type: e.target.value as 'PERCENTAGE' | 'FIXED' }))}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                >
-                  <option value="PERCENTAGE">Porcentagem</option>
-                  <option value="FIXED">Valor fixo</option>
-                </select>
-
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.discount_value}
-                  onChange={(e) => setFormData((current) => ({ ...current, discount_value: e.target.value }))}
-                  placeholder="Valor do desconto"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                  required
-                />
-
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.max_discount}
-                  onChange={(e) => setFormData((current) => ({ ...current, max_discount: e.target.value }))}
-                  placeholder="Desconto máximo (opcional)"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                />
-
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.min_purchase}
-                  onChange={(e) => setFormData((current) => ({ ...current, min_purchase: e.target.value }))}
-                  placeholder="Compra mínima"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                />
-
-                <input
-                  type="number"
-                  min="1"
-                  value={formData.max_uses}
-                  onChange={(e) => setFormData((current) => ({ ...current, max_uses: e.target.value }))}
-                  placeholder="Usos máximos (opcional)"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                />
-
-                <div className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
-                  Parcelamento especial
-                  <div className="mt-2 flex items-center justify-between">
-                    <span>{formData.enable_12x_installments ? 'Ativo' : 'Inativo'}</span>
-                    <span className={`inline-flex h-6 w-11 items-center rounded-full p-1 ${formData.enable_12x_installments ? 'bg-green-500' : 'bg-gray-300'}`}>
-                      <button
-                        type="button"
-                        onClick={() => setFormData((current) => ({ ...current, enable_12x_installments: !current.enable_12x_installments }))}
-                        className={`h-4 w-4 rounded-full bg-white transition-transform ${formData.enable_12x_installments ? 'translate-x-5' : 'translate-x-0'}`}
+              <form onSubmit={handleCreateCoupon} className="space-y-6">
+                {/* Informações básicas */}
+                <div>
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Informações básicas</h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Código do cupom</label>
+                      <input
+                        type="text"
+                        value={formData.code}
+                        onChange={(e) => setFormData((current) => ({ ...current, code: e.target.value.toUpperCase() }))}
+                        placeholder="Ex: PROMO10"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                        required
                       />
-                    </span>
-                  </div>
-                </div>
-
-                <input
-                  type="datetime-local"
-                  value={formData.valid_from}
-                  onChange={(e) => setFormData((current) => ({ ...current, valid_from: e.target.value }))}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                  required
-                />
-
-                <input
-                  type="datetime-local"
-                  value={formData.valid_until}
-                  onChange={(e) => setFormData((current) => ({ ...current, valid_until: e.target.value }))}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                  required
-                />
-
-                <input
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={formData.max_installments}
-                  onChange={(e) => setFormData((current) => ({ ...current, max_installments: Number(e.target.value) }))}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
-                  disabled={!formData.enable_12x_installments}
-                />
-
-                <div className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
-                  Permitir parcelado
-                  <div className="mt-2 flex items-center justify-between">
-                    <span>{formData.allow_installments ? 'Sim' : 'Não'}</span>
-                    <span className={`inline-flex h-6 w-11 items-center rounded-full p-1 ${formData.allow_installments ? 'bg-green-500' : 'bg-gray-300'}`}>
-                      <button
-                        type="button"
-                        onClick={() => setFormData((current) => ({ ...current, allow_installments: !current.allow_installments }))}
-                        className={`h-4 w-4 rounded-full bg-white transition-transform ${formData.allow_installments ? 'translate-x-5' : 'translate-x-0'}`}
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Descrição</label>
+                      <input
+                        type="text"
+                        value={formData.description}
+                        onChange={(e) => setFormData((current) => ({ ...current, description: e.target.value }))}
+                        placeholder="Ex: Desconto de lançamento"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
                       />
-                    </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="xl:col-span-2 rounded-lg border border-gray-200 p-3">
-                  <p className="mb-2 text-sm font-medium text-gray-800">Formas de pagamento permitidas</p>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: 'PIX_CASH', label: 'PIX à vista' },
-                      { value: 'PIX_INSTALLMENT', label: 'PIX parcelado' },
-                      { value: 'CREDIT_CARD', label: 'Cartão' },
-                    ].map((method) => {
-                      const checked = formData.allowed_payment_methods.includes(method.value as 'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD');
-                      return (
-                        <button
-                          key={method.value}
-                          type="button"
-                          onClick={() => togglePaymentMethod(method.value as 'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD')}
-                          className={`rounded-full border px-3 py-1 text-xs font-medium ${checked ? 'border-purple bg-purple/10 text-purple' : 'border-gray-300 text-gray-600'}`}
-                        >
-                          {method.label}
-                        </button>
-                      );
-                    })}
+                {/* Desconto */}
+                <div>
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Desconto</h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Tipo</label>
+                      <select
+                        value={formData.discount_type}
+                        onChange={(e) => setFormData((current) => ({ ...current, discount_type: e.target.value as 'PERCENTAGE' | 'FIXED' }))}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                      >
+                        <option value="PERCENTAGE">Porcentagem (%)</option>
+                        <option value="FIXED">Valor fixo (R$)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Valor do desconto</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.discount_value}
+                        onChange={(e) => setFormData((current) => ({ ...current, discount_value: e.target.value }))}
+                        placeholder="Ex: 10"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Desconto máximo (opcional)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.max_discount}
+                        onChange={(e) => setFormData((current) => ({ ...current, max_discount: e.target.value }))}
+                        placeholder="Limite máximo de desconto"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                      />
+                    </div>
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">Sem seleção = todas permitidas.</p>
                 </div>
 
-                <div className="xl:col-span-2 rounded-lg border border-gray-200 p-3">
-                  <p className="mb-2 text-sm font-medium text-gray-800">Produtos permitidos</p>
-                  <div className="flex flex-wrap gap-2">
-                    {products.map((product) => {
-                      const checked = formData.products.includes(product.id);
-                      return (
-                        <button
-                          key={product.id}
-                          type="button"
-                          onClick={() => toggleProduct(product.id)}
-                          className={`rounded-full border px-3 py-1 text-xs font-medium ${checked ? 'border-purple bg-purple/10 text-purple' : 'border-gray-300 text-gray-600'}`}
-                        >
-                          {product.name}
-                        </button>
-                      );
-                    })}
+                {/* Validade e uso */}
+                <div>
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Validade e uso</h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Válido de</label>
+                      <input
+                        type="datetime-local"
+                        value={formData.valid_from}
+                        onChange={(e) => setFormData((current) => ({ ...current, valid_from: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Válido até</label>
+                      <input
+                        type="datetime-local"
+                        value={formData.valid_until}
+                        onChange={(e) => setFormData((current) => ({ ...current, valid_until: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Máximo de usos (opcional)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.max_uses}
+                        onChange={(e) => setFormData((current) => ({ ...current, max_uses: e.target.value }))}
+                        placeholder="Deixe em branco para ilimitado"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                      />
+                    </div>
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">Sem seleção = todos os produtos.</p>
                 </div>
 
-                <div className="md:col-span-2 xl:col-span-4 flex justify-end gap-2 border-t border-gray-200 pt-4">
+                {/* Restrições */}
+                <div>
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Restrições</h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Compra mínima (R$)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.min_purchase}
+                        onChange={(e) => setFormData((current) => ({ ...current, min_purchase: e.target.value }))}
+                        placeholder="0"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-700">Formas de pagamento</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { value: 'PIX_CASH', label: 'PIX à vista' },
+                          { value: 'PIX_INSTALLMENT', label: 'PIX parcelado' },
+                          { value: 'CREDIT_CARD', label: 'Cartão' },
+                        ].map((method) => {
+                          const checked = formData.allowed_payment_methods.includes(method.value as 'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD');
+                          return (
+                            <button
+                              key={method.value}
+                              type="button"
+                              onClick={() => togglePaymentMethod(method.value as 'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD')}
+                              className={`rounded-full border px-3 py-1.5 text-sm font-medium ${checked ? 'border-purple bg-purple/10 text-purple' : 'border-gray-300 text-gray-600'}`}
+                            >
+                              {method.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">Sem seleção = todas permitidas.</p>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Produtos permitidos</label>
+                    <div className="flex flex-wrap gap-2">
+                      {products.map((product) => {
+                        const checked = formData.products.includes(product.id);
+                        return (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => toggleProduct(product.id)}
+                            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${checked ? 'border-purple bg-purple/10 text-purple' : 'border-gray-300 text-gray-600'}`}
+                          >
+                            {product.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Sem seleção = todos os produtos.</p>
+                  </div>
+                </div>
+
+                {/* Parcelamento */}
+                <div>
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Parcelamento</h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <label className="mb-2 block text-sm font-medium text-gray-700">Permitir uso em parcelado</label>
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors ${formData.allow_installments ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          <button
+                            type="button"
+                            onClick={() => setFormData((current) => ({ ...current, allow_installments: !current.allow_installments }))}
+                            className={`h-4 w-4 rounded-full bg-white transition-transform ${formData.allow_installments ? 'translate-x-5' : 'translate-x-0'}`}
+                          />
+                        </span>
+                        <span className="text-sm text-gray-600">{formData.allow_installments ? 'Sim' : 'Não'}</span>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 p-4">
+                      <label className="mb-2 block text-sm font-medium text-gray-700">Parcelamento especial</label>
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors ${formData.enable_12x_installments ? 'bg-green-500' : 'bg-gray-300'}`}>
+                          <button
+                            type="button"
+                            onClick={() => setFormData((current) => ({ ...current, enable_12x_installments: !current.enable_12x_installments }))}
+                            className={`h-4 w-4 rounded-full bg-white transition-transform ${formData.enable_12x_installments ? 'translate-x-5' : 'translate-x-0'}`}
+                          />
+                        </span>
+                        <span className="text-sm text-gray-600">{formData.enable_12x_installments ? 'Ativo' : 'Inativo'}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Máximo de parcelas</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="12"
+                        value={formData.max_installments}
+                        onChange={(e) => setFormData((current) => ({ ...current, max_installments: Number(e.target.value) }))}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                        disabled={!formData.enable_12x_installments}
+                      />
+                      <p className="mt-1 text-xs text-gray-500">Ativo apenas com parcelamento especial ligado.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 border-t border-gray-200 pt-4">
                   <button
                     type="button"
                     onClick={() => setShowCreate(false)}
