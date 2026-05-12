@@ -25,6 +25,8 @@ export default function Enrollment() {
   const [refundPolicyAccepted, setRefundPolicyAccepted] = useState(false);
   const [formFieldsConfig, setFormFieldsConfig] = useState<Record<string, FormFieldConfig>>({});
 
+  const hasActiveBatch = !!selectedProduct?.active_batch;
+
   const steps = [
     { number: 1, title: 'Dados Pessoais', description: 'Informações básicas' },
     { number: 2, title: 'Pagamento', description: 'Escolha a forma de pagamento' },
@@ -150,7 +152,7 @@ export default function Enrollment() {
     setError('');
 
     if (!selectedProduct || !selectedProduct.active_batch) {
-      setError('Nenhum produto disponível para inscrição');
+      setError('Não há lote disponível para inscrição no momento.');
       setLoading(false);
       return;
     }
@@ -207,6 +209,10 @@ export default function Enrollment() {
       if (err.response?.data) {
         if (err.response.data.detail) {
           errorMessage = err.response.data.detail;
+        } else if (err.response.data.batch_id) {
+          errorMessage = Array.isArray(err.response.data.batch_id)
+            ? err.response.data.batch_id[0]
+            : err.response.data.batch_id;
         } else if (err.response.data.form_data) {
           errorMessage = Array.isArray(err.response.data.form_data) 
             ? err.response.data.form_data[0] 
@@ -364,6 +370,12 @@ export default function Enrollment() {
                       {selectedProduct.active_batch.name}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {!selectedProduct.active_batch && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  Lote esgotado ou indisponível no momento. Tente novamente mais tarde.
                 </div>
               )}
             </div>
@@ -660,10 +672,10 @@ export default function Enrollment() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !hasActiveBatch}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Processando...' : 'Continuar para Pagamento'}
+              {loading ? 'Processando...' : hasActiveBatch ? 'Continuar para Pagamento' : 'Sem lote disponível'}
             </button>
           </form>
         </div>

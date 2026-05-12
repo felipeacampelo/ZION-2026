@@ -101,6 +101,7 @@ class AdminBatchListSerializer(serializers.ModelSerializer):
             'current_enrollments',
             'is_full',
             'status',
+            'is_visible_on_site',
         ]
 
 

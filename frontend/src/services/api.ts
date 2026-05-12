@@ -62,10 +62,11 @@ export interface Batch {
   credit_card_price: string; // Cartão de crédito
   pix_discount_percentage?: string; // Deprecated
   pix_price?: number; // Deprecated
-  max_enrollments: number;
+  max_enrollments: number | null;
   current_enrollments: number;
   is_full: boolean;
   status: string;
+  is_visible_on_site?: boolean;
 }
 
 export interface Enrollment {

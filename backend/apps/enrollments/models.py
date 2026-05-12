@@ -195,6 +195,10 @@ class Enrollment(models.Model):
             self.calculate_amounts()
         super().save(*args, **kwargs)
 
+        if self.batch and self.batch.max_enrollments is not None and self.batch.is_full and self.batch.status != 'FULL':
+            self.batch.status = 'FULL'
+            self.batch.save(update_fields=['status', 'updated_at'])
+
 
 class Coupon(models.Model):
     """

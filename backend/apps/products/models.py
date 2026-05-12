@@ -66,13 +66,30 @@ class Product(models.Model):
         return self.name
     
     def get_active_batch(self):
-        """Returns the currently active batch for this product."""
+        """Returns the currently visible/active batch for this product."""
         now = timezone.now()
-        return self.batches.filter(
+
+        visible_batch = self.batches.filter(
+            is_visible_on_site=True,
             status='ACTIVE',
             start_date__lte=now,
             end_date__gte=now
         ).first()
+
+        if visible_batch and not visible_batch.is_full:
+            return visible_batch
+
+        candidate_batches = self.batches.filter(
+            status='ACTIVE',
+            start_date__lte=now,
+            end_date__gte=now
+        ).order_by('start_date')
+
+        for batch in candidate_batches:
+            if not batch.is_full:
+                return batch
+
+        return None
 
 
 class Batch(models.Model):
@@ -156,6 +173,12 @@ class Batch(models.Model):
         choices=STATUS_CHOICES,
         default='SCHEDULED'
     )
+
+    is_visible_on_site = models.BooleanField(
+        _('Visível no site'),
+        default=False,
+        help_text=_('Define o lote exibido no frontend quando houver múltiplos lotes elegíveis')
+    )
     
     created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
     updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
@@ -198,5 +221,15 @@ class Batch(models.Model):
             self.status = 'ENDED'
         elif timezone.now() < self.start_date:
             self.status = 'SCHEDULED'
-        
+
         super().save(*args, **kwargs)
+
+        if self.status == 'ACTIVE':
+            Batch.objects.filter(product=self.product, status='ACTIVE').exclude(pk=self.pk).update(
+                status='ENDED',
+                end_date=timezone.now(),
+                is_visible_on_site=False,
+            )
+
+        if self.is_visible_on_site:
+            Batch.objects.filter(product=self.product).exclude(pk=self.pk).update(is_visible_on_site=False)

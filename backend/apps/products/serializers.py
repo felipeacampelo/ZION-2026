@@ -7,14 +7,17 @@ from .models import Product, Batch
 
 class BatchSerializer(serializers.ModelSerializer):
     """Serializer for Batch model."""
-    
+
+    product_name = serializers.CharField(source='product.name', read_only=True)
     current_enrollments = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
-    
+
     class Meta:
         model = Batch
         fields = [
             'id',
+            'product',
+            'product_name',
             'name',
             'start_date',
             'end_date',
@@ -26,6 +29,7 @@ class BatchSerializer(serializers.ModelSerializer):
             'current_enrollments',
             'is_full',
             'status',
+            'is_visible_on_site',
         ]
 
 
