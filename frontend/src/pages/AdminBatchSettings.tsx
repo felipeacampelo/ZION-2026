@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Save, Trash2, Pencil, Eye, EyeOff, X } from 'lucide-react';
+import { Loader2, Plus, Save, Trash2, Pencil, X } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import {
   createAdminBatch,
@@ -156,25 +156,6 @@ export default function AdminBatchSettings() {
     }
   };
 
-  const toggleVisibleBatch = async (batch: Batch) => {
-    setSaving(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await updateAdminBatch(batch.id, {
-        is_visible_on_site: !batch.is_visible_on_site,
-      });
-      setSuccess(batch.is_visible_on_site ? 'Lote removido da vitrine do site.' : 'Lote definido como visível no site.');
-      await loadData();
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(detail || 'Erro ao atualizar visibilidade do lote.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const toggleBatchStatus = async (batch: Batch) => {
     setSaving(true);
     setError('');
@@ -252,7 +233,7 @@ export default function AdminBatchSettings() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-3xl font-bold text-gray-900">Controle de Lotes</h2>
-            <p className="mt-2 text-sm text-gray-600">Ative/desative, escolha lote visível no site, edite dados completos e controle vagas.</p>
+            <p className="mt-2 text-sm text-gray-600">Ative/desative, edite dados completos e controle vagas. O lote ativo é automaticamente exibido no site.</p>
           </div>
           <button
             type="button"
@@ -285,16 +266,9 @@ export default function AdminBatchSettings() {
                       <p className="font-semibold text-gray-900">{batch.name}</p>
                       <p className="text-sm text-gray-600">{batch.product_name || `Produto #${batch.product}`}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {batch.is_visible_on_site && (
-                        <span className="inline-flex w-fit rounded-full bg-purple/10 px-2.5 py-1 text-xs font-medium text-purple">
-                          Visível no site
-                        </span>
-                      )}
-                      <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(batch.status)}`}>
-                        {getStatusLabel(batch.status)}
-                      </span>
-                    </div>
+                    <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeClass(batch.status)}`}>
+                      {getStatusLabel(batch.status)}
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
@@ -410,16 +384,6 @@ export default function AdminBatchSettings() {
                         <span className={`h-4 w-4 rounded-full bg-white transition-transform ${batch.status === 'ACTIVE' ? 'translate-x-5' : 'translate-x-0'}`} />
                       </span>
                       {batch.status === 'ACTIVE' ? 'Ativo' : 'Encerrado'}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => void toggleVisibleBatch(batch)}
-                      disabled={saving}
-                      className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                    >
-                      {batch.is_visible_on_site ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      {batch.is_visible_on_site ? 'Ocultar do site' : 'Definir visível'}
                     </button>
 
                     {editingBatchId === batch.id ? (

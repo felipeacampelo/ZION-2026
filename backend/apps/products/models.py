@@ -66,18 +66,8 @@ class Product(models.Model):
         return self.name
     
     def get_active_batch(self):
-        """Returns the currently visible/active batch for this product."""
+        """Returns the currently active batch for this product."""
         now = timezone.now()
-
-        visible_batch = self.batches.filter(
-            is_visible_on_site=True,
-            status='ACTIVE',
-            start_date__lte=now,
-            end_date__gte=now
-        ).first()
-
-        if visible_batch and not visible_batch.is_full:
-            return visible_batch
 
         candidate_batches = self.batches.filter(
             status='ACTIVE',
@@ -228,8 +218,4 @@ class Batch(models.Model):
             Batch.objects.filter(product=self.product, status='ACTIVE').exclude(pk=self.pk).update(
                 status='ENDED',
                 end_date=timezone.now(),
-                is_visible_on_site=False,
             )
-
-        if self.is_visible_on_site:
-            Batch.objects.filter(product=self.product).exclude(pk=self.pk).update(is_visible_on_site=False)
