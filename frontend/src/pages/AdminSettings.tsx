@@ -110,7 +110,7 @@ export default function AdminSettings() {
                     max={12}
                     value={formData.max_installments}
                     onChange={(e) => setFormData((current) => ({ ...current, max_installments: Number(e.target.value) }))}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
                   />
                   <p className="mt-2 text-sm text-gray-500">Valor entre 1 e 12, igual ao controle operacional já existente no Django Admin.</p>
                 </div>
