@@ -93,7 +93,6 @@ export default function AdminFormSettings() {
                     <div key={fieldName} className="grid grid-cols-[minmax(0,1fr)_120px_140px] items-center gap-4 px-4 py-3">
                       <div>
                         <p className="font-medium text-gray-900">{config.label}</p>
-                        <p className="text-xs text-gray-500">{fieldName}</p>
                       </div>
                       <div className="flex justify-center">
                         <input
