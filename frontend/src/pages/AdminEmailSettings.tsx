@@ -399,7 +399,6 @@ export default function AdminEmailSettings() {
                     className={`w-full rounded-xl border px-4 py-3 text-left ${selectedTemplateKey === template.key ? 'border-purple bg-purple/5' : 'border-gray-200'}`}
                   >
                     <p className="font-medium text-gray-900">{template.name}</p>
-                    <p className="mt-1 text-xs text-gray-500">{template.key}</p>
                   </button>
                 ))}
               </div>
@@ -428,7 +427,7 @@ export default function AdminEmailSettings() {
                       <input
                         value={templateForm.subject}
                         onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400"
                       />
                     </div>
 
@@ -438,7 +437,7 @@ export default function AdminEmailSettings() {
                         value={templateForm.html_content}
                         onChange={(e) => setTemplateForm({ ...templateForm, html_content: e.target.value })}
                         rows={16}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-3 font-mono text-sm"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 font-mono text-sm text-gray-900 placeholder:text-gray-400"
                       />
                     </div>
 
@@ -448,7 +447,7 @@ export default function AdminEmailSettings() {
                         value={templateForm.text_content}
                         onChange={(e) => setTemplateForm({ ...templateForm, text_content: e.target.value })}
                         rows={6}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-3 font-mono text-sm"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 font-mono text-sm text-gray-900 placeholder:text-gray-400"
                       />
                     </div>
 
@@ -482,7 +481,7 @@ export default function AdminEmailSettings() {
                           value={templateTestEmail}
                           onChange={(e) => setTemplateTestEmail(e.target.value)}
                           placeholder="destino@exemplo.com"
-                          className="flex-1 rounded-lg border border-gray-300 px-4 py-3"
+                          className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400"
                         />
                         <button
                           type="button"
@@ -556,7 +555,7 @@ export default function AdminEmailSettings() {
                       onChange={(e) => {
                         if (e.target.value) applyTemplateToCampaign(e.target.value);
                       }}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
                     >
                       <option value="">Selecione um template</option>
                       {templates.map((template) => (
@@ -572,7 +571,7 @@ export default function AdminEmailSettings() {
                     <input
                       value={campaignForm.name}
                       onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
@@ -581,7 +580,7 @@ export default function AdminEmailSettings() {
                     <input
                       value={campaignForm.subject}
                       onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
@@ -591,7 +590,7 @@ export default function AdminEmailSettings() {
                       value={campaignForm.html_content}
                       onChange={(e) => setCampaignForm({ ...campaignForm, html_content: e.target.value })}
                       rows={12}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 font-mono text-sm"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 font-mono text-sm text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
@@ -601,7 +600,7 @@ export default function AdminEmailSettings() {
                       value={campaignForm.text_content}
                       onChange={(e) => setCampaignForm({ ...campaignForm, text_content: e.target.value })}
                       rows={5}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-3 font-mono text-sm"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 font-mono text-sm text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
 
@@ -619,7 +618,7 @@ export default function AdminEmailSettings() {
                             },
                           })
                         }
-                        className="rounded-lg border border-gray-300 px-4 py-3"
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
                       >
                         <option value="">Todos os produtos</option>
                         {products.map((product) => (
@@ -640,7 +639,7 @@ export default function AdminEmailSettings() {
                             },
                           })
                         }
-                        className="rounded-lg border border-gray-300 px-4 py-3"
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
                       >
                         <option value="">Todos os status</option>
                         <option value="PENDING_PAYMENT">Aguardando pagamento</option>
@@ -660,7 +659,7 @@ export default function AdminEmailSettings() {
                             },
                           })
                         }
-                        className="rounded-lg border border-gray-300 px-4 py-3"
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
                       >
                         <option value="">Todas as formas de pagamento</option>
                         <option value="PIX_CASH">PIX à vista</option>
@@ -680,7 +679,7 @@ export default function AdminEmailSettings() {
                           })
                         }
                         placeholder="Buscar por nome, email ou CPF"
-                        className="rounded-lg border border-gray-300 px-4 py-3"
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400"
                       />
                     </div>
                   </div>
@@ -714,7 +713,7 @@ export default function AdminEmailSettings() {
                         value={campaignTestEmail}
                         onChange={(e) => setCampaignTestEmail(e.target.value)}
                         placeholder="destino@exemplo.com"
-                        className="flex-1 rounded-lg border border-gray-300 px-4 py-3"
+                        className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400"
                       />
                       <button
                         type="button"
@@ -763,7 +762,6 @@ export default function AdminEmailSettings() {
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="font-medium text-gray-900">{campaign.name}</p>
-                            <p className="text-xs text-gray-500">{campaign.subject}</p>
                           </div>
                           <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
                             {campaign.status}
