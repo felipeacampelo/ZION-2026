@@ -112,6 +112,20 @@ class EmailCampaignTestSerializer(serializers.Serializer):
     to_email = serializers.EmailField()
 
 
+class EmailCampaignPreviewFiltersSerializer(serializers.Serializer):
+    product = serializers.IntegerField(required=False)
+    status = serializers.CharField(required=False)
+    payment_method = serializers.CharField(required=False)
+    search = serializers.CharField(required=False, allow_blank=True)
+
+
+class EmailCampaignDraftTestSerializer(EmailCampaignTestSerializer):
+    subject = serializers.CharField()
+    html_content = serializers.CharField()
+    text_content = serializers.CharField(required=False, allow_blank=True)
+    filters = serializers.JSONField(required=False)
+
+
 def _ensure_default_templates():
     for key, default in get_email_template_defaults().items():
         EmailTemplate.objects.get_or_create(
@@ -139,6 +153,32 @@ def _get_campaign_or_404(pk):
         return EmailCampaign.objects.prefetch_related('recipients').get(pk=pk)
     except EmailCampaign.DoesNotExist:
         return None
+
+
+def _build_recipient_preview_payload(filters):
+    queryset = get_campaign_recipients_queryset(filters)
+    sample = []
+    seen = set()
+    total_seen = set()
+
+    for enrollment in queryset.iterator():
+        email = (enrollment.form_data.get('email') or enrollment.user.email or '').strip().lower()
+        if not email:
+            continue
+        total_seen.add(email)
+        if email in seen or len(sample) >= 10:
+            continue
+        seen.add(email)
+        sample.append({
+            'enrollment_id': enrollment.id,
+            'email': email,
+            'name': enrollment.form_data.get('nome_completo', enrollment.user.get_full_name()) or email,
+        })
+
+    return {
+        'count': len(total_seen),
+        'sample': sample,
+    }
 
 
 @api_view(['GET'])
@@ -213,6 +253,35 @@ def admin_email_campaigns(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_email_campaigns_preview_recipients(request):
+    serializer = EmailCampaignPreviewFiltersSerializer(data=request.data or {})
+    serializer.is_valid(raise_exception=True)
+    return Response(_build_recipient_preview_payload(serializer.validated_data))
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_email_campaigns_send_test_draft(request):
+    serializer = EmailCampaignDraftTestSerializer(data=request.data or {})
+    serializer.is_valid(raise_exception=True)
+
+    filters_serializer = EmailCampaignPreviewFiltersSerializer(data=serializer.validated_data.get('filters') or {})
+    filters_serializer.is_valid(raise_exception=True)
+
+    sample_enrollment = get_campaign_recipients_queryset(filters_serializer.validated_data).first()
+    context = build_email_context(enrollment=sample_enrollment) if sample_enrollment else get_preview_context_for_template('enrollment_confirmation')
+    send_campaign_test_email(
+        serializer.validated_data['subject'],
+        serializer.validated_data['html_content'],
+        serializer.validated_data.get('text_content', ''),
+        serializer.validated_data['to_email'],
+        context=context,
+    )
+    return Response({'detail': 'Email de teste da campanha enviado com sucesso.'})
+
+
 @api_view(['GET', 'PATCH'])
 @permission_classes([IsAdminUser])
 def admin_email_campaign_detail(request, pk):
@@ -239,31 +308,7 @@ def admin_email_campaign_preview_recipients(request, pk):
     campaign = _get_campaign_or_404(pk)
     if campaign is None:
         return Response({'detail': 'Campanha não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
-
-    queryset = get_campaign_recipients_queryset(campaign.filters)
-    sample = []
-    seen = set()
-    for enrollment in queryset[:10]:
-        email = (enrollment.form_data.get('email') or enrollment.user.email or '').strip().lower()
-        if not email or email in seen:
-            continue
-        seen.add(email)
-        sample.append({
-            'enrollment_id': enrollment.id,
-            'email': email,
-            'name': enrollment.form_data.get('nome_completo', enrollment.user.get_full_name()) or email,
-        })
-
-    count = len({
-        (enrollment.form_data.get('email') or enrollment.user.email or '').strip().lower()
-        for enrollment in queryset
-        if (enrollment.form_data.get('email') or enrollment.user.email or '').strip()
-    })
-
-    return Response({
-        'count': count,
-        'sample': sample,
-    })
+    return Response(_build_recipient_preview_payload(campaign.filters))
 
 
 @api_view(['POST'])

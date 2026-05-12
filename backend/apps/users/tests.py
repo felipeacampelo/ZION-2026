@@ -335,6 +335,18 @@ class AdminEmailTests(APITestCase):
         self.assertEqual(response.data['count'], 1)
         self.assertEqual(len(response.data['sample']), 1)
 
+    def test_campaign_preview_recipients_by_filters_works_without_draft(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            reverse('users:admin-email-campaigns-preview-recipients'),
+            {'product': self.product.id, 'status': 'PENDING_PAYMENT'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(len(response.data['sample']), 1)
+
     @patch('apps.users.admin_email_views.start_campaign_send')
     def test_campaign_send_builds_snapshot_and_starts_async(self, mock_start_campaign_send):
         campaign = EmailCampaign.objects.create(
@@ -374,6 +386,24 @@ class AdminEmailTests(APITestCase):
         response = self.client.post(
             reverse('users:admin-email-campaign-send-test', args=[campaign.id]),
             {'to_email': 'teste@example.com'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_send_test.assert_called_once()
+
+    @patch('apps.users.admin_email_views.send_campaign_test_email')
+    def test_campaign_draft_test_send_works_without_saved_campaign(self, mock_send_test):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            reverse('users:admin-email-campaigns-send-test-draft'),
+            {
+                'to_email': 'teste@example.com',
+                'subject': 'Assunto {{ nome }}',
+                'html_content': '<p>Teste {{ nome }}</p>',
+                'text_content': 'Teste {{ nome }}',
+                'filters': {'product': self.product.id, 'status': 'PENDING_PAYMENT'},
+            },
             format='json',
         )
 

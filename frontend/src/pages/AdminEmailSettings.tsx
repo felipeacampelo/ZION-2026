@@ -8,8 +8,10 @@ import {
   getAdminEmailTemplates,
   getAdminProducts,
   previewAdminEmailCampaignRecipients,
+  previewAdminEmailCampaignRecipientsByFilters,
   previewAdminEmailTemplate,
   sendAdminEmailCampaign,
+  sendAdminEmailCampaignDraftTest,
   sendAdminEmailCampaignTest,
   sendAdminEmailTemplateTest,
   updateAdminEmailCampaign,
@@ -42,6 +44,20 @@ const emptyCampaignForm: CampaignForm = {
   filters: {},
   status: 'DRAFT',
 };
+
+function getApiErrorMessage(err: any, fallback: string) {
+  const data = err?.response?.data;
+  if (!data) return fallback;
+  if (typeof data.detail === 'string') return data.detail;
+  if (typeof data === 'string') return data;
+
+  for (const value of Object.values(data)) {
+    if (Array.isArray(value) && value[0]) return String(value[0]);
+    if (typeof value === 'string') return value;
+  }
+
+  return fallback;
+}
 
 export default function AdminEmailSettings() {
   const [activeTab, setActiveTab] = useState<'templates' | 'campaigns'>('templates');
@@ -208,8 +224,8 @@ export default function AdminEmailSettings() {
       await loadData();
       await refreshCampaign(response.data.id);
       setSuccess('Campanha criada como rascunho.');
-    } catch {
-      setError('Erro ao criar campanha.');
+    } catch (err: any) {
+      setError(getApiErrorMessage(err, 'Erro ao criar campanha.'));
     } finally {
       setSaving(false);
     }
@@ -237,7 +253,7 @@ export default function AdminEmailSettings() {
       await refreshCampaign(response.data.id);
       setSuccess('Rascunho atualizado com sucesso.');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao salvar rascunho.');
+      setError(getApiErrorMessage(err, 'Erro ao salvar rascunho.'));
     } finally {
       setSaving(false);
     }
@@ -249,26 +265,22 @@ export default function AdminEmailSettings() {
       setError('');
       setSuccess('');
 
-      let campaignId = campaignForm.id;
-      if (!campaignId) {
-        const created = await createAdminEmailCampaign(campaignForm);
-        campaignId = created.data.id;
-        await loadData();
-        await refreshCampaign(campaignId);
+      if (!campaignForm.id) {
+        const response = await previewAdminEmailCampaignRecipientsByFilters(campaignForm.filters);
+        setRecipientPreview(response.data);
       } else {
-        await updateAdminEmailCampaign(campaignId, {
+        await updateAdminEmailCampaign(campaignForm.id, {
           name: campaignForm.name,
           subject: campaignForm.subject,
           html_content: campaignForm.html_content,
           text_content: campaignForm.text_content,
           filters: campaignForm.filters,
         });
+        const response = await previewAdminEmailCampaignRecipients(campaignForm.id);
+        setRecipientPreview(response.data);
       }
-
-      const response = await previewAdminEmailCampaignRecipients(campaignId);
-      setRecipientPreview(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao calcular destinatários.');
+      setError(getApiErrorMessage(err, 'Erro ao calcular destinatários.'));
     } finally {
       setSaving(false);
     }
@@ -282,26 +294,27 @@ export default function AdminEmailSettings() {
       setError('');
       setSuccess('');
 
-      let campaignId = campaignForm.id;
-      if (!campaignId) {
-        const created = await createAdminEmailCampaign(campaignForm);
-        campaignId = created.data.id;
-        await loadData();
-        await refreshCampaign(campaignId);
+      if (!campaignForm.id) {
+        await sendAdminEmailCampaignDraftTest({
+          to_email: campaignTestEmail,
+          subject: campaignForm.subject,
+          html_content: campaignForm.html_content,
+          text_content: campaignForm.text_content,
+          filters: campaignForm.filters,
+        });
       } else {
-        await updateAdminEmailCampaign(campaignId, {
+        await updateAdminEmailCampaign(campaignForm.id, {
           name: campaignForm.name,
           subject: campaignForm.subject,
           html_content: campaignForm.html_content,
           text_content: campaignForm.text_content,
           filters: campaignForm.filters,
         });
+        await sendAdminEmailCampaignTest(campaignForm.id, campaignTestEmail);
       }
-
-      await sendAdminEmailCampaignTest(campaignId, campaignTestEmail);
       setSuccess('Email de teste da campanha enviado com sucesso.');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao enviar teste da campanha.');
+      setError(getApiErrorMessage(err, 'Erro ao enviar teste da campanha.'));
     } finally {
       setSaving(false);
     }
@@ -333,7 +346,7 @@ export default function AdminEmailSettings() {
       await refreshCampaign(campaignForm.id);
       setSuccess(`Envio iniciado para ${response.data.recipient_count} destinatário(s).`);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao iniciar campanha.');
+      setError(getApiErrorMessage(err, 'Erro ao iniciar campanha.'));
     } finally {
       setSaving(false);
     }

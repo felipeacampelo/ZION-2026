@@ -34,6 +34,8 @@ from .admin_views import (
 from .admin_email_views import (
     admin_email_campaign_detail,
     admin_email_campaign_preview_recipients,
+    admin_email_campaigns_preview_recipients,
+    admin_email_campaigns_send_test_draft,
     admin_email_campaign_send,
     admin_email_campaign_send_test,
     admin_email_campaigns,
@@ -84,6 +86,8 @@ urlpatterns = [
     path('admin/email-templates/<str:key>/preview/', admin_email_template_preview, name='admin-email-template-preview'),
     path('admin/email-templates/<str:key>/send-test/', admin_email_template_send_test, name='admin-email-template-send-test'),
     path('admin/email-campaigns/', admin_email_campaigns, name='admin-email-campaigns'),
+    path('admin/email-campaigns/preview-recipients/', admin_email_campaigns_preview_recipients, name='admin-email-campaigns-preview-recipients'),
+    path('admin/email-campaigns/send-test-draft/', admin_email_campaigns_send_test_draft, name='admin-email-campaigns-send-test-draft'),
     path('admin/email-campaigns/<int:pk>/', admin_email_campaign_detail, name='admin-email-campaign-detail'),
     path('admin/email-campaigns/<int:pk>/preview-recipients/', admin_email_campaign_preview_recipients, name='admin-email-campaign-preview-recipients'),
     path('admin/email-campaigns/<int:pk>/send-test/', admin_email_campaign_send_test, name='admin-email-campaign-send-test'),

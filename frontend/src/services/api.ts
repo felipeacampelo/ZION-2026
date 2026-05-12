@@ -414,8 +414,33 @@ export const previewAdminEmailCampaignRecipients = (id: number) =>
     sample: Array<{ enrollment_id: number; email: string; name: string }>;
   }>(`/users/admin/email-campaigns/${id}/preview-recipients/`, {});
 
+export const previewAdminEmailCampaignRecipientsByFilters = (filters: {
+  product?: number;
+  status?: string;
+  payment_method?: string;
+  search?: string;
+}) =>
+  api.post<{
+    count: number;
+    sample: Array<{ enrollment_id: number; email: string; name: string }>;
+  }>('/users/admin/email-campaigns/preview-recipients/', filters);
+
 export const sendAdminEmailCampaignTest = (id: number, to_email: string) =>
   api.post(`/users/admin/email-campaigns/${id}/send-test/`, { to_email });
+
+export const sendAdminEmailCampaignDraftTest = (data: {
+  to_email: string;
+  subject: string;
+  html_content: string;
+  text_content?: string;
+  filters?: {
+    product?: number;
+    status?: string;
+    payment_method?: string;
+    search?: string;
+  };
+}) =>
+  api.post('/users/admin/email-campaigns/send-test-draft/', data);
 
 export const sendAdminEmailCampaign = (id: number) =>
   api.post<{ detail: string; recipient_count: number }>(`/users/admin/email-campaigns/${id}/send/`, {});
