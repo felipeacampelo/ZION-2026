@@ -12,6 +12,7 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminEnrollments from './pages/AdminEnrollments'
 import AdminPaymentSettings from './pages/AdminPaymentSettings'
 import AdminFormSettings from './pages/AdminFormSettings'
 import AdminBatchSettings from './pages/AdminBatchSettings'
@@ -69,6 +70,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/enrollments" 
+            element={
+              <AdminRoute>
+                <AdminEnrollments />
               </AdminRoute>
             } 
           />

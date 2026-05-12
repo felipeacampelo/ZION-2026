@@ -12,6 +12,7 @@ import {
   LogOut,
   User,
   ArrowLeft,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -21,6 +22,7 @@ interface AdminShellProps {
 
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
+  { to: '/admin/enrollments', label: 'Inscritos', icon: Users, end: false },
   { to: '/admin/settings/payment', label: 'Pagamentos', icon: CreditCard, end: false },
   { to: '/admin/settings/form', label: 'Formulário', icon: FileText, end: false },
   { to: '/admin/settings/batches', label: 'Lotes', icon: Layers, end: false },
