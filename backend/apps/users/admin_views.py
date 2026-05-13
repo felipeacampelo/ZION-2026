@@ -275,8 +275,12 @@ def admin_dashboard_stats(request):
         status__in=['CONFIRMED', 'RECEIVED']
     ).aggregate(total=Sum('amount'))['total'] or 0
     
-    pending_revenue = Payment.objects.filter(
-        status='PENDING'
+    open_revenue = Payment.objects.filter(
+        status__in=['CREATED', 'PENDING', 'OVERDUE']
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    overdue_revenue = Payment.objects.filter(
+        status='OVERDUE'
     ).aggregate(total=Sum('amount'))['total'] or 0
     
     # Calculate fees and net revenue
@@ -309,6 +313,11 @@ def admin_dashboard_stats(request):
     
     # Payment methods breakdown
     payment_methods = Enrollment.objects.values('payment_method').annotate(count=Count('id'))
+
+    # Members breakdown
+    members_count = Enrollment.objects.filter(form_data__membro_batista_capital='sim').count()
+    non_members_count = Enrollment.objects.filter(form_data__membro_batista_capital='nao').count()
+    no_answer_count = total_enrollments - members_count - non_members_count
     
     # Enrollments by batch
     batches_stats = []
@@ -342,9 +351,15 @@ def admin_dashboard_stats(request):
         },
         'revenue': {
             'total': float(total_revenue),
-            'pending': float(pending_revenue),
+            'pending': float(open_revenue),
+            'overdue': float(overdue_revenue),
             'fees': float(total_fees),
             'net': float(net_revenue),
+        },
+        'members': {
+            'yes': members_count,
+            'no': non_members_count,
+            'unknown': no_answer_count,
         },
         'payment_methods': list(payment_methods),
         'batches': batches_stats,

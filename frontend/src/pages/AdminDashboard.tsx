@@ -39,8 +39,14 @@ interface DashboardStats {
   revenue: {
     total: number;
     pending: number;
+    overdue: number;
     fees: number;
     net: number;
+  };
+  members: {
+    yes: number;
+    no: number;
+    unknown: number;
   };
   payment_methods: Array<{
     payment_method: string;
@@ -122,7 +128,7 @@ export default function AdminDashboard() {
 
         {/* Stats Grid */}
         {stats && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-6 sm:mb-8">
             {/* Total Inscrições */}
             <div className="bg-white rounded-xl shadow-lg p-3 sm:p-6">
               <div className="flex items-center justify-between mb-2 sm:mb-4">
@@ -193,6 +199,53 @@ export default function AdminDashboard() {
                     <span className="font-semibold ml-1">{method.count}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Membros / Não membros */}
+            <div className="bg-white rounded-xl shadow-lg p-3 sm:p-6">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="p-2 sm:p-3 rounded-full" style={{ backgroundColor: 'rgba(165, 44, 240, 0.1)' }}>
+                  <Users className="w-4 h-4 sm:w-6 sm:h-6" style={{ color: 'rgb(165, 44, 240)' }} />
+                </div>
+              </div>
+              <h3 className="text-xs sm:text-lg font-bold mb-2 sm:mb-3">Membros</h3>
+              <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Sim</span>
+                  <span className="font-semibold">{stats.members.yes}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Não</span>
+                  <span className="font-semibold">{stats.members.no}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Sem resposta</span>
+                  <span className="font-semibold">{stats.members.unknown}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Total em aberto */}
+            <div className="bg-white rounded-xl shadow-lg p-3 sm:p-6">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="p-2 sm:p-3 rounded-full" style={{ backgroundColor: 'rgba(245, 158, 11, 0.12)' }}>
+                  <AlertTriangle className="w-4 h-4 sm:w-6 sm:h-6 text-amber-600" />
+                </div>
+              </div>
+              <h3 className="text-sm sm:text-2xl font-bold mb-1 text-amber-700">
+                <span className="hidden sm:inline">R$ </span>{stats.revenue.pending.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+              <p className="text-xs sm:text-base text-gray-600">Total em aberto</p>
+              <div className="mt-2 sm:mt-4 space-y-1 text-xs sm:text-sm">
+                <div className="flex justify-between text-gray-500">
+                  <span>Pendente + criado:</span>
+                  <span>em aberto</span>
+                </div>
+                <div className="flex justify-between text-red-500">
+                  <span>Vencido:</span>
+                  <span>R$ {stats.revenue.overdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
               </div>
             </div>
           </div>

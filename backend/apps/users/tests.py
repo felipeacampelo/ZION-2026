@@ -176,6 +176,119 @@ class AdminSettingsTests(APITestCase):
         self.assertIn('max_installments', response.data)
 
 
+class AdminDashboardStatsTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email='dashboard-admin@example.com',
+            password='password123',
+            is_staff=True,
+        )
+        self.member_user = User.objects.create_user(
+            email='member-dashboard@example.com',
+            password='password123',
+        )
+        self.non_member_user = User.objects.create_user(
+            email='nonmember-dashboard@example.com',
+            password='password123',
+        )
+        self.unknown_user = User.objects.create_user(
+            email='unknown-dashboard@example.com',
+            password='password123',
+        )
+
+        self.product = Product.objects.create(
+            name='Produto Dashboard',
+            description='Produto para stats',
+            base_price=Decimal('100.00'),
+            max_installments=8,
+            is_active=True,
+        )
+
+        now = timezone.now()
+        self.batch = Batch.objects.create(
+            product=self.product,
+            name='Lote Dashboard',
+            start_date=now - timedelta(days=1),
+            end_date=now + timedelta(days=10),
+            price=Decimal('100.00'),
+            pix_installment_price=Decimal('120.00'),
+            credit_card_price=Decimal('130.00'),
+            status='ACTIVE',
+        )
+
+        self.member_enrollment = Enrollment.objects.create(
+            user=self.member_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'membro_batista_capital': 'sim'},
+            payment_method='PIX_CASH',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+        self.non_member_enrollment = Enrollment.objects.create(
+            user=self.non_member_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'membro_batista_capital': 'nao'},
+            payment_method='PIX_INSTALLMENT',
+            installments=2,
+            total_amount=Decimal('120.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('120.00'),
+        )
+        self.unknown_enrollment = Enrollment.objects.create(
+            user=self.unknown_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={},
+            payment_method='CREDIT_CARD',
+            installments=1,
+            total_amount=Decimal('130.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('130.00'),
+        )
+
+    def test_dashboard_returns_members_breakdown_and_open_revenue(self):
+        from apps.payments.models import Payment
+
+        Payment.objects.create(
+            enrollment=self.member_enrollment,
+            asaas_payment_id='pay-dashboard-confirmed',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='CONFIRMED',
+            due_date=timezone.now().date(),
+        )
+        Payment.objects.create(
+            enrollment=self.non_member_enrollment,
+            asaas_payment_id='pay-dashboard-pending',
+            installment_number=1,
+            amount=Decimal('60.00'),
+            status='PENDING',
+            due_date=timezone.now().date(),
+        )
+        Payment.objects.create(
+            enrollment=self.unknown_enrollment,
+            asaas_payment_id='pay-dashboard-overdue',
+            installment_number=1,
+            amount=Decimal('130.00'),
+            status='OVERDUE',
+            due_date=timezone.now().date(),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(reverse('users:admin-dashboard'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['members']['yes'], 1)
+        self.assertEqual(response.data['members']['no'], 1)
+        self.assertEqual(response.data['members']['unknown'], 1)
+        self.assertEqual(response.data['revenue']['pending'], 190.0)
+        self.assertEqual(response.data['revenue']['overdue'], 130.0)
+
+
 class AdminEmailTests(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_user(
