@@ -13,8 +13,10 @@ import {
   User,
   ArrowLeft,
   Users,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import logoCompleto from '../assets/logo-completo.svg';
 
 interface AdminShellProps {
   children: ReactNode;
@@ -30,13 +32,20 @@ const NAV_ITEMS = [
   { to: '/admin/settings/emails', label: 'Emails', icon: Mail, end: false },
 ];
 
+const brandPurple = 'rgb(165, 44, 240)';
+
+const sidebarCardStyle = {
+  background:
+    'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.9) 100%)',
+  boxShadow: '0 24px 60px rgba(17, 24, 39, 0.08)',
+};
+
 export default function AdminShell({ children }: AdminShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const sidebarRef = useRef<HTMLElement>(null);
 
-  // Close drawer when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -51,7 +60,6 @@ export default function AdminShell({ children }: AdminShellProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [mobileOpen]);
 
-  // Close drawer on resize to desktop
   useEffect(() => {
     function handleResize() {
       if (window.innerWidth >= 1024) setMobileOpen(false);
@@ -76,116 +84,147 @@ export default function AdminShell({ children }: AdminShellProps) {
     : '';
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
-        <div className="flex items-center gap-2">
+    <div
+      className="min-h-screen"
+      style={{
+        background:
+          'radial-gradient(circle at top left, rgba(165, 44, 240, 0.10), transparent 28%), radial-gradient(circle at top right, rgba(220, 253, 97, 0.16), transparent 24%), #f5f6fb',
+      }}
+    >
+      <header className="sticky top-0 z-40 border-b border-white/70 bg-white/80 backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="rounded-xl border border-gray-200 bg-white p-2 text-gray-600 transition-colors hover:bg-gray-50"
+              aria-label="Abrir menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <img src={logoCompleto} alt="Área Mais" className="h-8 w-auto max-w-[140px] object-contain" />
+          </div>
           <button
-            onClick={() => setMobileOpen(true)}
-            className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100"
-            aria-label="Abrir menu"
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-purple transition-colors hover:bg-purple/5"
+            title="Voltar ao site"
           >
-            <Menu className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4" />
+            Site
           </button>
-          <span className="text-lg font-bold tracking-tight text-gray-900">
-            Área Mais
-          </span>
-          <span className="ml-1 rounded-md bg-purple/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple">
-            Admin
-          </span>
         </div>
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1 rounded-lg p-2 text-sm font-medium text-purple transition-colors hover:bg-purple/5"
-          title="Voltar ao site"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
       </header>
 
-      {/* Mobile drawer overlay */}
       <div
-        className={`fixed inset-0 z-50 bg-black/40 transition-opacity lg:hidden ${
+        className={`fixed inset-0 z-40 bg-slate-950/35 transition-opacity lg:hidden ${
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       />
 
-      <div className="flex min-h-screen">
-        {/* Sidebar */}
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] gap-0 px-0 lg:px-6 lg:py-6">
         <aside
           ref={sidebarRef}
-          className={`fixed inset-y-0 left-0 z-50 w-64 transform border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
-            mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+          className={`fixed inset-y-0 left-0 z-50 w-[290px] transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:pr-6 ${
+            mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          {/* Sidebar header */}
-          <div className="flex h-14 items-center justify-between border-b border-gray-100 px-4 lg:h-16 lg:px-5">
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold tracking-tight text-gray-900">
-                Área Mais
-              </span>
-              <span className="rounded-md bg-purple/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple">
-                Admin
-              </span>
-            </div>
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 lg:hidden"
-              aria-label="Fechar menu"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex flex-col gap-1 px-3 py-4">
-            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                onClick={handleNavClick}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-purple/10 text-purple'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`
-                }
+          <div
+            className="relative flex h-full flex-col overflow-hidden border-r border-white/60 px-4 py-4 lg:rounded-[28px] lg:border"
+            style={sidebarCardStyle}
+          >
+            <div className="mb-6 flex items-center justify-between lg:hidden">
+              <img src={logoCompleto} alt="Área Mais" className="h-9 w-auto max-w-[160px] object-contain" />
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Fechar menu"
               >
-                <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                {label}
-              </NavLink>
-            ))}
-          </nav>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-          {/* Bottom section */}
-          <div className="absolute inset-x-0 bottom-0 border-t border-gray-100 bg-white px-3 py-3">
-            <div className="mb-3 flex items-center gap-3 rounded-lg px-3 py-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple/10">
-                <User className="h-4 w-4 text-purple" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-900">
-                  {userName}
+            <div className="hidden lg:block">
+              <div className="rounded-[24px] border border-white/70 bg-white/75 p-4 shadow-sm">
+                <img src={logoCompleto} alt="Área Mais" className="h-10 w-auto max-w-[180px] object-contain" />
+                <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
+                  <Sparkles className="h-4 w-4 text-purple" />
+                  Painel administrativo
+                </div>
+                <p className="mt-2 text-sm text-gray-600">
+                  Inscrições, pagamentos e lotes com foco em operação.
                 </p>
-                {user && (
-                  <p className="truncate text-xs text-gray-500">{user.email}</p>
-                )}
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-            >
-              <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
-              Sair
-            </button>
+
+            <nav className="mt-6 flex flex-1 flex-col gap-1.5">
+              {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  onClick={handleNavClick}
+                  className={({ isActive }) =>
+                    `group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
+                      isActive
+                        ? 'text-white shadow-lg'
+                        : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                    }`
+                  }
+                  style={({ isActive }) =>
+                    isActive
+                      ? {
+                          background:
+                            'linear-gradient(135deg, rgb(165, 44, 240) 0%, rgba(165, 44, 240, 0.84) 100%)',
+                          boxShadow: '0 18px 40px rgba(165, 44, 240, 0.24)',
+                        }
+                      : undefined
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className="flex h-10 w-10 items-center justify-center rounded-xl transition-colors"
+                        style={{
+                          backgroundColor: isActive ? 'rgba(255, 255, 255, 0.16)' : 'rgba(165, 44, 240, 0.08)',
+                        }}
+                      >
+                        <Icon
+                          className="h-[18px] w-[18px] transition-colors"
+                          style={{ color: isActive ? '#ffffff' : brandPurple }}
+                        />
+                      </span>
+                      <span>{label}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="mt-6 rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple/10">
+                  <User className="h-5 w-5 text-purple" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-gray-900">{userName}</p>
+                  {user && <p className="truncate text-xs text-gray-500">{user.email}</p>}
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+              >
+                <LogOut className="h-[18px] w-[18px]" />
+                Sair
+              </button>
+            </div>
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-5 lg:px-0 lg:py-0">
+          <div className="min-h-full rounded-[28px] border border-white/70 bg-white/55 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur-sm lg:p-6">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );
