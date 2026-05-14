@@ -4,12 +4,10 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
-  DollarSign,
   FileText,
   Layers3,
   TrendingUp,
   Users,
-  WalletCards,
 } from 'lucide-react';
 import {
   getAdminDashboard,
@@ -287,7 +285,7 @@ export default function AdminDashboard() {
 
         {stats && (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-4 md:grid-cols-2">
               <article className={`${sectionCardClass} p-5`}>
                 <div className="flex items-start justify-between">
                   <div
@@ -338,56 +336,13 @@ export default function AdminDashboard() {
                 <p className="mt-2 text-xs text-gray-500">{stats.payments.pending} pagamentos ainda pendentes</p>
               </article>
 
-              <article className={`${sectionCardClass} p-5`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50">
-                    <DollarSign className="h-6 w-6 text-green-600" />
-                  </div>
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                </div>
-                <p className="mt-5 text-3xl font-bold text-green-700">
-                  R$ {formatCurrency(stats.revenue.net)}
-                </p>
-                <p className="mt-1 text-sm text-gray-600">Receita líquida</p>
-                <div className="mt-4 space-y-2 text-sm">
-                  <div className="flex items-center justify-between text-gray-500">
-                    <span>Receita bruta</span>
-                    <span>R$ {formatCurrency(stats.revenue.total)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-red-500">
-                    <span>Desconto das taxas</span>
-                    <span>- R$ {formatCurrency(stats.revenue.fees)}</span>
-                  </div>
-                </div>
-              </article>
-
-              <article className={`${sectionCardClass} p-5`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50">
-                    <WalletCards className="h-6 w-6 text-amber-600" />
-                  </div>
-                  <AlertTriangle className="h-5 w-5 text-amber-600" />
-                </div>
-                <p className="mt-5 text-3xl font-bold text-amber-700">
-                  R$ {formatCurrency(stats.revenue.pending)}
-                </p>
-                <p className="mt-1 text-sm text-gray-600">Total em aberto</p>
-                <div className="mt-4 flex items-center justify-between rounded-2xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  <span>Valor vencido</span>
-                  <span className="font-semibold">R$ {formatCurrency(stats.revenue.overdue)}</span>
-                </div>
-              </article>
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
               <div className={`${sectionCardClass} p-5 lg:p-5`}>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                      Atenção operacional
-                    </p>
-                    <h2 className="mt-2 text-2xl font-bold text-gray-950">Pagamentos em atraso</h2>
-                    <p className="mt-2 text-sm text-gray-600">Priorize cobrança e acompanhamento.</p>
+                    <h2 className="text-2xl font-bold text-gray-950">Pagamentos em atraso</h2>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
@@ -424,7 +379,8 @@ export default function AdminDashboard() {
                 </button>
 
                 {showOverduePayments && (
-                  <div className="mt-5 grid gap-4 2xl:grid-cols-2">
+                  <div className="mt-5 max-h-[38rem] overflow-y-auto pr-1 sm:pr-2">
+                    <div className="grid gap-4 2xl:grid-cols-2">
                     {overdueEnrollments.length === 0 ? (
                       <div className="rounded-[24px] border border-dashed border-green-200 bg-green-50 px-5 py-8 text-green-800 xl:col-span-2">
                         Nenhum pagamento está em atraso no momento.
@@ -510,6 +466,7 @@ export default function AdminDashboard() {
                         );
                       })
                     )}
+                    </div>
                   </div>
                 )}
               </div>
