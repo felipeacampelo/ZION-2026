@@ -13,7 +13,6 @@ import {
   User,
   ArrowLeft,
   Users,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import logoCompleto from '../assets/logo-completo.svg';
@@ -144,17 +143,13 @@ export default function AdminShell({ children }: AdminShellProps) {
 
             <div className="hidden lg:block">
               <div
-                className="flex flex-col items-center rounded-[24px] border p-5 text-center shadow-sm"
+                className="flex items-center justify-center rounded-[24px] border px-5 py-7 text-center shadow-sm"
                 style={{
                   background: 'linear-gradient(180deg, rgb(88, 28, 135) 0%, rgb(109, 40, 217) 100%)',
                   borderColor: 'rgba(255, 255, 255, 0.14)',
                 }}
               >
-                <img src={logoCompleto} alt="Área Mais" className="h-16 w-auto max-w-[230px] object-contain" />
-                <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/80">
-                  <Sparkles className="h-4 w-4 text-white" />
-                  Painel administrativo
-                </div>
+                <img src={logoCompleto} alt="Área Mais" className="h-24 w-auto max-w-[240px] object-contain" />
               </div>
             </div>
 

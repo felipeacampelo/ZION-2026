@@ -78,11 +78,15 @@ const parseLocalDate = (value: string) => {
 const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const formatPaymentMethod = (method: string) =>
-  (method || '')
-    .replace('PIX à Vista', 'PIX')
-    .replace('PIX Parcelado', 'PIX Parcelado')
-    .replace('Cartão de Crédito', 'Cartão');
+const formatPaymentMethod = (method: string) => {
+  if (method === 'PIX_CASH') return 'PIX à vista';
+  if (method === 'PIX_INSTALLMENT') return 'PIX parcelado';
+  if (method === 'CREDIT_CARD') return 'Cartão de crédito';
+  if (method === 'PIX à Vista') return 'PIX à vista';
+  if (method === 'PIX Parcelado') return 'PIX parcelado';
+  if (method === 'Cartão de Crédito') return 'Cartão de crédito';
+  return method || '-';
+};
 
 const getBatchStatusLabel = (status: string) => {
   if (status === 'ACTIVE') return 'Ativo';
@@ -168,14 +172,9 @@ export default function AdminDashboard() {
   const totalMembers = stats
     ? stats.members.yes + stats.members.no
     : 0;
-  const limitedBatches = stats ? stats.batches.filter((batch) => batch.max_enrollments) : [];
-  const occupancyAverage =
-    limitedBatches.length > 0
-      ? Math.round(
-          limitedBatches.reduce((acc, batch) => {
-            return acc + Math.min((batch.current_enrollments / (batch.max_enrollments || 1)) * 100, 100);
-          }, 0) / limitedBatches.length
-        )
+  const averageTicket =
+    stats && stats.payments.confirmed > 0
+      ? stats.revenue.total / stats.payments.confirmed
       : 0;
   const confirmedRate =
     stats && stats.enrollments.total > 0
@@ -238,10 +237,12 @@ export default function AdminDashboard() {
                   </div>
                   <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                      Ocupação média
+                      Ticket médio
                     </p>
-                    <p className="mt-2 text-2xl font-bold text-gray-950">{occupancyAverage}%</p>
-                    <p className="text-sm text-gray-600">dos lotes com limite definido</p>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">
+                      R$ {formatCurrency(averageTicket)}
+                    </p>
+                    <p className="text-sm text-gray-600">por pagamento confirmado</p>
                   </div>
                 </div>
               )}
@@ -406,8 +407,7 @@ export default function AdminDashboard() {
                               className="h-full rounded-full"
                               style={{
                                 width: `${width}%`,
-                                background:
-                                  'linear-gradient(90deg, rgb(165, 44, 240) 0%, rgb(220, 253, 97) 100%)',
+                                backgroundColor: brandPurple,
                               }}
                             />
                           </div>
