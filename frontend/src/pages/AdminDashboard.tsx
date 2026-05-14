@@ -285,7 +285,7 @@ export default function AdminDashboard() {
 
         {stats && (
           <>
-            <section className="grid gap-4 md:grid-cols-2">
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <article className={`${sectionCardClass} p-5`}>
                 <div className="flex items-start justify-between">
                   <div
@@ -336,9 +336,89 @@ export default function AdminDashboard() {
                 <p className="mt-2 text-xs text-gray-500">{stats.payments.pending} pagamentos ainda pendentes</p>
               </article>
 
+              <div className={`${sectionCardClass} p-5 lg:p-6`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                      Perfil do público
+                    </p>
+                    <h2 className="mt-2 text-xl font-bold text-gray-950">Membros x visitantes</h2>
+                  </div>
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: brandPurpleSoft }}
+                  >
+                    <Users className="h-5 w-5" style={{ color: brandPurple }} />
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  {[
+                    { label: 'Membros', value: stats.members.yes, color: brandPurple },
+                    { label: 'Não membros', value: stats.members.no, color: '#111827' },
+                  ].map((item) => {
+                    const width = totalMembers > 0 ? (item.value / totalMembers) * 100 : 0;
+                    return (
+                      <div key={item.label}>
+                        <div className="mb-2 flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{item.label}</span>
+                          <span className="font-semibold text-gray-950">{item.value}</span>
+                        </div>
+                        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${width}%`, backgroundColor: item.color }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className={`${sectionCardClass} p-5 lg:p-6`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                      Meios de pagamento
+                    </p>
+                    <h2 className="mt-2 text-xl font-bold text-gray-950">Distribuição atual</h2>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-lime-100">
+                    <FileText className="h-5 w-5 text-lime-700" />
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {stats.payment_methods
+                    .filter((method) => method.payment_method)
+                    .map((method) => {
+                      const width =
+                        stats.payments.total > 0 ? (method.count / stats.payments.total) * 100 : 0;
+                      return (
+                        <div key={method.payment_method}>
+                          <div className="mb-2 flex items-center justify-between text-sm">
+                            <span className="text-gray-600">{formatPaymentMethod(method.payment_method)}</span>
+                            <span className="font-semibold text-gray-950">{method.count}</span>
+                          </div>
+                          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${width}%`,
+                                background:
+                                  'linear-gradient(90deg, rgb(165, 44, 240) 0%, rgb(220, 253, 97) 100%)',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[1.45fr_1fr]">
+            <section>
               <div className={`${sectionCardClass} p-5 lg:p-5`}>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
@@ -469,89 +549,6 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 )}
-              </div>
-
-                <div className="grid gap-4">
-                  <div className={`${sectionCardClass} p-5 lg:p-6`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                          Perfil do público
-                      </p>
-                      <h2 className="mt-2 text-xl font-bold text-gray-950">Membros x visitantes</h2>
-                    </div>
-                    <div
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl"
-                      style={{ backgroundColor: brandPurpleSoft }}
-                    >
-                      <Users className="h-5 w-5" style={{ color: brandPurple }} />
-                    </div>
-                  </div>
-
-                  <div className="mt-5 space-y-4">
-                    {[
-                      { label: 'Membros', value: stats.members.yes, color: brandPurple },
-                      { label: 'Não membros', value: stats.members.no, color: '#111827' },
-                    ].map((item) => {
-                      const width = totalMembers > 0 ? (item.value / totalMembers) * 100 : 0;
-                      return (
-                        <div key={item.label}>
-                          <div className="mb-2 flex items-center justify-between text-sm">
-                            <span className="text-gray-600">{item.label}</span>
-                            <span className="font-semibold text-gray-950">{item.value}</span>
-                          </div>
-                          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                            <div
-                              className="h-full rounded-full"
-                              style={{ width: `${width}%`, backgroundColor: item.color }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className={`${sectionCardClass} p-5 lg:p-6`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                        Meios de pagamento
-                      </p>
-                      <h2 className="mt-2 text-xl font-bold text-gray-950">Distribuição atual</h2>
-                    </div>
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-lime-100">
-                      <FileText className="h-5 w-5 text-lime-700" />
-                    </div>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {stats.payment_methods
-                      .filter((method) => method.payment_method)
-                      .map((method) => {
-                        const width =
-                          stats.payments.total > 0 ? (method.count / stats.payments.total) * 100 : 0;
-                        return (
-                          <div key={method.payment_method}>
-                            <div className="mb-2 flex items-center justify-between text-sm">
-                              <span className="text-gray-600">{formatPaymentMethod(method.payment_method)}</span>
-                              <span className="font-semibold text-gray-950">{method.count}</span>
-                            </div>
-                            <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${width}%`,
-                                  background:
-                                    'linear-gradient(90deg, rgb(165, 44, 240) 0%, rgb(220, 253, 97) 100%)',
-                                }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
               </div>
             </section>
 

@@ -143,10 +143,16 @@ export default function AdminShell({ children }: AdminShellProps) {
             </div>
 
             <div className="hidden lg:block">
-              <div className="rounded-[24px] border border-white/70 bg-white/75 p-4 shadow-sm">
-                <img src={logoCompleto} alt="Área Mais" className="h-14 w-auto max-w-[220px] object-contain" />
-                <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
-                  <Sparkles className="h-4 w-4 text-purple" />
+              <div
+                className="flex flex-col items-center rounded-[24px] border p-5 text-center shadow-sm"
+                style={{
+                  background: 'linear-gradient(180deg, rgb(88, 28, 135) 0%, rgb(109, 40, 217) 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.14)',
+                }}
+              >
+                <img src={logoCompleto} alt="Área Mais" className="h-16 w-auto max-w-[230px] object-contain" />
+                <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/80">
+                  <Sparkles className="h-4 w-4 text-white" />
                   Painel administrativo
                 </div>
               </div>
