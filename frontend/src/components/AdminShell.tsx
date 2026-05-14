@@ -101,7 +101,7 @@ export default function AdminShell({ children }: AdminShellProps) {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <img src={logoCompleto} alt="Área Mais" className="h-8 w-auto max-w-[140px] object-contain" />
+            <img src={logoCompleto} alt="Área Mais" className="h-10 w-auto max-w-[180px] object-contain" />
           </div>
           <button
             onClick={() => navigate('/')}
@@ -132,7 +132,7 @@ export default function AdminShell({ children }: AdminShellProps) {
             style={sidebarCardStyle}
           >
             <div className="mb-6 flex items-center justify-between lg:hidden">
-              <img src={logoCompleto} alt="Área Mais" className="h-9 w-auto max-w-[160px] object-contain" />
+              <img src={logoCompleto} alt="Área Mais" className="h-11 w-auto max-w-[200px] object-contain" />
               <button
                 onClick={() => setMobileOpen(false)}
                 className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
@@ -144,14 +144,11 @@ export default function AdminShell({ children }: AdminShellProps) {
 
             <div className="hidden lg:block">
               <div className="rounded-[24px] border border-white/70 bg-white/75 p-4 shadow-sm">
-                <img src={logoCompleto} alt="Área Mais" className="h-10 w-auto max-w-[180px] object-contain" />
+                <img src={logoCompleto} alt="Área Mais" className="h-14 w-auto max-w-[220px] object-contain" />
                 <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
                   <Sparkles className="h-4 w-4 text-purple" />
                   Painel administrativo
                 </div>
-                <p className="mt-2 text-sm text-gray-600">
-                  Inscrições, pagamentos e lotes com foco em operação.
-                </p>
               </div>
             </div>
 

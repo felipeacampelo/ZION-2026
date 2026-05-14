@@ -70,7 +70,6 @@ type OverdueSummaryResponse = {
 
 const brandPurple = 'rgb(165, 44, 240)';
 const brandPurpleSoft = 'rgba(165, 44, 240, 0.08)';
-const brandLime = 'rgb(220, 253, 97)';
 const brandLimeSoft = 'rgba(220, 253, 97, 0.34)';
 
 const parseLocalDate = (value: string) => {
@@ -169,7 +168,7 @@ export default function AdminDashboard() {
   const overdueTotalAmount = Number(overdueSummary.total_overdue_amount || 0);
 
   const totalMembers = stats
-    ? stats.members.yes + stats.members.no + stats.members.unknown
+    ? stats.members.yes + stats.members.no
     : 0;
   const limitedBatches = stats ? stats.batches.filter((batch) => batch.max_enrollments) : [];
   const occupancyAverage =
@@ -224,7 +223,7 @@ export default function AdminDashboard() {
               </p>
 
               {stats && (
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
                       Ritmo semanal
@@ -251,17 +250,23 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <div className="rounded-[24px] bg-slate-950 px-5 py-4 text-white shadow-[0_22px_50px_rgba(15,23,42,0.18)]">
+              <div
+                className="rounded-[24px] border px-5 py-4 shadow-sm"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(165, 44, 240, 0.12) 0%, rgba(255,255,255,0.98) 100%)',
+                  borderColor: 'rgba(165, 44, 240, 0.12)',
+                }}
+              >
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-white/72">Receita líquida</p>
-                  <TrendingUp className="h-5 w-5" style={{ color: brandLime }} />
+                  <p className="text-sm font-medium text-gray-700">Receita líquida</p>
+                  <TrendingUp className="h-5 w-5" style={{ color: brandPurple }} />
                 </div>
-                <p className="mt-4 text-3xl font-bold lg:text-[2rem]">
+                <p className="mt-4 text-3xl font-bold text-gray-950 lg:text-[2rem]">
                   R$ {stats ? formatCurrency(stats.revenue.net) : '0,00'}
                 </p>
-                <div className="mt-4 flex items-center justify-between rounded-2xl bg-white/10 px-3 py-2 text-sm">
-                  <span className="text-white/72">Taxas descontadas</span>
-                  <span style={{ color: brandLime }}>- R$ {stats ? formatCurrency(stats.revenue.fees) : '0,00'}</span>
+                <div className="mt-4 flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2 text-sm">
+                  <span className="text-gray-600">Taxas descontadas</span>
+                  <span className="font-semibold text-purple">- R$ {stats ? formatCurrency(stats.revenue.fees) : '0,00'}</span>
                 </div>
               </div>
               <div className="rounded-[24px] border border-amber-100 bg-amber-50 px-5 py-4 shadow-sm">
@@ -419,7 +424,7 @@ export default function AdminDashboard() {
                 </button>
 
                 {showOverduePayments && (
-                  <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                  <div className="mt-5 grid gap-4 2xl:grid-cols-2">
                     {overdueEnrollments.length === 0 ? (
                       <div className="rounded-[24px] border border-dashed border-green-200 bg-green-50 px-5 py-8 text-green-800 xl:col-span-2">
                         Nenhum pagamento está em atraso no momento.
@@ -430,21 +435,21 @@ export default function AdminDashboard() {
                         return (
                           <article
                             key={item.id}
-                            className="rounded-[24px] border border-red-100 bg-red-50/60 p-5"
+                            className="min-w-0 rounded-[24px] border border-red-100 bg-red-50/60 p-4 lg:p-5"
                           >
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                               <div className="min-w-0">
-                                <p className="truncate text-lg font-semibold text-gray-950">{name}</p>
-                                <p className="text-sm text-gray-600">
+                                <p className="break-words text-base font-semibold text-gray-950 lg:text-lg">{name}</p>
+                                <p className="break-all text-sm text-gray-600">
                                   {item.user_email} • {item.product?.name || item.product_name || 'Produto'}
                                 </p>
-                                <p className="mt-1 text-sm text-gray-600">
+                                <p className="mt-1 break-words text-sm text-gray-600">
                                   Lote: {item.batch?.name || item.batch_name || 'N/A'}
                                 </p>
                               </div>
                               <button
                                 onClick={() => setSelectedEnrollment(item)}
-                                className="rounded-2xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                                className="w-full rounded-2xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:w-auto"
                                 style={{ backgroundColor: brandPurple }}
                               >
                                 Ver inscrição
@@ -456,13 +461,13 @@ export default function AdminDashboard() {
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
                                   Parcelas
                                 </p>
-                                <p className="mt-2 text-lg font-bold text-gray-950">{item.overdue_payments_count}</p>
+                                <p className="mt-2 break-words text-base font-bold text-gray-950 lg:text-lg">{item.overdue_payments_count}</p>
                               </div>
                               <div className="rounded-2xl border border-white bg-white px-3 py-3">
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
                                   Total
                                 </p>
-                                <p className="mt-2 text-lg font-bold text-gray-950">
+                                <p className="mt-2 break-words text-base font-bold text-gray-950 lg:text-lg">
                                   R$ {formatCurrency(Number(item.total_overdue_amount || 0))}
                                 </p>
                               </div>
@@ -470,7 +475,7 @@ export default function AdminDashboard() {
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">
                                   Mais antiga
                                 </p>
-                                <p className="mt-2 text-lg font-bold text-gray-950">
+                                <p className="mt-2 break-words text-base font-bold text-gray-950 lg:text-lg">
                                   {item.oldest_due_date
                                     ? parseLocalDate(item.oldest_due_date).toLocaleDateString('pt-BR')
                                     : '-'}
@@ -492,8 +497,8 @@ export default function AdminDashboard() {
                                       Venceu em {parseLocalDate(payment.due_date).toLocaleDateString('pt-BR')}
                                     </p>
                                   </div>
-                                  <div className="text-left sm:text-right">
-                                    <p className="font-semibold text-gray-950">R$ {payment.amount}</p>
+                                  <div className="min-w-0 text-left sm:text-right">
+                                    <p className="break-words font-semibold text-gray-950">R$ {payment.amount}</p>
                                     <p className="text-sm text-red-700">
                                       {payment.days_overdue} {payment.days_overdue === 1 ? 'dia' : 'dias'} em atraso
                                     </p>
@@ -530,7 +535,6 @@ export default function AdminDashboard() {
                     {[
                       { label: 'Membros', value: stats.members.yes, color: brandPurple },
                       { label: 'Não membros', value: stats.members.no, color: '#111827' },
-                      { label: 'Sem resposta', value: stats.members.unknown, color: '#94a3b8' },
                     ].map((item) => {
                       const width = totalMembers > 0 ? (item.value / totalMembers) * 100 : 0;
                       return (
