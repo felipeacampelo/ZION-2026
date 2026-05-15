@@ -172,10 +172,6 @@ export default function AdminDashboard() {
   const totalMembers = stats
     ? stats.members.yes + stats.members.no
     : 0;
-  const averageTicket =
-    stats && stats.payments.confirmed > 0
-      ? stats.revenue.total / stats.payments.confirmed
-      : 0;
   const confirmedRate =
     stats && stats.enrollments.total > 0
       ? Math.round((stats.enrollments.confirmed / stats.enrollments.total) * 100)
@@ -235,22 +231,27 @@ export default function AdminDashboard() {
                     <p className="mt-2 text-2xl font-bold text-gray-950">{confirmedRate}%</p>
                     <p className="text-sm text-gray-600">inscrições já confirmadas</p>
                   </div>
-                  <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                      Ticket médio
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-900">
+                        Em aberto
+                      </p>
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <p className="mt-2 text-2xl font-bold text-amber-700">
+                      R$ {stats ? formatCurrency(stats.revenue.pending) : '0,00'}
                     </p>
-                    <p className="mt-2 text-2xl font-bold text-gray-950">
-                      R$ {formatCurrency(averageTicket)}
+                    <p className="text-sm text-amber-900/80">
+                      Vencido: R$ {stats ? formatCurrency(stats.revenue.overdue) : '0,00'}
                     </p>
-                    <p className="text-sm text-gray-600">por pagamento confirmado</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="flex">
               <div
-                className="rounded-[24px] border px-5 py-4 shadow-sm"
+                className="w-full rounded-[24px] border px-5 py-4 shadow-sm"
                 style={{
                   background: 'linear-gradient(135deg, rgba(165, 44, 240, 0.12) 0%, rgba(255,255,255,0.98) 100%)',
                   borderColor: 'rgba(165, 44, 240, 0.12)',
@@ -267,18 +268,6 @@ export default function AdminDashboard() {
                   <span className="text-gray-600">Taxas descontadas</span>
                   <span className="font-semibold text-purple">- R$ {stats ? formatCurrency(stats.revenue.fees) : '0,00'}</span>
                 </div>
-              </div>
-              <div className="rounded-[24px] border border-amber-100 bg-amber-50 px-5 py-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-amber-900">Em aberto</p>
-                  <AlertTriangle className="h-5 w-5 text-amber-600" />
-                </div>
-                <p className="mt-4 text-2xl font-bold text-amber-700">
-                  R$ {stats ? formatCurrency(stats.revenue.pending) : '0,00'}
-                </p>
-                <p className="mt-2 text-sm text-amber-900/80">
-                  Vencido: R$ {stats ? formatCurrency(stats.revenue.overdue) : '0,00'}
-                </p>
               </div>
             </div>
           </div>
