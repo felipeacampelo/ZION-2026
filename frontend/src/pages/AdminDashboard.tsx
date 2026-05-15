@@ -216,20 +216,6 @@ export default function AdminDashboard() {
 
               {stats && (
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-900">
-                        Em aberto
-                      </p>
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    </div>
-                    <p className="mt-2 text-2xl font-bold text-amber-700">
-                      R$ {stats ? formatCurrency(stats.revenue.pending) : '0,00'}
-                    </p>
-                    <p className="text-sm text-amber-900/80">
-                      Vencido: R$ {stats ? formatCurrency(stats.revenue.overdue) : '0,00'}
-                    </p>
-                  </div>
                   <div
                     className="rounded-2xl border px-4 py-3 shadow-sm"
                     style={{
@@ -248,6 +234,20 @@ export default function AdminDashboard() {
                     </p>
                     <p className="text-sm text-gray-600">
                       Taxas: - R$ {stats ? formatCurrency(stats.revenue.fees) : '0,00'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-900">
+                        Em aberto
+                      </p>
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <p className="mt-2 text-2xl font-bold text-amber-700">
+                      R$ {stats ? formatCurrency(stats.revenue.pending) : '0,00'}
+                    </p>
+                    <p className="text-sm text-amber-900/80">
+                      Vencido: R$ {stats ? formatCurrency(stats.revenue.overdue) : '0,00'}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
