@@ -15,7 +15,6 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import logoCompleto from '../assets/logo-completo.svg';
 
 interface AdminShellProps {
   children: ReactNode;
@@ -88,7 +87,9 @@ export default function AdminShell({ children }: AdminShellProps) {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <img src={logoCompleto} alt="Área Mais" className="h-9 w-auto max-w-[170px] object-contain" />
+            <span className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-900">
+              Administrativo
+            </span>
           </div>
           <button
             onClick={() => navigate('/')}
@@ -116,7 +117,9 @@ export default function AdminShell({ children }: AdminShellProps) {
         >
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-5">
-              <img src={logoCompleto} alt="Área Mais" className="h-12 w-auto max-w-[190px] object-contain" />
+              <span className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-900">
+                Administrativo
+              </span>
               <button
                 onClick={() => setMobileOpen(false)}
                 className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 lg:hidden"

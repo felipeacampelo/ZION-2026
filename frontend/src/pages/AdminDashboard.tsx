@@ -203,8 +203,7 @@ export default function AdminDashboard() {
               'linear-gradient(135deg, rgba(165, 44, 240, 0.08) 0%, rgba(255,255,255,0.96) 42%, rgba(220,253,97,0.18) 100%)',
           }}
         >
-          <div className="grid gap-5 xl:grid-cols-[1.2fr_0.95fr] xl:items-start">
-            <div>
+          <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-600">
                 Visão geral
               </div>
@@ -216,7 +215,7 @@ export default function AdminDashboard() {
               </p>
 
               {stats && (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
                       Ritmo semanal
@@ -245,31 +244,28 @@ export default function AdminDashboard() {
                       Vencido: R$ {stats ? formatCurrency(stats.revenue.overdue) : '0,00'}
                     </p>
                   </div>
+                  <div
+                    className="rounded-2xl border px-4 py-3 shadow-sm"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(165, 44, 240, 0.12) 0%, rgba(255,255,255,0.98) 100%)',
+                      borderColor: 'rgba(165, 44, 240, 0.12)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-700">
+                        Receita líquida
+                      </p>
+                      <TrendingUp className="h-4 w-4" style={{ color: brandPurple }} />
+                    </div>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">
+                      R$ {stats ? formatCurrency(stats.revenue.net) : '0,00'}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Taxas: - R$ {stats ? formatCurrency(stats.revenue.fees) : '0,00'}
+                    </p>
+                  </div>
                 </div>
               )}
-            </div>
-
-            <div className="flex">
-              <div
-                className="w-full rounded-[24px] border px-5 py-4 shadow-sm"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(165, 44, 240, 0.12) 0%, rgba(255,255,255,0.98) 100%)',
-                  borderColor: 'rgba(165, 44, 240, 0.12)',
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700">Receita líquida</p>
-                  <TrendingUp className="h-5 w-5" style={{ color: brandPurple }} />
-                </div>
-                <p className="mt-4 text-3xl font-bold text-gray-950 lg:text-[2rem]">
-                  R$ {stats ? formatCurrency(stats.revenue.net) : '0,00'}
-                </p>
-                <div className="mt-4 flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2 text-sm">
-                  <span className="text-gray-600">Taxas descontadas</span>
-                  <span className="font-semibold text-purple">- R$ {stats ? formatCurrency(stats.revenue.fees) : '0,00'}</span>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
