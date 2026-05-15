@@ -216,20 +216,6 @@ export default function AdminDashboard() {
 
               {stats && (
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                      Ritmo semanal
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-gray-950">+{stats.enrollments.recent}</p>
-                    <p className="text-sm text-gray-600">novas inscrições na semana</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                      Conversão
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-gray-950">{confirmedRate}%</p>
-                    <p className="text-sm text-gray-600">inscrições já confirmadas</p>
-                  </div>
                   <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 shadow-sm">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-900">
@@ -263,6 +249,20 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-600">
                       Taxas: - R$ {stats ? formatCurrency(stats.revenue.fees) : '0,00'}
                     </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                      Ritmo semanal
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">+{stats.enrollments.recent}</p>
+                    <p className="text-sm text-gray-600">novas inscrições na semana</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                      Conversão
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">{confirmedRate}%</p>
+                    <p className="text-sm text-gray-600">inscrições já confirmadas</p>
                   </div>
                 </div>
               )}
