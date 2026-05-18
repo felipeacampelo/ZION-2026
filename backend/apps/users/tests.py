@@ -109,6 +109,8 @@ class AdminSettingsTests(APITestCase):
         response = self.client.get(reverse('users:admin-settings'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('enrollment_start_at', response.data)
+        self.assertIn('enrollment_end_at', response.data)
         self.assertIn('max_installments', response.data)
         self.assertIn('enable_pix_cash', response.data)
         self.assertIn('enable_pix_installment', response.data)

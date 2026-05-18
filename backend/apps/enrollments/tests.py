@@ -90,12 +90,80 @@ class EnrollmentSecurityTests(APITestCase):
         response = self.client.get(reverse('enrollments:get-settings'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('enrollment_start_at', response.data)
+        self.assertIn('enrollment_end_at', response.data)
         self.assertEqual(response.data['max_installments'], 4)
         self.assertFalse(response.data['enable_pix_cash'])
         self.assertFalse(response.data['enable_pix_installment'])
         self.assertFalse(response.data['enable_credit_card'])
         self.assertFalse(response.data['enable_shirt_size_field'])
         self.assertIn('form_fields_config', response.data)
+
+    @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
+    def test_create_enrollment_rejects_before_start_window(self, mock_send_email):
+        settings = Settings.get_settings()
+        settings.enrollment_start_at = timezone.now() + timedelta(days=1)
+        settings.enrollment_end_at = timezone.now() + timedelta(days=2)
+        settings.save()
+
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': {
+                    'email': self.user.email,
+                    'nome_completo': 'Participant User',
+                    'telefone': '(11) 99999-0000',
+                    'data_nascimento': '2000-01-01',
+                    'cpf': '123.456.789-00',
+                    'rg': '12.345.678-9',
+                    'cep': '01000-000',
+                    'tamanho_camiseta': 'G',
+                    'membro_batista_capital': 'sim',
+                    'lider_pg': 'Não tenho PG',
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Inscrições iniciam em', response.data['detail'])
+
+    @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
+    def test_create_enrollment_rejects_after_end_window(self, mock_send_email):
+        settings = Settings.get_settings()
+        settings.enrollment_start_at = timezone.now() - timedelta(days=2)
+        settings.enrollment_end_at = timezone.now() - timedelta(hours=1)
+        settings.save()
+
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': {
+                    'email': self.user.email,
+                    'nome_completo': 'Participant User',
+                    'telefone': '(11) 99999-0000',
+                    'data_nascimento': '2000-01-01',
+                    'cpf': '123.456.789-00',
+                    'rg': '12.345.678-9',
+                    'cep': '01000-000',
+                    'tamanho_camiseta': 'G',
+                    'membro_batista_capital': 'sim',
+                    'lider_pg': 'Não tenho PG',
+                },
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['detail'], 'Inscrições encerradas.')
 
     @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
     def test_create_enrollment_ignores_shirt_size_when_disabled(self, mock_send_email):

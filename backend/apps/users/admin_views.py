@@ -26,6 +26,8 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = AppSettings
         fields = [
+            'enrollment_start_at',
+            'enrollment_end_at',
             'max_installments',
             'max_installments_with_coupon',
             'enable_pix_cash',
@@ -43,6 +45,14 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
         return data
 
     def validate(self, attrs):
+        start_at = attrs.get('enrollment_start_at', self.instance.enrollment_start_at if self.instance else None)
+        end_at = attrs.get('enrollment_end_at', self.instance.enrollment_end_at if self.instance else None)
+
+        if start_at and end_at and end_at < start_at:
+            raise serializers.ValidationError({
+                'enrollment_end_at': 'A data final deve ser posterior à data de início.'
+            })
+
         enable_pix_cash = attrs.get('enable_pix_cash', self.instance.enable_pix_cash if self.instance else True)
         enable_pix_installment = attrs.get('enable_pix_installment', self.instance.enable_pix_installment if self.instance else True)
         enable_credit_card = attrs.get('enable_credit_card', self.instance.enable_credit_card if self.instance else True)

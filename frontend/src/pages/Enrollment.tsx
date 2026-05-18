@@ -19,6 +19,8 @@ export default function Enrollment() {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponError, setCouponError] = useState('');
   const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [enrollmentStartAt, setEnrollmentStartAt] = useState<string | null>(null);
+  const [enrollmentEndAt, setEnrollmentEndAt] = useState<string | null>(null);
   
   // Refund policy modal
   const [showRefundModal, setShowRefundModal] = useState(false);
@@ -58,6 +60,8 @@ export default function Enrollment() {
     try {
       const response = await getSettings();
       setFormFieldsConfig(response.data.form_fields_config);
+      setEnrollmentStartAt(response.data.enrollment_start_at);
+      setEnrollmentEndAt(response.data.enrollment_end_at);
     } catch (err) {
       console.error('Erro ao carregar configurações do formulário:', err);
     }
@@ -157,6 +161,20 @@ export default function Enrollment() {
       return;
     }
 
+    const now = new Date();
+    const startAt = enrollmentStartAt ? new Date(enrollmentStartAt) : null;
+    const endAt = enrollmentEndAt ? new Date(enrollmentEndAt) : null;
+    if (startAt && now < startAt) {
+      setError(`Inscrições iniciam em ${startAt.toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })}.`);
+      setLoading(false);
+      return;
+    }
+    if (endAt && now > endAt) {
+      setError('Inscrições encerradas.');
+      setLoading(false);
+      return;
+    }
+
     // Validate age (block anyone born in 2010 or later)
     if (formData.data_nascimento) {
       const birthDate = new Date(formData.data_nascimento);
@@ -229,6 +247,34 @@ export default function Enrollment() {
       setLoading(false);
     }
   };
+
+  const enrollmentWindowState = (() => {
+    const now = new Date();
+    const startAt = enrollmentStartAt ? new Date(enrollmentStartAt) : null;
+    const endAt = enrollmentEndAt ? new Date(enrollmentEndAt) : null;
+
+    if (startAt && now < startAt) {
+      return 'not_started';
+    }
+
+    if (endAt && now > endAt) {
+      return 'closed';
+    }
+
+    return 'open';
+  })();
+
+  const enrollmentWindowMessage = (() => {
+    if (enrollmentWindowState === 'not_started' && enrollmentStartAt) {
+      return `As inscrições começam em ${new Date(enrollmentStartAt).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })}.`;
+    }
+
+    if (enrollmentWindowState === 'closed') {
+      return 'Inscrições encerradas.';
+    }
+
+    return '';
+  })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,6 +364,34 @@ export default function Enrollment() {
                 Voltar para Início
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (enrollmentWindowState !== 'open') {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center mb-8 font-medium transition-colors"
+            style={{ color: 'rgb(165, 44, 240)' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+          >
+            <ArrowLeft className="w-5 h-5 mr-2" style={{ color: 'inherit' }} />
+            Voltar
+          </button>
+
+          <div className="bg-white rounded-xl shadow-lg p-8 mt-8 text-center">
+            <h1 className="text-3xl font-bold mb-3">
+              {enrollmentWindowState === 'not_started' ? 'Inscrições em breve' : 'Inscrições encerradas'}
+            </h1>
+            <p className="text-lg text-gray-600">
+              {enrollmentWindowMessage || 'Não há inscrições disponíveis neste momento.'}
+            </p>
           </div>
         </div>
       </div>

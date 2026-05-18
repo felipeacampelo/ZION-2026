@@ -3,10 +3,35 @@ import { Loader2, Save } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import { getAdminSettings, updateAdminSettings, type AppSettings } from '../services/api';
 
-type PaymentSettingsForm = Pick<AppSettings, 'max_installments' | 'enable_pix_cash' | 'enable_pix_installment' | 'enable_credit_card'>;
+type PaymentSettingsForm = Pick<
+  AppSettings,
+  | 'enrollment_start_at'
+  | 'enrollment_end_at'
+  | 'max_installments'
+  | 'enable_pix_cash'
+  | 'enable_pix_installment'
+  | 'enable_credit_card'
+>;
+
+const toDateTimeLocal = (value: string | null) => {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  const pad = (input: number) => String(input).padStart(2, '0');
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 export default function AdminPaymentSettings() {
   const [formData, setFormData] = useState<PaymentSettingsForm>({
+    enrollment_start_at: null,
+    enrollment_end_at: null,
     max_installments: 6,
     enable_pix_cash: true,
     enable_pix_installment: true,
@@ -22,6 +47,8 @@ export default function AdminPaymentSettings() {
       try {
         const response = await getAdminSettings();
         setFormData({
+          enrollment_start_at: response.data.enrollment_start_at ? toDateTimeLocal(response.data.enrollment_start_at) : null,
+          enrollment_end_at: response.data.enrollment_end_at ? toDateTimeLocal(response.data.enrollment_end_at) : null,
           max_installments: response.data.max_installments,
           enable_pix_cash: response.data.enable_pix_cash,
           enable_pix_installment: response.data.enable_pix_installment,
@@ -44,8 +71,15 @@ export default function AdminPaymentSettings() {
     setSuccess('');
 
     try {
-      const response = await updateAdminSettings(formData);
+      const payload = {
+        ...formData,
+        enrollment_start_at: formData.enrollment_start_at ? new Date(formData.enrollment_start_at).toISOString() : null,
+        enrollment_end_at: formData.enrollment_end_at ? new Date(formData.enrollment_end_at).toISOString() : null,
+      };
+      const response = await updateAdminSettings(payload);
       setFormData({
+        enrollment_start_at: response.data.enrollment_start_at ? toDateTimeLocal(response.data.enrollment_start_at) : null,
+        enrollment_end_at: response.data.enrollment_end_at ? toDateTimeLocal(response.data.enrollment_end_at) : null,
         max_installments: response.data.max_installments,
         enable_pix_cash: response.data.enable_pix_cash,
         enable_pix_installment: response.data.enable_pix_installment,
@@ -161,6 +195,46 @@ export default function AdminPaymentSettings() {
                   className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
                 />
                 <p className="mt-2 text-sm text-gray-500">Valor entre 1 e 12, igual ao controle operacional já existente no Django Admin.</p>
+              </div>
+
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                <h3 className="text-lg font-semibold text-gray-900">Inscrições</h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  Defina a janela em que a homepage mostra os cards de pagamento e libera novas inscrições.
+                  Se os campos ficarem vazios, as inscrições permanecem abertas.
+                </p>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Início das inscrições</label>
+                    <input
+                      type="datetime-local"
+                      value={formData.enrollment_start_at ?? ''}
+                      onChange={(e) =>
+                        setFormData((current) => ({
+                          ...current,
+                          enrollment_start_at: e.target.value || null,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Fim das inscrições</label>
+                    <input
+                      type="datetime-local"
+                      value={formData.enrollment_end_at ?? ''}
+                      onChange={(e) =>
+                        setFormData((current) => ({
+                          ...current,
+                          enrollment_end_at: e.target.value || null,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end border-t border-gray-200 pt-6">

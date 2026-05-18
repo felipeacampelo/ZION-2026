@@ -135,6 +135,13 @@ class EnrollmentCreateSerializer(serializers.Serializer):
 
         data['form_data'] = form_data
 
+        settings = Settings.get_settings()
+        enrollment_window_status = settings.get_enrollment_window_status()
+        if enrollment_window_status != 'open':
+            raise serializers.ValidationError({
+                'detail': settings.get_enrollment_window_message()
+            })
+
         data_nascimento = form_data.get('data_nascimento')
         
         if data_nascimento:

@@ -196,6 +196,8 @@ def get_settings(request):
     """Get global application settings."""
     settings = Settings.get_settings()
     return Response({
+        'enrollment_start_at': settings.enrollment_start_at,
+        'enrollment_end_at': settings.enrollment_end_at,
         'max_installments': settings.max_installments,
         'max_installments_with_coupon': settings.max_installments_with_coupon,
         'enable_pix_cash': settings.enable_pix_cash,

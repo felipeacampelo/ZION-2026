@@ -401,6 +401,20 @@ class Settings(models.Model):
     """
     Global settings for the application.
     """
+    enrollment_start_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Início das Inscrições',
+        help_text='Se definido, impede novas inscrições antes desta data e hora'
+    )
+
+    enrollment_end_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Fim das Inscrições',
+        help_text='Se definido, encerra novas inscrições após esta data e hora'
+    )
+
     enable_pix_cash = models.BooleanField(
         default=True,
         verbose_name='Permitir PIX à Vista',
@@ -460,6 +474,31 @@ class Settings(models.Model):
     
     def __str__(self):
         return 'Configurações Globais'
+
+    def get_enrollment_window_status(self, now=None):
+        """Return the current enrollment window status."""
+        now = now or timezone.now()
+
+        if self.enrollment_start_at and now < self.enrollment_start_at:
+            return 'not_started'
+
+        if self.enrollment_end_at and now > self.enrollment_end_at:
+            return 'closed'
+
+        return 'open'
+
+    def get_enrollment_window_message(self, now=None):
+        """Return a human-friendly enrollment window message."""
+        status = self.get_enrollment_window_status(now)
+
+        if status == 'not_started' and self.enrollment_start_at:
+            start_at = timezone.localtime(self.enrollment_start_at)
+            return f'Inscrições iniciam em {start_at.strftime("%d/%m/%Y às %H:%M")}.'
+
+        if status == 'closed':
+            return 'Inscrições encerradas.'
+
+        return ''
 
     def get_form_fields_config(self):
         """Return form field configuration merged with defaults."""

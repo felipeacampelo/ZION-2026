@@ -361,6 +361,8 @@ export const deleteAdminCoupon = (id: number) =>
 
 // Settings endpoints
 export interface AppSettings {
+  enrollment_start_at: string | null;
+  enrollment_end_at: string | null;
   max_installments: number;
   max_installments_with_coupon: number;
   enable_pix_cash: boolean;

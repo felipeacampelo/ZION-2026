@@ -10,6 +10,8 @@ export default function Home() {
   const { isAuthenticated, user, logout, isAdmin } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [eventDate, setEventDate] = useState<Date | null>(null);
+  const [enrollmentStartAt, setEnrollmentStartAt] = useState<string | null>(null);
+  const [enrollmentEndAt, setEnrollmentEndAt] = useState<string | null>(null);
   const [maxInstallments, setMaxInstallments] = useState(6);
   const [enablePixCash, setEnablePixCash] = useState(true);
   const [enablePixInstallment, setEnablePixInstallment] = useState(true);
@@ -44,6 +46,8 @@ export default function Home() {
   const loadSettings = async () => {
     try {
       const response = await getSettings();
+      setEnrollmentStartAt(response.data.enrollment_start_at);
+      setEnrollmentEndAt(response.data.enrollment_end_at);
       setMaxInstallments(response.data.max_installments);
       setEnablePixCash(response.data.enable_pix_cash);
       setEnablePixInstallment(response.data.enable_pix_installment);
@@ -70,6 +74,25 @@ export default function Home() {
     : 1100;
   const pixInstallmentValue = (pixInstallmentPrice / maxInstallments).toFixed(2);
   const creditCardInstallmentValue = (creditCardPrice / maxInstallments).toFixed(2);
+  const enrollmentWindowStart = enrollmentStartAt ? new Date(enrollmentStartAt) : null;
+  const enrollmentWindowEnd = enrollmentEndAt ? new Date(enrollmentEndAt) : null;
+  const now = new Date();
+  const enrollmentWindowStatus = enrollmentWindowStart && now < enrollmentWindowStart
+    ? 'not_started'
+    : enrollmentWindowEnd && now > enrollmentWindowEnd
+      ? 'closed'
+      : 'open';
+
+  const formatEnrollmentWindowDate = (value: string | null) => {
+    if (!value) {
+      return '';
+    }
+
+    return new Date(value).toLocaleString('pt-BR', {
+      dateStyle: 'long',
+      timeStyle: 'short',
+    });
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -289,65 +312,84 @@ export default function Home() {
               Valores e Inscrição
             </h2>
             <p className="text-lg text-gray-600">
-              Escolha a melhor forma de pagamento para você
+              {enrollmentWindowStatus === 'open'
+                ? 'Escolha a melhor forma de pagamento para você'
+                : enrollmentWindowStatus === 'not_started'
+                  ? 'As inscrições ainda não começaram'
+                  : 'As inscrições foram encerradas'}
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {enablePixCash && (
-              <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-                <div className="text-center">
-                  <div className="inline-block px-4 py-1 rounded-full text-sm font-semibold mb-4" style={{ backgroundColor: 'rgb(220, 253, 97)', color: '#000000' }}>
-                    Melhor Preço
+          {enrollmentWindowStatus === 'open' ? (
+            <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {enablePixCash && (
+                <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
+                  <div className="text-center">
+                    <div className="inline-block px-4 py-1 rounded-full text-sm font-semibold mb-4" style={{ backgroundColor: 'rgb(220, 253, 97)', color: '#000000' }}>
+                      Melhor Preço
+                    </div>
+                    <h3 className="text-2xl font-bold mb-2">PIX à Vista</h3>
+                    <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+                      R$ {pixCashPrice.toFixed(2)}
+                    </div>
+                    <p className="text-gray-600 mb-6">Pagamento único via PIX</p>
+                    <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
+                      Inscrever-se
+                    </button>
                   </div>
-                  <h3 className="text-2xl font-bold mb-2">PIX à Vista</h3>
-                  <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                    R$ {pixCashPrice.toFixed(2)}
-                  </div>
-                  <p className="text-gray-600 mb-6">Pagamento único via PIX</p>
-                  <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                    Inscrever-se
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {enablePixInstallment && (
-              <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold mb-2">PIX Parcelado</h3>
-                  <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                    R$ {pixInstallmentPrice.toFixed(2)}
+              {enablePixInstallment && (
+                <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold mb-2">PIX Parcelado</h3>
+                    <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+                      R$ {pixInstallmentPrice.toFixed(2)}
+                    </div>
+                    <p className="text-gray-600 mb-6">
+                      Até {maxInstallments}x de R$ {pixInstallmentValue}<br/>
+                      via PIX
+                    </p>
+                    <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
+                      Inscrever-se
+                    </button>
                   </div>
-                  <p className="text-gray-600 mb-6">
-                    Até {maxInstallments}x de R$ {pixInstallmentValue}<br/>
-                    via PIX
-                  </p>
-                  <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                    Inscrever-se
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {enableCreditCard && (
-              <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-                <div className="text-center">
-                  <h3 className="text-2xl font-bold mb-2">Cartão de Crédito</h3>
-                  <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                    R$ {creditCardPrice.toFixed(2)}
+              {enableCreditCard && (
+                <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold mb-2">Cartão de Crédito</h3>
+                    <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+                      R$ {creditCardPrice.toFixed(2)}
+                    </div>
+                    <p className="text-gray-600 mb-6">
+                      Até {maxInstallments}x de R$ {creditCardInstallmentValue}<br/>
+                      no cartão
+                    </p>
+                    <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
+                      Inscrever-se
+                    </button>
                   </div>
-                  <p className="text-gray-600 mb-6">
-                    Até {maxInstallments}x de R$ {creditCardInstallmentValue}<br/>
-                    no cartão
-                  </p>
-                  <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                    Inscrever-se
-                  </button>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-gray-50 px-6 py-14 text-center shadow-sm">
+              <p className="text-2xl md:text-3xl font-bold text-gray-950">
+                {enrollmentWindowStatus === 'not_started'
+                  ? 'Inscrições iniciam em breve'
+                  : 'Inscrições encerradas'}
+              </p>
+              <p className="mt-4 text-lg text-gray-600">
+                {enrollmentWindowStatus === 'not_started'
+                  ? `As inscrições começam em ${formatEnrollmentWindowDate(enrollmentStartAt)}.`
+                  : 'Não há vagas ou período de inscrição disponível no momento.'}
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
