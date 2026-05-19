@@ -519,11 +519,14 @@ def get_campaign_recipients_queryset(filters):
 
     queryset = Enrollment.objects.select_related('product', 'batch', 'user').order_by('-created_at')
 
+    enrollment_ids = filters.get('enrollment_ids') or []
     status_filter = filters.get('status')
     product_filter = filters.get('product')
     payment_method_filter = filters.get('payment_method')
     search = (filters.get('search') or '').strip()
 
+    if enrollment_ids:
+        queryset = queryset.filter(id__in=enrollment_ids)
     if status_filter:
         queryset = queryset.filter(status=status_filter)
     if product_filter:

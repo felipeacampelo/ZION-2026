@@ -189,6 +189,7 @@ export interface EmailCampaign {
     status?: string;
     payment_method?: string;
     search?: string;
+    enrollment_ids?: number[];
   };
   status: 'DRAFT' | 'SENDING' | 'SENT' | 'FAILED' | 'PARTIAL';
   recipient_count: number;
@@ -311,9 +312,16 @@ export const getAdminEnrollments = (params?: {
   product?: number;
   search?: string;
   payment_method?: string;
+  ids?: number[];
   page?: number;
   page_size?: number;
-}) => api.get<PaginatedResponse<Enrollment>>('/users/admin/enrollments/', { params });
+}) =>
+  api.get<PaginatedResponse<Enrollment>>('/users/admin/enrollments/', {
+    params: {
+      ...params,
+      ids: params?.ids?.join(','),
+    },
+  });
 
 export const getAdminOverdueEnrollments = () =>
   api.get<{
@@ -421,6 +429,7 @@ export const previewAdminEmailCampaignRecipientsByFilters = (filters: {
   status?: string;
   payment_method?: string;
   search?: string;
+  enrollment_ids?: number[];
 }) =>
   api.post<{
     count: number;
@@ -440,6 +449,7 @@ export const sendAdminEmailCampaignDraftTest = (data: {
     status?: string;
     payment_method?: string;
     search?: string;
+    enrollment_ids?: number[];
   };
 }) =>
   api.post('/users/admin/email-campaigns/send-test-draft/', data);

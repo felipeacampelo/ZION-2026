@@ -479,6 +479,35 @@ class AdminEmailTests(APITestCase):
         self.assertEqual(response.data['count'], 1)
         self.assertEqual(len(response.data['sample']), 1)
 
+    def test_campaign_preview_recipients_accepts_specific_enrollment_ids(self):
+        other_user = User.objects.create_user(
+            email='segundo@example.com',
+            password='password123',
+            first_name='Segundo',
+            last_name='Participante',
+        )
+        other_enrollment = Enrollment.objects.create(
+            user=other_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'nome_completo': 'Segundo Participante', 'email': 'segundo@example.com'},
+            status='PENDING_PAYMENT',
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            reverse('users:admin-email-campaigns-preview-recipients'),
+            {'enrollment_ids': [other_enrollment.id]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['sample'][0]['enrollment_id'], other_enrollment.id)
+
     @patch('apps.users.admin_email_views.start_campaign_send')
     def test_campaign_send_builds_snapshot_and_starts_async(self, mock_start_campaign_send):
         campaign = EmailCampaign.objects.create(

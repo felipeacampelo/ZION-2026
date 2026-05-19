@@ -104,8 +104,27 @@ class EmailCampaignSerializer(serializers.ModelSerializer):
         ]
 
     def validate_filters(self, value):
-        allowed = {'product', 'status', 'payment_method', 'search'}
-        return {key: item for key, item in (value or {}).items() if key in allowed and item not in (None, '')}
+        normalized = {}
+        value = value or {}
+
+        if value.get('product') not in (None, ''):
+            normalized['product'] = value['product']
+        if value.get('status') not in (None, ''):
+            normalized['status'] = value['status']
+        if value.get('payment_method') not in (None, ''):
+            normalized['payment_method'] = value['payment_method']
+        if value.get('search') not in (None, ''):
+            normalized['search'] = value['search']
+
+        enrollment_ids = value.get('enrollment_ids') or []
+        if enrollment_ids:
+            normalized['enrollment_ids'] = [
+                int(enrollment_id)
+                for enrollment_id in enrollment_ids
+                if str(enrollment_id).strip()
+            ]
+
+        return normalized
 
 
 class EmailCampaignListSerializer(serializers.ModelSerializer):
@@ -137,6 +156,11 @@ class EmailCampaignPreviewFiltersSerializer(serializers.Serializer):
     status = serializers.CharField(required=False)
     payment_method = serializers.CharField(required=False)
     search = serializers.CharField(required=False, allow_blank=True)
+    enrollment_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        allow_empty=True,
+    )
 
 
 class EmailCampaignDraftTestSerializer(EmailCampaignTestSerializer):
@@ -186,7 +210,7 @@ def _build_recipient_preview_payload(filters):
         if not email:
             continue
         total_seen.add(email)
-        if email in seen or len(sample) >= 10:
+        if email in seen:
             continue
         seen.add(email)
         sample.append({
