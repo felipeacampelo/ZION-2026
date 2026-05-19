@@ -108,6 +108,26 @@ class EmailCampaignSerializer(serializers.ModelSerializer):
         return {key: item for key, item in (value or {}).items() if key in allowed and item not in (None, '')}
 
 
+class EmailCampaignListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailCampaign
+        fields = [
+            'id',
+            'name',
+            'subject',
+            'filters',
+            'status',
+            'recipient_count',
+            'sent_count',
+            'failed_count',
+            'test_email',
+            'started_at',
+            'finished_at',
+            'created_at',
+            'updated_at',
+        ]
+
+
 class EmailCampaignTestSerializer(serializers.Serializer):
     to_email = serializers.EmailField()
 
@@ -243,13 +263,13 @@ def admin_email_template_send_test(request, key):
 def admin_email_campaigns(request):
     if request.method == 'GET':
         campaigns = EmailCampaign.objects.all().order_by('-created_at')
-        serializer = EmailCampaignSerializer(campaigns, many=True)
+        serializer = EmailCampaignListSerializer(campaigns, many=True)
         return Response(serializer.data)
 
     serializer = EmailCampaignSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save(created_by=request.user)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(EmailCampaignListSerializer(serializer.instance).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

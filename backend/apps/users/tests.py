@@ -429,6 +429,23 @@ class AdminEmailTests(APITestCase):
         self.assertEqual(EmailCampaign.objects.count(), 1)
         self.assertEqual(response.data['status'], 'DRAFT')
 
+    def test_admin_can_list_campaigns(self):
+        EmailCampaign.objects.create(
+            name='Campanha Listagem',
+            subject='Assunto',
+            html_content='<p>Teste</p>',
+            text_content='Teste',
+            filters={},
+            created_by=self.admin,
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(reverse('users:admin-email-campaigns'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Campanha Listagem')
+
     def test_campaign_preview_recipients_dedupes_emails(self):
         campaign = EmailCampaign.objects.create(
             name='Campanha Preview',

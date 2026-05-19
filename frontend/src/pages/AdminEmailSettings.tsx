@@ -87,27 +87,51 @@ export default function AdminEmailSettings() {
   } | null>(null);
 
   const loadData = async () => {
-    try {
-      const [templatesRes, campaignsRes, productsRes] = await Promise.all([
-        getAdminEmailTemplates(),
-        getAdminEmailCampaigns(),
-        getAdminProducts(),
-      ]);
+    setError('');
 
-      setTemplates(templatesRes.data);
-      setCampaigns(campaignsRes.data);
-      setProducts(productsRes.data);
+    const [templatesRes, campaignsRes, productsRes] = await Promise.allSettled([
+      getAdminEmailTemplates(),
+      getAdminEmailCampaigns(),
+      getAdminProducts(),
+    ]);
 
-      const initialTemplate = templatesRes.data.find((item) => item.key === selectedTemplateKey) || templatesRes.data[0] || null;
+    const loadErrors: string[] = [];
+
+    if (templatesRes.status === 'fulfilled') {
+      setTemplates(templatesRes.value.data);
+      const initialTemplate =
+        templatesRes.value.data.find((item) => item.key === selectedTemplateKey) ||
+        templatesRes.value.data[0] ||
+        null;
       if (initialTemplate) {
         setSelectedTemplateKey(initialTemplate.key);
         setTemplateForm(initialTemplate);
       }
-    } catch {
-      setError('Erro ao carregar configuração de emails.');
-    } finally {
-      setLoading(false);
+    } else {
+      loadErrors.push('templates');
     }
+
+    if (campaignsRes.status === 'fulfilled') {
+      setCampaigns(campaignsRes.value.data);
+    } else {
+      loadErrors.push('campanhas');
+    }
+
+    if (productsRes.status === 'fulfilled') {
+      setProducts(productsRes.value.data);
+    } else {
+      loadErrors.push('produtos');
+    }
+
+    if (loadErrors.length > 0) {
+      setError(`Erro ao carregar ${loadErrors.join(', ')} de emails.`);
+    }
+
+    if (loadErrors.length === 3) {
+      setError('Erro ao carregar configuração de emails.');
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
