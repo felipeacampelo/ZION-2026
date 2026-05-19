@@ -138,7 +138,7 @@ class EnrollmentAdmin(admin.ModelAdmin):
             'Data Nascimento', 'Tamanho Camiseta', 'Membro Batista Capital',
             'Igreja', 'Líder PG', 'Produto', 'Lote', 'Status',
             'Método Pagamento', 'Parcelas', 'Valor Total', 'Desconto',
-            'Valor Final', 'Data Inscrição', 'Data Pagamento'
+            'Valor Final', 'Observações', 'Data Inscrição', 'Data Pagamento'
         ])
         
         for enrollment in queryset:
@@ -163,6 +163,7 @@ class EnrollmentAdmin(admin.ModelAdmin):
                 enrollment.total_amount,
                 enrollment.discount_amount,
                 enrollment.final_amount,
+                form_data.get('observacoes', ''),
                 enrollment.created_at.strftime('%d/%m/%Y %H:%M'),
                 enrollment.paid_at.strftime('%d/%m/%Y %H:%M') if enrollment.paid_at else ''
             ])
