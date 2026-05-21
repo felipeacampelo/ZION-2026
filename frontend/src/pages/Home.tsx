@@ -231,6 +231,12 @@ export default function Home() {
                   <UserIcon className="w-4 h-4" />
                   {user?.first_name || user?.email}
                 </span>
+                <button
+                  onClick={() => navigate('/my-enrollments')}
+                  className="text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors bg-white text-dark-900 hover:bg-cream shadow-sm"
+                >
+                  Minhas inscrições
+                </button>
                 {isAdmin && (
                   <button
                     onClick={() => navigate('/admin')}
