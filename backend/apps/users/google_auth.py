@@ -55,16 +55,12 @@ def google_login(request):
     user, created = User.objects.get_or_create(
         email=email,
         defaults={
-            "username": email,
             "first_name": first_name,
             "last_name": last_name,
         },
     )
 
     updated_fields = []
-    if not user.username:
-        user.username = email
-        updated_fields.append("username")
     if not user.first_name and first_name:
         user.first_name = first_name
         updated_fields.append("first_name")
