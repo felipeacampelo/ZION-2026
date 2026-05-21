@@ -471,7 +471,6 @@ def admin_enrollments_list(request):
     product_filter = request.query_params.get('product')
     payment_method_filter = request.query_params.get('payment_method')
     search = request.query_params.get('search')
-<<<<<<< HEAD
     enrollment_ids = request.query_params.get('ids')
     
     if status_filter:
