@@ -169,6 +169,8 @@ class AsaasService:
         description: str,
         external_reference: str,
         installments: int = 1,
+        callback_success_url: Optional[str] = None,
+        callback_auto_redirect: bool = True,
     ) -> dict:
         """
         Create a hosted credit card payment.
@@ -179,6 +181,8 @@ class AsaasService:
             description: Payment description
             external_reference: External reference ID
             installments: Number of installments
+            callback_success_url: URL to return the customer to after payment
+            callback_auto_redirect: Whether Asaas should redirect automatically
         
         Returns:
             Payment data from Asaas
@@ -199,6 +203,12 @@ class AsaasService:
             per_installment = float(value) / installments
             payload['installmentCount'] = installments
             payload['installmentValue'] = round(per_installment, 2)
+
+        if callback_success_url:
+            payload['callback'] = {
+                'successUrl': callback_success_url,
+                'autoRedirect': callback_auto_redirect,
+            }
         
         return self._make_request('POST', 'payments', payload)
     

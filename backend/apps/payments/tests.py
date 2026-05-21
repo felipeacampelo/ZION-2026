@@ -144,6 +144,44 @@ class PaymentSecurityTests(APITestCase):
         self.assertEqual(response.data['asaas_payment_id'], 'pay-created-1')
         self.assertEqual(response.data['enrollment']['id'], self.owner_enrollment.id)
 
+    @override_settings(FRONTEND_URL='https://zion2026.com.br')
+    @patch('apps.payments.services.asaas_service.AsaasService.create_credit_card_payment')
+    @patch('apps.payments.services.payment_service.PaymentService.ensure_customer_exists')
+    def test_create_credit_card_payment_configures_return_url(
+        self,
+        mock_ensure_customer_exists,
+        mock_create_credit_card_payment,
+    ):
+        mock_ensure_customer_exists.return_value = 'cus_test_123'
+        mock_create_credit_card_payment.return_value = {
+            'id': 'pay-card-1',
+            'invoiceUrl': 'https://sandbox.asaas.com/i/pay-card-1',
+        }
+
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            reverse('payments:payment-list'),
+            {
+                'enrollment_id': self.owner_enrollment.id,
+                'payment_method': 'CREDIT_CARD',
+                'installments': 3,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        mock_create_credit_card_payment.assert_called_once_with(
+            customer_id='cus_test_123',
+            value=Decimal('130.00'),
+            description=f'Inscrição - {self.owner_enrollment.product.name}',
+            external_reference=str(self.owner_enrollment.id),
+            installments=3,
+            callback_success_url=f'https://zion2026.com.br/payment/{self.owner_enrollment.id}?source=asaas',
+            callback_auto_redirect=True,
+        )
+        self.assertEqual(response.data['payment_url'], 'https://sandbox.asaas.com/i/pay-card-1')
+
     def test_create_payment_rejects_other_users_enrollment(self):
         self.client.force_authenticate(user=self.owner)
 

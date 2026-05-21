@@ -4,8 +4,10 @@ Payment service for managing enrollment payments with Asaas.
 from decimal import Decimal
 from datetime import date, timedelta
 from typing import Dict, List, Optional
+from urllib.parse import urlencode
 from django.utils import timezone
 from django.db import transaction
+from django.conf import settings
 
 from apps.enrollments.models import Enrollment
 from apps.payments.models import Payment
@@ -21,6 +23,12 @@ class PaymentService:
     
     def __init__(self):
         self.asaas = AsaasService()
+
+    def _build_payment_return_url(self, enrollment: Enrollment) -> str:
+        """Build the frontend URL Asaas should redirect to after payment."""
+        base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000').rstrip('/')
+        query = urlencode({'source': 'asaas'})
+        return f'{base_url}/payment/{enrollment.id}?{query}'
     
     def ensure_customer_exists(self, user) -> str:
         """
@@ -267,6 +275,8 @@ class PaymentService:
             description=f'Inscrição - {enrollment.product.name}',
             external_reference=str(enrollment.id),
             installments=installments,
+            callback_success_url=self._build_payment_return_url(enrollment),
+            callback_auto_redirect=True,
         )
         
         # Create local payment record
