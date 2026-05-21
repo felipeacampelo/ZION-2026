@@ -13,6 +13,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminEnrollments from './pages/AdminEnrollments'
+import AdminEventSettings from './pages/AdminEventSettings'
 import AdminPaymentSettings from './pages/AdminPaymentSettings'
 import AdminFormSettings from './pages/AdminFormSettings'
 import AdminBatchSettings from './pages/AdminBatchSettings'
@@ -83,7 +84,15 @@ function App() {
           />
           <Route 
             path="/admin/settings" 
-            element={<Navigate to="/admin/settings/payment" replace />}
+            element={<Navigate to="/admin/settings/event" replace />}
+          />
+          <Route 
+            path="/admin/settings/event" 
+            element={
+              <AdminRoute>
+                <AdminEventSettings />
+              </AdminRoute>
+            } 
           />
           <Route 
             path="/admin/settings/payment" 

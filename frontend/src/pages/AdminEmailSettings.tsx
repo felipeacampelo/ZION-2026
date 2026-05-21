@@ -5,6 +5,7 @@ import {
   createAdminEmailCampaign,
   getAdminEmailCampaign,
   getAdminEmailCampaigns,
+  getAdminEnrollments,
   getAdminEmailTemplates,
   getAdminProducts,
   previewAdminEmailCampaignRecipients,
@@ -17,6 +18,7 @@ import {
   updateAdminEmailCampaign,
   updateAdminEmailTemplate,
   type EmailCampaign,
+  type Enrollment,
   type EmailTemplate,
   type Product,
 } from '../services/api';
@@ -32,6 +34,7 @@ type CampaignForm = {
     status?: string;
     payment_method?: string;
     search?: string;
+    enrollment_ids?: number[];
   };
   status?: EmailCampaign['status'];
 };
@@ -85,29 +88,59 @@ export default function AdminEmailSettings() {
     count: number;
     sample: Array<{ enrollment_id: number; email: string; name: string }>;
   } | null>(null);
+  const [recipientSearch, setRecipientSearch] = useState('');
+  const [recipientOptions, setRecipientOptions] = useState<Enrollment[]>([]);
+  const [selectedRecipients, setSelectedRecipients] = useState<Enrollment[]>([]);
+  const [searchingRecipients, setSearchingRecipients] = useState(false);
+  const selectedCampaign = campaigns.find((item) => item.id === selectedCampaignId) || null;
+  const failedRecipients = selectedCampaign?.recipients?.filter((item) => item.status === 'FAILED') || [];
 
   const loadData = async () => {
-    try {
-      const [templatesRes, campaignsRes, productsRes] = await Promise.all([
+    setError('');
+
+    const [templatesRes, campaignsRes, productsRes] = await Promise.allSettled([
         getAdminEmailTemplates(),
         getAdminEmailCampaigns(),
         getAdminProducts(),
       ]);
 
-      setTemplates(templatesRes.data);
-      setCampaigns(campaignsRes.data);
-      setProducts(productsRes.data);
+    const loadErrors: string[] = [];
 
-      const initialTemplate = templatesRes.data.find((item) => item.key === selectedTemplateKey) || templatesRes.data[0] || null;
+    if (templatesRes.status === 'fulfilled') {
+      setTemplates(templatesRes.value.data);
+      const initialTemplate =
+        templatesRes.value.data.find((item) => item.key === selectedTemplateKey) ||
+        templatesRes.value.data[0] ||
+        null;
       if (initialTemplate) {
         setSelectedTemplateKey(initialTemplate.key);
         setTemplateForm(initialTemplate);
       }
-    } catch {
-      setError('Erro ao carregar configuração de emails.');
-    } finally {
-      setLoading(false);
+    } else {
+      loadErrors.push('templates');
     }
+
+    if (campaignsRes.status === 'fulfilled') {
+      setCampaigns(campaignsRes.value.data);
+    } else {
+      loadErrors.push('campanhas');
+    }
+
+    if (productsRes.status === 'fulfilled') {
+      setProducts(productsRes.value.data);
+    } else {
+      loadErrors.push('produtos');
+    }
+
+    if (loadErrors.length > 0) {
+      setError(`Erro ao carregar ${loadErrors.join(', ')} de emails.`);
+    }
+
+    if (loadErrors.length === 3) {
+      setError('Erro ao carregar configuração de emails.');
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -122,6 +155,62 @@ export default function AdminEmailSettings() {
       setTemplatePreview(null);
     }
   }, [selectedTemplateKey, templates]);
+
+  useEffect(() => {
+    if (activeTab !== 'campaigns') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setSearchingRecipients(true);
+        const response = await getAdminEnrollments({
+          search: recipientSearch.trim() || undefined,
+          page: 1,
+          page_size: 20,
+        });
+        const results = Array.isArray(response.data) ? response.data : response.data.results || [];
+        setRecipientOptions(results);
+      } catch (err) {
+        console.error('Erro ao buscar inscritos para campanha:', err);
+      } finally {
+        setSearchingRecipients(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeTab, recipientSearch]);
+
+  useEffect(() => {
+    const selectedIds = campaignForm.filters.enrollment_ids || [];
+
+    if (selectedIds.length === 0) {
+      setSelectedRecipients([]);
+      return;
+    }
+
+    const currentIds = selectedRecipients.map((recipient) => recipient.id).sort((a, b) => a - b);
+    const normalizedSelectedIds = [...selectedIds].sort((a, b) => a - b);
+    if (currentIds.length === normalizedSelectedIds.length && currentIds.every((id, index) => id === normalizedSelectedIds[index])) {
+      return;
+    }
+
+    const loadSelectedRecipients = async () => {
+      try {
+        const response = await getAdminEnrollments({
+          ids: selectedIds,
+          page: 1,
+          page_size: selectedIds.length,
+        });
+        const results = Array.isArray(response.data) ? response.data : response.data.results || [];
+        setSelectedRecipients(results);
+      } catch (err) {
+        console.error('Erro ao carregar inscritos selecionados da campanha:', err);
+      }
+    };
+
+    void loadSelectedRecipients();
+  }, [campaignForm.filters.enrollment_ids, selectedRecipients]);
 
   const refreshCampaign = async (campaignId: number) => {
     const response = await getAdminEmailCampaign(campaignId);
@@ -141,6 +230,37 @@ export default function AdminEmailSettings() {
       status: campaign.status,
     });
     return campaign;
+  };
+
+  const addRecipientToCampaign = (enrollment: Enrollment) => {
+    const currentIds = campaignForm.filters.enrollment_ids || [];
+    if (currentIds.includes(enrollment.id)) {
+      return;
+    }
+
+    const nextIds = [...currentIds, enrollment.id];
+    setCampaignForm((current) => ({
+      ...current,
+      filters: {
+        ...current.filters,
+        enrollment_ids: nextIds,
+      },
+    }));
+    setSelectedRecipients((current) => [...current, enrollment]);
+  };
+
+  const removeRecipientFromCampaign = (enrollmentId: number) => {
+    setCampaignForm((current) => {
+      const nextIds = (current.filters.enrollment_ids || []).filter((id) => id !== enrollmentId);
+      return {
+        ...current,
+        filters: {
+          ...current.filters,
+          enrollment_ids: nextIds.length > 0 ? nextIds : undefined,
+        },
+      };
+    });
+    setSelectedRecipients((current) => current.filter((recipient) => recipient.id !== enrollmentId));
   };
 
   const handleSaveTemplate = async () => {
@@ -697,6 +817,86 @@ export default function AdminEmailSettings() {
                     </div>
                   </div>
 
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="mb-2 text-sm font-semibold text-gray-900">Selecionar inscritos específicos</p>
+                    <p className="mb-4 text-sm text-gray-600">
+                      Use esta lista para restringir a campanha a pessoas específicas. Se selecionar inscritos aqui, a campanha considera apenas esses IDs, além dos filtros preenchidos acima.
+                    </p>
+
+                    <input
+                      value={recipientSearch}
+                      onChange={(e) => setRecipientSearch(e.target.value)}
+                      placeholder="Buscar inscrito por nome, email ou CPF"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400"
+                    />
+
+                    <div className="mt-4 rounded-xl border border-gray-200">
+                      {searchingRecipients ? (
+                        <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-600">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Buscando inscritos...
+                        </div>
+                      ) : (
+                        <div className="max-h-64 overflow-y-auto">
+                          {recipientOptions.map((enrollment) => {
+                            const isSelected = (campaignForm.filters.enrollment_ids || []).includes(enrollment.id);
+                            return (
+                              <button
+                                key={enrollment.id}
+                                type="button"
+                                onClick={() => addRecipientToCampaign(enrollment)}
+                                disabled={isSelected}
+                                className="flex w-full items-start justify-between border-b border-gray-100 px-4 py-3 text-left last:border-b-0 disabled:bg-gray-50"
+                              >
+                                <div>
+                                  <p className="font-medium text-gray-900">
+                                    {enrollment.form_data?.nome_completo || enrollment.user_email || `Inscrição #${enrollment.id}`}
+                                  </p>
+                                  <p className="text-sm text-gray-500">
+                                    #{enrollment.id} • {enrollment.user_email || enrollment.form_data?.email || 'Sem email'}
+                                  </p>
+                                  {enrollment.form_data?.cpf && (
+                                    <p className="text-xs text-gray-500">CPF: {enrollment.form_data.cpf}</p>
+                                  )}
+                                </div>
+                                <span className={`text-xs font-medium ${isSelected ? 'text-gray-400' : 'text-purple'}`}>
+                                  {isSelected ? 'Selecionado' : 'Adicionar'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                          {recipientOptions.length === 0 && (
+                            <div className="px-4 py-3 text-sm text-gray-600">
+                              Nenhum inscrito encontrado.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-4">
+                      <p className="mb-2 text-sm font-medium text-gray-900">
+                        Inscritos escolhidos ({selectedRecipients.length})
+                      </p>
+                      {selectedRecipients.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedRecipients.map((recipient) => (
+                            <button
+                              key={recipient.id}
+                              type="button"
+                              onClick={() => removeRecipientFromCampaign(recipient.id)}
+                              className="rounded-full border border-purple/20 bg-purple/5 px-3 py-1.5 text-xs font-medium text-purple"
+                            >
+                              {(recipient.form_data?.nome_completo || recipient.user_email || `#${recipient.id}`)} • remover
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-600">Nenhum inscrito específico selecionado.</p>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="button"
@@ -748,7 +948,7 @@ export default function AdminEmailSettings() {
                   {recipientPreview ? (
                     <div className="mt-4 space-y-3">
                       <p className="text-sm text-gray-700">Total estimado: <strong>{recipientPreview.count}</strong></p>
-                      <div className="space-y-2">
+                      <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
                         {recipientPreview.sample.map((recipient) => (
                           <div key={`${recipient.enrollment_id}-${recipient.email}`} className="rounded-lg border border-gray-200 px-3 py-2">
                             <p className="text-sm font-medium text-gray-900">{recipient.name}</p>
@@ -792,16 +992,21 @@ export default function AdminEmailSettings() {
                   <div className="rounded-2xl bg-white p-6 shadow-lg">
                     <h3 className="text-lg font-semibold text-gray-900">Detalhe da campanha</h3>
                     <div className="mt-4 space-y-3">
-                      {campaigns.find((item) => item.id === selectedCampaignId)?.recipients?.filter((item) => item.status === 'FAILED').length ? (
-                        campaigns
-                          .find((item) => item.id === selectedCampaignId)
-                          ?.recipients.filter((item) => item.status === 'FAILED')
-                          .map((recipient) => (
-                            <div key={recipient.id} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                              <p className="text-sm font-medium text-red-800">{recipient.email}</p>
-                              <p className="text-xs text-red-700">{recipient.error_message || 'Falha no envio.'}</p>
-                            </div>
-                          ))
+                      {failedRecipients.length ? (
+                        <>
+                          <p className="text-sm text-gray-700">
+                            Falhas encontradas: <strong>{failedRecipients.length}</strong>
+                          </p>
+                          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                            {failedRecipients.map((recipient) => (
+                              <div key={recipient.id} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                                <p className="text-sm font-medium text-red-800">{recipient.name || recipient.email}</p>
+                                <p className="text-xs text-red-700">{recipient.email}</p>
+                                <p className="mt-1 text-xs text-red-700">{recipient.error_message || 'Falha no envio.'}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </>
                       ) : (
                         <p className="text-sm text-gray-600">As falhas por destinatário aparecerão aqui após o envio.</p>
                       )}

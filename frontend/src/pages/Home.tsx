@@ -1,25 +1,79 @@
-import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Users, Clock, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, useInView, useScroll, useTransform } from 'framer-motion';
+import { Calendar, MapPin, LogIn, LogOut, User as UserIcon, ChevronDown, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getProducts, getProduct, getSettings, type Product } from '../services/api';
-import Countdown from '../components/Countdown';
+
+import type { Variants } from 'framer-motion';
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 32 },
+  visible: (i: number = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, delay: i * 0.15, ease: [0.33, 1, 0.68, 1] },
+  }),
+};
+
+const staggerContainer: Variants = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.12 },
+  },
+};
+
+const scaleOnHover: Variants = {
+  rest: { scale: 1, y: 0 },
+  hover: { scale: 1.02, y: -4, transition: { duration: 0.3, ease: [0.33, 1, 0.68, 1] } },
+};
+
+function ScrollReveal({ children, className = '', delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-60px' });
+  return (
+    <motion.div
+      ref={ref}
+      initial="hidden"
+      animate={isInView ? 'visible' : 'hidden'}
+      variants={fadeUp}
+      custom={delay}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 export default function Home() {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout, isAdmin } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
-  const [eventDate, setEventDate] = useState<Date | null>(null);
+  const [homeDescription, setHomeDescription] = useState(
+    'As ruas estão cheias de pessoas alegres, bandeiras são levantadas e hinos são entoados. Estão todos em festa, mas falta algo.\n\nTodos têm um sorriso no rosto, mas enxergo corações vazios, sozinhos, em busca de um propósito maior.\n\nEm 2026 iremos pelas ruas levantar a bandeira, gritando a verdade que é Cristo. Só ele é a esperança verdadeira. Vamos fazer parte disso?'
+  );
+  const [homeDateText, setHomeDateText] = useState('');
+  const [homeLocationText, setHomeLocationText] = useState('');
+  const [homeLocationSubtext, setHomeLocationSubtext] = useState('');
   const [enrollmentStartAt, setEnrollmentStartAt] = useState<string | null>(null);
   const [enrollmentEndAt, setEnrollmentEndAt] = useState<string | null>(null);
   const [maxInstallments, setMaxInstallments] = useState(6);
   const [enablePixCash, setEnablePixCash] = useState(true);
   const [enablePixInstallment, setEnablePixInstallment] = useState(true);
   const [enableCreditCard, setEnableCreditCard] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
+
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
+  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0.3]);
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, 80]);
 
   useEffect(() => {
     loadProducts();
     loadSettings();
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const loadProducts = async () => {
@@ -27,13 +81,6 @@ export default function Home() {
       const response = await getProducts();
       const productsList = response.data.results || [];
       setProducts(productsList);
-      
-      // Set event date from first product
-      if (productsList.length > 0 && productsList[0].event_date) {
-        setEventDate(new Date(productsList[0].event_date));
-      }
-      
-      // Get first product details with active batch
       if (productsList.length > 0) {
         const detailResponse = await getProduct(productsList[0].id);
         setProducts([detailResponse.data]);
@@ -46,6 +93,10 @@ export default function Home() {
   const loadSettings = async () => {
     try {
       const response = await getSettings();
+      setHomeDescription(response.data.home_description || homeDescription);
+      setHomeDateText(response.data.home_date_text || '');
+      setHomeLocationText(response.data.home_location_text || '');
+      setHomeLocationSubtext(response.data.home_location_subtext || '');
       setEnrollmentStartAt(response.data.enrollment_start_at);
       setEnrollmentEndAt(response.data.enrollment_end_at);
       setMaxInstallments(response.data.max_installments);
@@ -54,44 +105,60 @@ export default function Home() {
       setEnableCreditCard(response.data.enable_credit_card);
     } catch (err) {
       console.error('Erro ao carregar configurações:', err);
-      // Keep default value of 6 if API fails
     }
   };
 
-  // Get the first (and only) product
   const product = products[0];
   const activeBatch = product?.active_batch;
-  
-  // Use actual values from the product - now with separate prices for each payment method
-  const pixCashPrice = activeBatch?.price 
-    ? parseFloat(String(activeBatch.price)) 
-    : 900;
-  const pixInstallmentPrice = activeBatch?.pix_installment_price 
-    ? parseFloat(String(activeBatch.pix_installment_price))
-    : 1000;
-  const creditCardPrice = activeBatch?.credit_card_price 
-    ? parseFloat(String(activeBatch.credit_card_price))
-    : 1100;
-  const pixInstallmentValue = (pixInstallmentPrice / maxInstallments).toFixed(2);
-  const creditCardInstallmentValue = (creditCardPrice / maxInstallments).toFixed(2);
+
+  const pixCashPrice = activeBatch?.price ? parseFloat(String(activeBatch.price)) : null;
+  const pixInstallmentPrice = activeBatch?.pix_installment_price ? parseFloat(String(activeBatch.pix_installment_price)) : null;
+  const creditCardPrice = activeBatch?.credit_card_price ? parseFloat(String(activeBatch.credit_card_price)) : null;
+  const pixInstallmentValue =
+    pixInstallmentPrice !== null ? (pixInstallmentPrice / maxInstallments).toFixed(2) : null;
+  const creditCardInstallmentValue =
+    creditCardPrice !== null ? (creditCardPrice / maxInstallments).toFixed(2) : null;
+  const hasAvailablePricing =
+    (enablePixCash && pixCashPrice !== null) ||
+    (enablePixInstallment && pixInstallmentPrice !== null) ||
+    (enableCreditCard && creditCardPrice !== null);
+  const availablePaymentOptions = [
+    enablePixCash && pixCashPrice !== null
+      ? { key: 'pix_cash', label: 'PIX à Vista', price: pixCashPrice, description: 'Pagamento único via PIX' }
+      : null,
+    enablePixInstallment && pixInstallmentPrice !== null && pixInstallmentValue !== null
+      ? {
+          key: 'pix_installment',
+          label: 'PIX Parcelado',
+          price: pixInstallmentPrice,
+          description: `Até ${maxInstallments}x de R$ ${pixInstallmentValue} via PIX`,
+        }
+      : null,
+    enableCreditCard && creditCardPrice !== null && creditCardInstallmentValue !== null
+      ? {
+          key: 'credit_card',
+          label: 'Cartão de Crédito',
+          price: creditCardPrice,
+          description: `Até ${maxInstallments}x de R$ ${creditCardInstallmentValue} no cartão`,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ key: string; label: string; price: number; description: string }>;
+  const uniqueAvailablePrices = Array.from(new Set(availablePaymentOptions.map((option) => option.price.toFixed(2))));
+  const hasUnifiedPrice = availablePaymentOptions.length > 0 && uniqueAvailablePrices.length === 1;
+
   const enrollmentWindowStart = enrollmentStartAt ? new Date(enrollmentStartAt) : null;
   const enrollmentWindowEnd = enrollmentEndAt ? new Date(enrollmentEndAt) : null;
   const now = new Date();
-  const enrollmentWindowStatus = enrollmentWindowStart && now < enrollmentWindowStart
-    ? 'not_started'
-    : enrollmentWindowEnd && now > enrollmentWindowEnd
-      ? 'closed'
-      : 'open';
+  const enrollmentWindowStatus =
+    enrollmentWindowStart && now < enrollmentWindowStart
+      ? 'not_started'
+      : enrollmentWindowEnd && now > enrollmentWindowEnd
+        ? 'closed'
+        : 'open';
 
   const formatEnrollmentWindowDate = (value: string | null) => {
-    if (!value) {
-      return '';
-    }
-
-    return new Date(value).toLocaleString('pt-BR', {
-      dateStyle: 'long',
-      timeStyle: 'short',
-    });
+    if (!value) return '';
+    return new Date(value).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' });
   };
 
   const handleLogout = async () => {
@@ -99,306 +166,464 @@ export default function Home() {
     navigate('/');
   };
 
+  const descriptionParagraphs = homeDescription
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const campGalleryImages = [
+    {
+      src: '/images/zion-day-02-333.jpg',
+      alt: 'Culto e adoração no acampamento ZION',
+      className: 'md:col-span-2 aspect-[16/10]',
+    },
+    {
+      src: '/images/zion-day-02-086.jpg',
+      alt: 'Gincana e interação no acampamento ZION',
+      className: 'aspect-[4/5]',
+    },
+    {
+      src: '/images/zion-day-02-274.jpg',
+      alt: 'Louvor e celebração no acampamento ZION',
+      className: 'aspect-[4/5]',
+    },
+  ];
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div className="min-h-screen">
-      {/* Header with Auth */}
-      <div className="fixed top-0 left-0 right-0 p-3 md:p-4 z-50 bg-gradient-to-b from-black/80 to-transparent">
-        <div className="container mx-auto flex items-center justify-between flex-wrap gap-2 md:gap-4">
-          {isAuthenticated ? (
-            <>
-              <span className="text-white text-sm md:text-base flex items-center gap-2 order-1 md:order-1">
-                <UserIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">{user?.first_name || user?.email}</span>
-              </span>
-              <div className="flex items-center gap-2 md:gap-3 order-2 md:order-2 flex-wrap justify-end">
-                <button
-                  onClick={() => navigate('/minhas-inscricoes')}
-                  className="text-xs md:text-sm px-2 md:px-4 py-1 md:py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors whitespace-nowrap"
-                >
-                  Minhas Inscrições
-                </button>
+    <div className="min-h-screen bg-cream font-body">
+      {/* Header / Navbar */}
+      <motion.header
+        className="fixed top-0 left-0 right-0 z-50 transition-colors duration-300"
+        style={{
+          backgroundColor: scrolled ? 'rgba(26, 46, 26, 0.92)' : 'transparent',
+          backdropFilter: scrolled ? 'blur(12px)' : 'none',
+        }}
+      >
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+          {/* Logo */}
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-2 group">
+            <img 
+              src="/images/logo-white.png" 
+              alt="ZION 2026" 
+              className="h-20 md:h-24 w-auto transition-opacity group-hover:opacity-80"
+            />
+          </button>
+
+          {/* Center Nav Links (desktop) */}
+          <nav className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
+            <button onClick={() => scrollToSection('sobre')} className="text-sm text-white/80 hover:text-gold transition-colors">
+              Sobre
+            </button>
+            <button onClick={() => scrollToSection('inscricao')} className="text-sm text-white/80 hover:text-gold transition-colors">
+              Inscrição
+            </button>
+          </nav>
+
+          {/* Auth Buttons */}
+          <div className="flex items-center gap-3">
+            {isAuthenticated ? (
+              <>
+                <span className="hidden md:flex items-center gap-1.5 text-white/80 text-sm">
+                  <UserIcon className="w-4 h-4" />
+                  {user?.first_name || user?.email}
+                </span>
                 {isAdmin && (
                   <button
                     onClick={() => navigate('/admin')}
-                    className="text-xs md:text-sm px-2 md:px-4 py-1 md:py-2 rounded-lg transition-colors font-medium"
-                    style={{ backgroundColor: 'rgb(220, 253, 97)', color: '#000000' }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(210, 243, 67)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(220, 253, 97)'}
+                    className="text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors bg-white text-dark-900 hover:bg-cream shadow-sm"
                   >
                     Admin
                   </button>
                 )}
                 <button
                   onClick={handleLogout}
-                  className="text-xs md:text-sm px-2 md:px-4 py-1 md:py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-1"
+                  title="Sair"
+                  className="text-white/70 hover:text-white transition-colors"
                 >
-                  <LogOut className="w-3 h-3 md:w-4 md:h-4" />
-                  <span className="hidden sm:inline">Sair</span>
+                  <LogOut className="w-5 h-5" />
                 </button>
-              </div>
-            </>
-          ) : (
-            <div className="flex gap-2 ml-auto">
-              <button
-                onClick={() => navigate('/login')}
-                className="text-xs md:text-sm px-2 md:px-4 py-1 md:py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-1"
-              >
-                <LogIn className="w-3 h-3 md:w-4 md:h-4" />
-                <span className="hidden sm:inline">Entrar</span>
-              </button>
-              <button
-                onClick={() => navigate('/register')}
-                className="text-xs md:text-sm px-2 md:px-4 py-1 md:py-2 rounded-lg transition-colors font-medium"
-                style={{ backgroundColor: 'rgb(165, 44, 240)', color: '#ffffff' }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(185, 84, 245)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(165, 44, 240)'}
-              >
-                Cadastrar
-              </button>
-            </div>
-          )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="text-sm text-white/80 hover:text-gold transition-colors flex items-center gap-1.5"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Entrar
+                </button>
+                <button
+                  onClick={() => navigate('/register')}
+                  className="text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors bg-white text-dark-900 hover:bg-cream shadow-sm"
+                >
+                  Cadastrar
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      </motion.header>
 
       {/* Hero Section */}
-      <section className="relative text-white py-20 pt-24 md:pt-32" style={{
-        backgroundImage: 'url(/images/hero-background.png)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      }}>
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-black/50"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center max-w-4xl mx-auto">
-            <h1 className="font-bold" style={{ fontFamily: 'Procerus, sans-serif', fontSize: 'clamp(4.5rem, 18vw, 12rem)', marginBottom: '-0.8rem' }}>
-              PELAS RUAS
-            </h1>
-            <p className="text-lg md:text-2xl mb-8" style={{ color: 'rgb(220, 253, 97)' }}>
-              ACAMPAMENTO A+ 2026
-            </p>
-            
-            {/* Countdown */}
-            {eventDate && (
-              <div className="mb-8">
-                <h2 className="text-2xl md:text-3xl font-semibold mb-6">
-                  Faltam apenas:
-                </h2>
-                <Countdown targetDate={eventDate} />
-              </div>
-            )}
+      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden bg-black">
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <img
+            src="/images/background_zion.png"
+            alt="Banner ZION 2026"
+            className="w-full h-full object-cover opacity-70"
+          />
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
+        </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
-              <button 
-                onClick={() => navigate('/inscricao')} 
-                className="font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg border-2"
-                style={{
-                  backgroundColor: '#000000',
-                  color: 'rgb(220, 253, 97)',
-                  borderColor: 'rgb(220, 253, 97)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgb(220, 253, 97)';
-                  e.currentTarget.style.color = '#000000';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#000000';
-                  e.currentTarget.style.color = 'rgb(220, 253, 97)';
-                }}
+        {/* Hero Content */}
+        <motion.div
+          className="relative z-10 text-center px-6 max-w-5xl mx-auto py-20"
+          style={{ opacity: heroOpacity, y: heroY }}
+        >
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+            className="flex flex-col items-center justify-center gap-16"
+          >
+            <motion.img
+              variants={fadeUp}
+              custom={0}
+              src="/images/logo-zion.png"
+              alt="Logo ZION"
+              className="w-96 md:w-[30rem] lg:w-[36rem] drop-shadow-2xl"
+            />
+            <motion.div
+              variants={fadeUp}
+              custom={1}
+              className="flex flex-col sm:flex-row items-center justify-center gap-5"
+            >
+              <button
+                onClick={() => scrollToSection('inscricao')}
+                className="btn-gold text-base md:text-lg px-10 py-4 font-semibold"
               >
                 Fazer Inscrição
               </button>
-              <a href="#detalhes" className="btn-secondary inline-block">
+              <button
+                onClick={() => scrollToSection('detalhes')}
+                className="btn-outline text-base md:text-lg px-10 py-4 font-semibold"
+              >
                 Ver Detalhes
-              </a>
-            </div>
-          </div>
-        </div>
+              </button>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+
+        {/* Scroll Indicator */}
+        <motion.div
+          className="absolute bottom-12 left-1/2 -translate-x-1/2"
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <ChevronDown className="w-10 h-10 text-white/70" />
+        </motion.div>
       </section>
 
       {/* Info Section */}
-      <section id="detalhes" className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-8 md:gap-12">
-              {/* Data */}
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full" style={{ backgroundColor: 'rgb(165, 44, 240)' }}>
-                    <Calendar className="w-7 h-7 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold mb-1" style={{ color: 'rgb(165, 44, 240)' }}>Data</h3>
-                  <p className="text-2xl font-bold text-gray-900">13, 20, 26 a 28 de junho e 04 de julho</p>
-                  <p className="text-sm text-gray-600 mt-1"></p>
-                </div>
-              </div>
-
-              {/* Local */}
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
-                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full" style={{ backgroundColor: 'rgb(165, 44, 240)' }}>
-                    <MapPin className="w-7 h-7 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold mb-1" style={{ color: 'rgb(165, 44, 240)' }}>Local</h3>
-                  <p className="text-2xl font-bold text-gray-900">Acampamento El Rancho</p>
-                  <p className="text-sm text-gray-600 mt-1"></p>
-                </div>
-              </div>
+      <section id="detalhes" style={{ backgroundColor: '#f5f0e8' }}>
+        <motion.div
+          className="max-w-7xl mx-auto grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-300"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-60px' }}
+          variants={staggerContainer}
+        >
+          {/* Data */}
+          <motion.div
+            variants={fadeUp}
+            className="flex items-center gap-8 px-12 py-14"
+          >
+            <Calendar className="w-10 h-10 text-gold flex-shrink-0" />
+            <div>
+              <p className="text-gold-700 text-xs uppercase tracking-[0.25em] font-semibold mb-2">Quando</p>
+              <p className="text-gray-900 text-3xl md:text-4xl font-bold leading-tight">{homeDateText}</p>
             </div>
-          </div>
-        </div>
+          </motion.div>
+
+          {/* Local */}
+          <motion.div
+            variants={fadeUp}
+            className="flex items-center gap-8 px-12 py-14"
+          >
+            <MapPin className="w-10 h-10 text-gold flex-shrink-0" />
+            <div>
+              <p className="text-gold-700 text-xs uppercase tracking-[0.25em] font-semibold mb-2">Onde</p>
+              <p className="text-gray-900 text-3xl md:text-4xl font-bold leading-tight">{homeLocationText}</p>
+              {homeLocationSubtext && (
+                <p className="mt-3 text-sm md:text-base text-gray-600 leading-relaxed">{homeLocationSubtext}</p>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* About Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center">
-              ACAMPAMENTO A+ 2026
-            </h2>
-            
-            <div className="space-y-6 text-left">
-              <p className="text-lg text-gray-700 leading-relaxed">
-                As ruas estão cheias de pessoas alegres, bandeiras são levantadas e hinos são entoados. Estão todos em festa, mas falta algo.
-              </p>
-              
-              <p className="text-lg text-gray-700 leading-relaxed">
-                Todos tem um sorriso no rosto, mas enxergo corações vazios, sozinhos, em busca de um propósito maior.
-              </p>
-              
-              <p className="text-lg text-gray-700 leading-relaxed">
-                Em 2026 iremos pelas ruas levantar a bandeira, gritando a verdade que é Cristo. So ele é a esperança verdadeira. Vamos fazer parte disso?
-              </p>
-              
-              <div className="bg-white rounded-lg p-6 shadow-sm border-l-4" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-                <h3 className="text-xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>Programação:</h3>
-                
-                <div className="space-y-3">
-                  <p className="text-gray-700">
-                    <span className="font-semibold">13.06</span> - Iniciaremos nosso acampamento com o nosso pré madruga entre os nossos PG's.
-                  </p>
-                  
-                  <p className="text-gray-700">
-                    <span className="font-semibold">20.06</span> - Um sábado inteiro de conferência Pelas Ruas | Pré acamps com alguns convidados.
-                  </p>
-                  
-                  <p className="text-gray-700">
-                    <span className="font-semibold">26 a 28.06</span> - Nosso tradicional EL RANCHO, como você já conhece. Se não conhece, aumente sua expectativa.
-                  </p>
-                  
-                  <p className="text-gray-700">
-                    <span className="font-semibold">04.07</span> - Iremos pelas ruas de Brasília levantando a bandeira e gritando a verdade que Cristo é o Senhor!
-                  </p>
+      <section id="sobre" className="py-24 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <div className="max-w-6xl mx-auto grid items-start gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
+            <div>
+              <ScrollReveal>
+                <p className="text-gold-600 text-xs uppercase tracking-[0.25em] font-bold mb-3" />
+              </ScrollReveal>
+
+              <ScrollReveal delay={0.1}>
+                <h2 className="text-4xl md:text-5xl font-bold text-dark-900 mb-12 max-w-3xl">
+                  VOLTE AO PRIMEIRO AMOR
+                </h2>
+              </ScrollReveal>
+
+              <motion.div
+                className="space-y-8"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-40px' }}
+                variants={staggerContainer}
+              >
+                {descriptionParagraphs.map((paragraph, index) => (
+                  <motion.p
+                    key={index}
+                    variants={fadeUp}
+                    className="text-gray-700 leading-loose text-xl font-light"
+                  >
+                    {paragraph}
+                  </motion.p>
+                ))}
+              </motion.div>
+            </div>
+
+            <ScrollReveal delay={0.2} className="lg:pt-6">
+              <div className="rounded-[2rem] border border-white/70 bg-white p-5 shadow-[0_22px_70px_rgba(20,20,20,0.08)]">
+                <div className="grid grid-cols-2 gap-4">
+                  {campGalleryImages.map((image) => (
+                    <motion.div
+                      key={image.src}
+                      whileHover={{ y: -4, scale: 1.01 }}
+                      transition={{ duration: 0.28, ease: [0.33, 1, 0.68, 1] }}
+                      className={`overflow-hidden rounded-[1.5rem] bg-dark-900 ${image.className}`}
+                    >
+                      <img
+                        src={image.src}
+                        alt={image.alt}
+                        className="h-full w-full object-cover"
+                      />
+                    </motion.div>
+                  ))}
                 </div>
               </div>
-              
-              <p className="text-xl text-center font-bold mt-8" style={{ color: 'rgb(165, 44, 240)' }}>
-                Garanta sua inscrição pra não ficar de fora de nada da nossa programação!
-              </p>
-            </div>
+            </ScrollReveal>
           </div>
         </div>
       </section>
 
       {/* Pricing Section */}
-      <section id="inscricao" className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Valores e Inscrição
-            </h2>
-            <p className="text-lg text-gray-600">
-              {enrollmentWindowStatus === 'open'
-                ? 'Escolha a melhor forma de pagamento para você'
-                : enrollmentWindowStatus === 'not_started'
-                  ? 'As inscrições ainda não começaram'
-                  : 'As inscrições foram encerradas'}
-            </p>
-          </div>
-
-          {enrollmentWindowStatus === 'open' ? (
-            <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {enablePixCash && (
-                <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-                  <div className="text-center">
-                    <div className="inline-block px-4 py-1 rounded-full text-sm font-semibold mb-4" style={{ backgroundColor: 'rgb(220, 253, 97)', color: '#000000' }}>
-                      Melhor Preço
-                    </div>
-                    <h3 className="text-2xl font-bold mb-2">PIX à Vista</h3>
-                    <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                      R$ {pixCashPrice.toFixed(2)}
-                    </div>
-                    <p className="text-gray-600 mb-6">Pagamento único via PIX</p>
-                    <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                      Inscrever-se
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {enablePixInstallment && (
-                <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-                  <div className="text-center">
-                    <h3 className="text-2xl font-bold mb-2">PIX Parcelado</h3>
-                    <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                      R$ {pixInstallmentPrice.toFixed(2)}
-                    </div>
-                    <p className="text-gray-600 mb-6">
-                      Até {maxInstallments}x de R$ {pixInstallmentValue}<br/>
-                      via PIX
-                    </p>
-                    <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                      Inscrever-se
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {enableCreditCard && (
-                <div className="card border-2" style={{ borderColor: 'rgb(165, 44, 240)' }}>
-                  <div className="text-center">
-                    <h3 className="text-2xl font-bold mb-2">Cartão de Crédito</h3>
-                    <div className="text-4xl font-bold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                      R$ {creditCardPrice.toFixed(2)}
-                    </div>
-                    <p className="text-gray-600 mb-6">
-                      Até {maxInstallments}x de R$ {creditCardInstallmentValue}<br/>
-                      no cartão
-                    </p>
-                    <button onClick={() => navigate('/inscricao')} className="btn-primary w-full">
-                      Inscrever-se
-                    </button>
-                  </div>
-                </div>
-              )}
+      <section id="inscricao" className="py-24 bg-white">
+        <div className="container mx-auto px-6">
+          <ScrollReveal>
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-dark-900 mb-6">
+                Valores e Inscrição
+              </h2>
+              <p className="text-xl text-gray-600 font-light">
+                {enrollmentWindowStatus === 'open'
+                  ? 'Escolha a melhor forma de pagamento para você'
+                  : enrollmentWindowStatus === 'not_started'
+                    ? 'As inscrições ainda não começaram'
+                    : 'As inscrições foram encerradas'}
+              </p>
             </div>
+          </ScrollReveal>
+
+          {enrollmentWindowStatus === 'open' && hasAvailablePricing ? (
+            hasUnifiedPrice ? (
+              <motion.div
+                className="max-w-3xl mx-auto"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-40px' }}
+                variants={staggerContainer}
+              >
+                <motion.div
+                  variants={fadeUp}
+                  whileHover="hover"
+                  initial="rest"
+                  animate="rest"
+                >
+                  <motion.div
+                    variants={scaleOnHover}
+                    className="relative rounded-3xl border-2 border-gold/70 bg-white px-8 py-10 md:px-10 md:py-12 shadow-xl"
+                  >
+                    <div className="text-center">
+                      <h3 className="text-2xl md:text-3xl font-bold text-dark-900 mb-3">Inscrição</h3>
+                      <div className="text-5xl md:text-6xl font-bold text-dark mb-4">
+                        R$ {availablePaymentOptions[0].price.toFixed(2)}
+                      </div>
+                      <p className="mx-auto max-w-xl text-gray-600 text-sm md:text-base mb-6">
+                        Mesmo valor para todas as formas de pagamento.
+                      </p>
+                      <div className="mb-8 flex flex-wrap items-center justify-center gap-2.5">
+                        {availablePaymentOptions.map((option) => (
+                          <span
+                            key={option.key}
+                            className="rounded-full border border-gray-200 bg-cream px-3 py-1.5 text-sm font-medium text-dark-900"
+                          >
+                            {option.label}
+                          </span>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => navigate('/inscricao')}
+                        className="btn-gold w-full md:w-auto px-8 py-3.5 text-base font-semibold"
+                      >
+                        Inscrever-se
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            ) : (
+            <motion.div
+              className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto"
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: '-40px' }}
+              variants={staggerContainer}
+            >
+              {/* PIX a Vista */}
+              {enablePixCash && pixCashPrice !== null && (
+                <motion.div
+                  variants={fadeUp}
+                  whileHover="hover"
+                  initial="rest"
+                  animate="rest"
+                >
+                  <motion.div
+                    variants={scaleOnHover}
+                    className="relative bg-gradient-to-br from-gold-50 to-white border-4 border-gold rounded-3xl p-10 shadow-2xl"
+                  >
+                    <div className="text-center">
+                      <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold uppercase tracking-wide bg-gradient-to-r from-dark to-dark-700 text-gold mb-6 shadow-lg">
+                        <Sparkles className="w-4 h-4" />
+                        Melhor Preço
+                      </div>
+                      <h3 className="text-3xl font-bold text-dark-900 mb-4">PIX à Vista</h3>
+                      <div className="text-6xl font-bold text-gold mb-3">
+                        R$ {pixCashPrice.toFixed(2)}
+                      </div>
+                      <p className="text-gray-600 text-base mb-10 font-light">Pagamento único via PIX</p>
+                      <button
+                        onClick={() => navigate('/inscricao')}
+                        className="btn-gold w-full text-lg py-4 font-semibold"
+                      >
+                        Inscrever-se
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+
+              {/* PIX Parcelado */}
+              {enablePixInstallment && pixInstallmentPrice !== null && pixInstallmentValue !== null && (
+                <motion.div
+                  variants={fadeUp}
+                  whileHover="hover"
+                  initial="rest"
+                  animate="rest"
+                >
+                  <motion.div
+                    variants={scaleOnHover}
+                    className="bg-white border-2 border-gray-200 rounded-3xl p-10 hover:border-gold/60 transition-all shadow-xl hover:shadow-2xl"
+                  >
+                    <div className="text-center">
+                      <h3 className="text-3xl font-bold text-dark-900 mb-4">PIX Parcelado</h3>
+                      <div className="text-6xl font-bold text-dark-900 mb-3">
+                        R$ {pixInstallmentPrice.toFixed(2)}
+                      </div>
+                      <p className="text-gray-600 text-base mb-10 font-light">
+                        Até {maxInstallments}x de R$ {pixInstallmentValue} via PIX
+                      </p>
+                      <button
+                        onClick={() => navigate('/inscricao')}
+                        className="btn-outline w-full text-lg py-4 border-2 border-dark-900 text-dark-900 hover:bg-dark-50 font-semibold"
+                      >
+                        Inscrever-se
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+
+              {/* Cartao de Credito */}
+              {enableCreditCard && creditCardPrice !== null && creditCardInstallmentValue !== null && (
+                <motion.div
+                  variants={fadeUp}
+                  whileHover="hover"
+                  initial="rest"
+                  animate="rest"
+                >
+                  <motion.div
+                    variants={scaleOnHover}
+                    className="bg-white border-2 border-gray-200 rounded-3xl p-10 hover:border-gold/60 transition-all shadow-xl hover:shadow-2xl"
+                  >
+                    <div className="text-center">
+                      <h3 className="text-3xl font-bold text-dark-900 mb-4">Cartão de Crédito</h3>
+                      <div className="text-6xl font-bold text-dark-900 mb-3">
+                        R$ {creditCardPrice.toFixed(2)}
+                      </div>
+                      <p className="text-gray-600 text-base mb-10 font-light">
+                        Até {maxInstallments}x de R$ {creditCardInstallmentValue} no cartão
+                      </p>
+                      <button
+                        onClick={() => navigate('/inscricao')}
+                        className="btn-outline w-full text-lg py-4 border-2 border-dark-900 text-dark-900 hover:bg-dark-50 font-semibold"
+                      >
+                        Inscrever-se
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </motion.div>
+            )
           ) : (
-            <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-gray-50 px-6 py-14 text-center shadow-sm">
-              <p className="text-2xl md:text-3xl font-bold text-gray-950">
-                {enrollmentWindowStatus === 'not_started'
-                  ? 'Inscrições iniciam em breve'
-                  : 'Inscrições encerradas'}
-              </p>
-              <p className="mt-4 text-lg text-gray-600">
-                {enrollmentWindowStatus === 'not_started'
-                  ? `As inscrições começam em ${formatEnrollmentWindowDate(enrollmentStartAt)}.`
-                  : 'Não há vagas ou período de inscrição disponível no momento.'}
-              </p>
-            </div>
+            <ScrollReveal>
+              <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-cream px-6 py-14 text-center shadow-sm">
+                <p className="text-2xl md:text-3xl font-bold text-dark-900">
+                  {enrollmentWindowStatus === 'not_started'
+                    ? 'Inscrições iniciam em breve'
+                    : enrollmentWindowStatus === 'closed'
+                      ? 'Inscrições encerradas'
+                      : 'Nenhum lote disponível no momento'}
+                </p>
+                {enrollmentWindowStatus === 'not_started' && (
+                  <p className="mt-4 text-lg text-gray-600">
+                    {`As inscrições começam em ${formatEnrollmentWindowDate(enrollmentStartAt)}.`}
+                  </p>
+                )}
+              </div>
+            </ScrollReveal>
           )}
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-400">
-            © 2025 Área Mais | IGREJA BATISTA CAPITAL®
-          </p>
+      <footer className="bg-black py-8">
+        <div className="container mx-auto px-6">
+          <div className="max-w-5xl mx-auto text-center">
+            <p className="text-white/50 text-sm">
+              &copy; 2026 Jump Capital | Igreja Batista Capital
+            </p>
+          </div>
         </div>
       </footer>
     </div>

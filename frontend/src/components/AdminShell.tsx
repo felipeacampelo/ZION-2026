@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BarChart3,
   CreditCard,
+  CalendarDays,
   FileText,
   Layers,
   LogOut,
@@ -23,6 +24,7 @@ interface AdminShellProps {
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
   { to: '/admin/enrollments', label: 'Inscritos', icon: Users, end: false },
+  { to: '/admin/settings/event', label: 'Evento', icon: CalendarDays, end: false },
   { to: '/admin/settings/payment', label: 'Pagamentos', icon: CreditCard, end: false },
   { to: '/admin/settings/form', label: 'Formulário', icon: FileText, end: false },
   { to: '/admin/settings/batches', label: 'Lotes', icon: Layers, end: false },
@@ -126,6 +128,16 @@ export default function AdminShell({ children }: AdminShellProps) {
                 aria-label="Fechar menu"
               >
                 <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="border-b border-gray-100 px-4 py-4">
+              <button
+                onClick={() => navigate('/')}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900"
+              >
+                <ArrowLeft className="h-[18px] w-[18px] flex-shrink-0" />
+                Voltar para o site
               </button>
             </div>
 

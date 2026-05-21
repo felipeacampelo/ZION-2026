@@ -38,18 +38,18 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black to-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-black to-gray-900 flex items-start justify-center pt-0 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center justify-center mb-2">
             <img 
               src="/logo.png" 
-              alt="Área Mais" 
-              className="w-16 h-16 object-contain"
+              alt="JUMP" 
+              className="w-80 h-80 object-contain"
             />
           </div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: 'rgb(220, 253, 97)' }}>
+          <h1 className="text-3xl font-bold mb-2 text-white">
             Bem-vindo de volta!
           </h1>
           <p className="text-gray-300">
@@ -79,7 +79,7 @@ export default function Login() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white"
                 style={{ outline: 'none' }}
-                onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px rgb(165, 44, 240)'}
+                onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px #1a2e1a'}
                 onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                 placeholder="seu@email.com"
               />
@@ -97,7 +97,7 @@ export default function Login() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white"
                 style={{ outline: 'none' }}
-                onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px rgb(165, 44, 240)'}
+                onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px #1a2e1a'}
                 onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                 placeholder="••••••••"
               />
@@ -108,16 +108,16 @@ export default function Login() {
                 <input
                   type="checkbox"
                   className="w-4 h-4 border-gray-300 rounded"
-                  style={{ accentColor: 'rgb(165, 44, 240)' }}
+                  style={{ accentColor: '#1a2e1a' }}
                 />
                 <span className="ml-2 text-sm text-gray-600">Lembrar-me</span>
               </label>
               <Link
                 to="/forgot-password"
                 className="text-sm font-medium"
-                style={{ color: 'rgb(165, 44, 240)' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+                style={{ color: '#1a2e1a' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#2a4a2a'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#1a2e1a'}
               >
                 Esqueceu a senha?
               </Link>
@@ -138,9 +138,9 @@ export default function Login() {
               <Link
                 to="/register"
                 className="font-medium"
-                style={{ color: 'rgb(165, 44, 240)' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+                style={{ color: '#1a2e1a' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#2a4a2a'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#1a2e1a'}
               >
                 Cadastre-se
               </Link>
@@ -151,10 +151,7 @@ export default function Login() {
         <div className="mt-6 text-center">
           <Link
             to="/"
-            className="text-sm"
-            style={{ color: 'rgb(220, 253, 97)' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(210, 243, 67)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(220, 253, 97)'}
+            className="text-sm text-white/70 hover:text-white transition-colors"
           >
             ← Voltar para início
           </Link>

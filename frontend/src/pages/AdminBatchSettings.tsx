@@ -20,6 +20,7 @@ type BatchCreateForm = {
   pix_installment_price: string;
   credit_card_price: string;
   max_enrollments: string;
+  next_batch: string;
 };
 
 type BatchEditForm = BatchCreateForm;
@@ -33,6 +34,7 @@ const emptyCreateForm: BatchCreateForm = {
   pix_installment_price: '',
   credit_card_price: '',
   max_enrollments: '',
+  next_batch: '',
 };
 
 export default function AdminBatchSettings() {
@@ -96,6 +98,7 @@ export default function AdminBatchSettings() {
         pix_installment_price: createForm.pix_installment_price,
         credit_card_price: createForm.credit_card_price,
         max_enrollments: createForm.max_enrollments ? Number(createForm.max_enrollments) : null,
+        next_batch: createForm.next_batch ? Number(createForm.next_batch) : null,
       });
 
       setCreateForm((current) => ({
@@ -124,6 +127,7 @@ export default function AdminBatchSettings() {
       pix_installment_price: String(batch.pix_installment_price),
       credit_card_price: String(batch.credit_card_price),
       max_enrollments: batch.max_enrollments ? String(batch.max_enrollments) : '',
+      next_batch: batch.next_batch ? String(batch.next_batch) : '',
     });
     setError('');
     setSuccess('');
@@ -144,6 +148,7 @@ export default function AdminBatchSettings() {
         pix_installment_price: editForm.pix_installment_price,
         credit_card_price: editForm.credit_card_price,
         max_enrollments: editForm.max_enrollments ? Number(editForm.max_enrollments) : null,
+        next_batch: editForm.next_batch ? Number(editForm.next_batch) : null,
       });
       setEditingBatchId(null);
       setSuccess('Lote atualizado com sucesso.');
@@ -227,6 +232,9 @@ export default function AdminBatchSettings() {
     return 'bg-amber-100 text-amber-700';
   };
 
+  const getEligibleNextBatches = (productId: number, currentBatchId?: number) =>
+    sortedBatches.filter((batch) => batch.product === productId && batch.id !== currentBatchId);
+
   return (
     <AdminShell>
       <div className="space-y-6">
@@ -301,6 +309,11 @@ export default function AdminBatchSettings() {
                   <p className="mt-3 text-xs text-gray-500">
                     {new Date(batch.start_date).toLocaleString('pt-BR')} até {new Date(batch.end_date).toLocaleString('pt-BR')}
                   </p>
+                  {batch.next_batch_name && (
+                    <p className="mt-2 text-xs font-medium text-gray-600">
+                      Próximo lote automático: <span className="text-gray-900">{batch.next_batch_name}</span>
+                    </p>
+                  )}
 
                   {editingBatchId === batch.id && (
                     <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -370,6 +383,18 @@ export default function AdminBatchSettings() {
                         className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
                         placeholder="Vagas (opcional)"
                       />
+                      <select
+                        value={editForm.next_batch}
+                        onChange={(e) => setEditForm((current) => ({ ...current, next_batch: e.target.value }))}
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                      >
+                        <option value="">Sem próximo lote automático</option>
+                        {getEligibleNextBatches(editForm.product, batch.id).map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {candidate.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
 
@@ -525,6 +550,19 @@ export default function AdminBatchSettings() {
                   onChange={(e) => setCreateForm((current) => ({ ...current, max_enrollments: e.target.value }))}
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
                 />
+
+                <select
+                  value={createForm.next_batch}
+                  onChange={(e) => setCreateForm((current) => ({ ...current, next_batch: e.target.value }))}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                >
+                  <option value="">Sem próximo lote automático</option>
+                  {getEligibleNextBatches(createForm.product).map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.name}
+                    </option>
+                  ))}
+                </select>
 
                 <div className="md:col-span-2 xl:col-span-4 flex justify-end gap-2 border-t border-gray-200 pt-4">
                   <button

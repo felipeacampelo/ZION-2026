@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Phone, FileText, Calendar, CreditCard, Check, Ticket, X } from 'lucide-react';
-import { getProducts, getProduct, createEnrollment, getEnrollments, getSettings, validateCoupon, type FormFieldConfig, type Product, type Enrollment } from '../services/api'; // getEnrollments used in handleSubmit
+import {
+  getProducts,
+  getProduct,
+  createEnrollment,
+  getEnrollments,
+  getSettings,
+  validateCoupon,
+  type FormFieldConfig,
+  type Product,
+  type Enrollment,
+  type ResponsibleFieldConfig,
+} from '../services/api';
 import ProgressSteps from '../components/ProgressSteps';
 
 export default function Enrollment() {
@@ -26,6 +37,9 @@ export default function Enrollment() {
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundPolicyAccepted, setRefundPolicyAccepted] = useState(false);
   const [formFieldsConfig, setFormFieldsConfig] = useState<Record<string, FormFieldConfig>>({});
+  const [responsibleFieldsConfig, setResponsibleFieldsConfig] = useState<ResponsibleFieldConfig[]>([]);
+  const [minBirthYear, setMinBirthYear] = useState(2009);
+  const [responsibleFormData, setResponsibleFormData] = useState<Record<string, string | boolean>>({});
 
   const hasActiveBatch = !!selectedProduct?.active_batch;
 
@@ -60,6 +74,8 @@ export default function Enrollment() {
     try {
       const response = await getSettings();
       setFormFieldsConfig(response.data.form_fields_config);
+      setResponsibleFieldsConfig(response.data.responsible_fields_config || []);
+      setMinBirthYear(response.data.min_birth_year ?? 2009);
       setEnrollmentStartAt(response.data.enrollment_start_at);
       setEnrollmentEndAt(response.data.enrollment_end_at);
     } catch (err) {
@@ -175,13 +191,11 @@ export default function Enrollment() {
       return;
     }
 
-    // Validate age (block anyone born in 2010 or later)
+    // Validate age based on admin configuration.
     if (formData.data_nascimento) {
       const birthDate = new Date(formData.data_nascimento);
-      const birthYear = birthDate.getFullYear();
-      
-      if (birthYear >= 2010) {
-        setError('Inscrições disponíveis apenas para nascidos até 2009.');
+      if (birthDate.getFullYear() < minBirthYear) {
+        setError(`Inscrições disponíveis apenas para nascidos em ${minBirthYear} ou depois.`);
         setLoading(false);
         return;
       }
@@ -197,7 +211,10 @@ export default function Enrollment() {
       const response = await createEnrollment({
         product_id: selectedProduct.id,
         batch_id: selectedProduct.active_batch.id,
-        form_data: formData,
+        form_data: {
+          ...formData,
+          responsavel: responsibleFormData,
+        },
         coupon_code: couponApplied ? couponCode : undefined,
       });
 
@@ -286,6 +303,75 @@ export default function Enrollment() {
     }
     
     await processEnrollment();
+  };
+
+  const renderResponsibleField = (field: ResponsibleFieldConfig) => {
+    const commonClassName = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white';
+    const value = responsibleFormData[field.key];
+
+    if (field.type === 'textarea') {
+      return (
+        <textarea
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => setResponsibleFormData((current) => ({ ...current, [field.key]: e.target.value }))}
+          className={commonClassName}
+          placeholder={field.placeholder || field.label}
+          rows={4}
+          required={field.required}
+        />
+      );
+    }
+
+    if (field.type === 'select') {
+      return (
+        <select
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => setResponsibleFormData((current) => ({ ...current, [field.key]: e.target.value }))}
+          className={`${commonClassName} appearance-none cursor-pointer`}
+          required={field.required}
+        >
+          <option value="">Selecione...</option>
+          {field.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (field.type === 'checkbox') {
+      return (
+        <label className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3">
+          <input
+            type="checkbox"
+            checked={value === true}
+            onChange={(e) => setResponsibleFormData((current) => ({ ...current, [field.key]: e.target.checked }))}
+            className="h-4 w-4"
+          />
+          <span className="text-sm text-gray-700">{field.placeholder || field.label}</span>
+        </label>
+      );
+    }
+
+    const inputTypeMap: Record<string, string> = {
+      text: 'text',
+      email: 'email',
+      phone: 'tel',
+      cpf: 'text',
+      date: 'date',
+    };
+
+    return (
+      <input
+        type={inputTypeMap[field.type] || 'text'}
+        value={typeof value === 'string' ? value : ''}
+        onChange={(e) => setResponsibleFormData((current) => ({ ...current, [field.key]: e.target.value }))}
+        className={commonClassName}
+        placeholder={field.type === 'date' ? '' : field.placeholder || field.label}
+        required={field.required}
+      />
+    );
   };
 
   // Show completed enrollment page if payment is confirmed
@@ -519,9 +605,11 @@ export default function Enrollment() {
                   required={getFieldConfig('data_nascimento').required}
                   value={formData.data_nascimento}
                   onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
-                  max="2009-12-31"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
                 />
+                <p className="mt-2 text-sm text-gray-500">
+                  Permitido apenas para nascidos em {minBirthYear} ou depois.
+                </p>
               </div>
               )}
             </div>
@@ -647,25 +735,14 @@ export default function Enrollment() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Quem é seu líder de PG? {getFieldConfig('lider_pg').required ? '*' : ''}
                 </label>
-                <select
+                <input
+                  type="text"
                   required={getFieldConfig('lider_pg').required}
                   value={formData.lider_pg}
                   onChange={(e) => setFormData({ ...formData, lider_pg: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white appearance-none cursor-pointer"
-                  style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.25rem' }}
-                >
-                  <option value="">Selecione seu líder de PG...</option>
-                  <option value="Cleber e Bruna">Cleber e Bruna</option>
-                  <option value="Thalles">Thalles</option>
-                  <option value="Matheus Vox">Matheus Vox</option>
-                  <option value="Renan e Karol">Renan e Karol</option>
-                  <option value="Guigo e Ana Lu">Guigo e Ana Lu</option>
-                  <option value="Lucas Luz e Liz">Lucas Luz e Liz</option>
-                  <option value="Lucas Daniel e Gih Bia">Lucas Daniel e Gih Bia</option>
-                  <option value="Lucas Cardoso e Manu Camargo">Lucas Cardoso e Manu Camargo</option>
-                  <option value="Pedrão e Julia">Pedrão e Julia</option>
-                  <option value="Não tenho PG">Não tenho PG</option>
-                </select>
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                  placeholder="Digite o nome do seu líder de PG"
+                />
               </div>
               )}
             </div>
@@ -684,6 +761,26 @@ export default function Enrollment() {
                 placeholder="Deseja ficar no quarto com alguém? Restrições alimentares, necessidades especiais, etc..."
               />
             </div>
+            )}
+
+            {responsibleFieldsConfig.length > 0 && (
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+                  Dados do Responsável
+                </h3>
+                <div className="grid gap-6 md:grid-cols-2">
+                  {responsibleFieldsConfig.map((field) => (
+                    <div key={field.key} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
+                      {field.type !== 'checkbox' && (
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {field.label} {field.required ? '*' : ''}
+                        </label>
+                      )}
+                      {renderResponsibleField(field)}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Cupom de Desconto */}

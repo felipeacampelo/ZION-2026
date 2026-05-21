@@ -54,6 +54,8 @@ export interface Batch {
   id: number;
   product?: number;
   product_name?: string;
+  next_batch?: number | null;
+  next_batch_name?: string | null;
   name: string;
   start_date: string;
   end_date: string;
@@ -156,6 +158,16 @@ export interface FormFieldConfig {
   label: string;
 }
 
+export interface ResponsibleFieldConfig {
+  key: string;
+  label: string;
+  type: 'text' | 'textarea' | 'email' | 'phone' | 'cpf' | 'date' | 'select' | 'checkbox';
+  required: boolean;
+  placeholder: string;
+  options: string[];
+  position?: number;
+}
+
 export interface EmailTemplate {
   key: string;
   name: string;
@@ -189,6 +201,7 @@ export interface EmailCampaign {
     status?: string;
     payment_method?: string;
     search?: string;
+    enrollment_ids?: number[];
   };
   status: 'DRAFT' | 'SENDING' | 'SENT' | 'FAILED' | 'PARTIAL';
   recipient_count: number;
@@ -311,9 +324,16 @@ export const getAdminEnrollments = (params?: {
   product?: number;
   search?: string;
   payment_method?: string;
+  ids?: number[];
   page?: number;
   page_size?: number;
-}) => api.get<PaginatedResponse<Enrollment>>('/users/admin/enrollments/', { params });
+}) =>
+  api.get<PaginatedResponse<Enrollment>>('/users/admin/enrollments/', {
+    params: {
+      ...params,
+      ids: params?.ids?.join(','),
+    },
+  });
 
 export const getAdminOverdueEnrollments = () =>
   api.get<{
@@ -361,6 +381,10 @@ export const deleteAdminCoupon = (id: number) =>
 
 // Settings endpoints
 export interface AppSettings {
+  home_description: string;
+  home_date_text: string;
+  home_location_text: string;
+  home_location_subtext: string;
   enrollment_start_at: string | null;
   enrollment_end_at: string | null;
   max_installments: number;
@@ -371,6 +395,9 @@ export interface AppSettings {
   enable_coupons: boolean;
   enable_shirt_size_field: boolean;
   form_fields_config: Record<string, FormFieldConfig>;
+  responsible_fields_config: ResponsibleFieldConfig[];
+  max_age_years: number;
+  min_birth_year: number;
 }
 
 export const getSettings = () => api.get<AppSettings>('/enrollments/settings/');
@@ -421,6 +448,7 @@ export const previewAdminEmailCampaignRecipientsByFilters = (filters: {
   status?: string;
   payment_method?: string;
   search?: string;
+  enrollment_ids?: number[];
 }) =>
   api.post<{
     count: number;
@@ -440,6 +468,7 @@ export const sendAdminEmailCampaignDraftTest = (data: {
     status?: string;
     payment_method?: string;
     search?: string;
+    enrollment_ids?: number[];
   };
 }) =>
   api.post('/users/admin/email-campaigns/send-test-draft/', data);

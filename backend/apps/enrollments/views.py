@@ -196,6 +196,10 @@ def get_settings(request):
     """Get global application settings."""
     settings = Settings.get_settings()
     return Response({
+        'home_description': settings.home_description,
+        'home_date_text': settings.home_date_text,
+        'home_location_text': settings.home_location_text,
+        'home_location_subtext': settings.home_location_subtext,
         'enrollment_start_at': settings.enrollment_start_at,
         'enrollment_end_at': settings.enrollment_end_at,
         'max_installments': settings.max_installments,
@@ -205,4 +209,7 @@ def get_settings(request):
         'enable_credit_card': settings.enable_credit_card,
         'enable_shirt_size_field': settings.enable_shirt_size_field,
         'form_fields_config': settings.get_form_fields_config(),
+        'responsible_fields_config': settings.get_responsible_fields_config(),
+        'max_age_years': settings.max_age_years,
+        'min_birth_year': settings.min_birth_year,
     })

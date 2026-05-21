@@ -1,11 +1,11 @@
-# Sistema de Inscrição
+# ZION 2026
 
-Sistema de inscrição com backend em Django e frontend em React.
+Clone inicial do sistema de inscrição do evento ZION 2026, com backend em Django e frontend em React.
 
 ## Estrutura do Projeto
 
 ```
-areamais/
+gestao-zion-2026/
 ├── backend/           # Aplicação Django
 └── frontend/          # Aplicação React
 ```
@@ -40,3 +40,8 @@ areamais/
 
 O backend estará disponível em: http://localhost:8000/
 O frontend estará disponível em: http://localhost:3000/
+
+## Status
+
+Esta é a cópia inicial do projeto original, preparada para adaptação do evento ZION 2026.
+Nesta etapa, a arquitetura e as regras principais foram preservadas para permitir evolução incremental.

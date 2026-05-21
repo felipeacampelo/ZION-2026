@@ -24,6 +24,17 @@ DEFAULT_FORM_FIELDS_CONFIG = {
     'observacoes': {'enabled': True, 'required': False, 'label': 'Observações'},
 }
 
+RESPONSIBLE_FIELD_TYPES = {
+    'text',
+    'textarea',
+    'email',
+    'phone',
+    'cpf',
+    'date',
+    'select',
+    'checkbox',
+}
+
 
 class Enrollment(models.Model):
     """
@@ -401,6 +412,37 @@ class Settings(models.Model):
     """
     Global settings for the application.
     """
+    home_description = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Descrição da Home',
+        help_text='Texto principal exibido na seção de descrição da página inicial'
+    )
+
+    home_date_text = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name='Data exibida na Home',
+        help_text='Texto livre mostrado no bloco de data da página inicial'
+    )
+
+    home_location_text = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name='Local exibido na Home',
+        help_text='Texto livre mostrado no bloco de local da página inicial'
+    )
+
+    home_location_subtext = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name='Subtexto do local na Home',
+        help_text='Texto menor abaixo do local, útil para endereço ou complemento'
+    )
+
     enrollment_start_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -450,6 +492,27 @@ class Settings(models.Model):
         blank=True,
         verbose_name='Configuração dos Campos do Formulário',
         help_text='Define quais campos do formulário ficam visíveis e obrigatórios'
+    )
+
+    responsible_fields_config = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Campos do Responsável',
+        help_text='Campos extras exibidos na seção de dados do responsável'
+    )
+
+    max_age_years = models.IntegerField(
+        default=17,
+        validators=[MinValueValidator(0), MaxValueValidator(120)],
+        verbose_name='Idade Máxima para Inscrição',
+        help_text='Apenas pessoas com esta idade ou menos poderão se inscrever'
+    )
+
+    min_birth_year = models.IntegerField(
+        default=2009,
+        validators=[MinValueValidator(1900), MaxValueValidator(2100)],
+        verbose_name='Ano Mínimo de Nascimento',
+        help_text='Permite inscrição apenas para nascidos neste ano ou depois'
     )
 
     max_installments = models.IntegerField(
@@ -520,9 +583,43 @@ class Settings(models.Model):
 
         return merged
 
+    def get_responsible_fields_config(self):
+        """Return normalized responsible field configuration."""
+        normalized = []
+
+        for index, field in enumerate(self.responsible_fields_config or []):
+            if not isinstance(field, dict):
+                continue
+
+            field_type = field.get('type', 'text')
+            if field_type not in RESPONSIBLE_FIELD_TYPES:
+                field_type = 'text'
+
+            key = str(field.get('key', '')).strip()
+            label = str(field.get('label', '')).strip()
+            if not key or not label:
+                continue
+
+            options = field.get('options', [])
+            if not isinstance(options, list):
+                options = []
+
+            normalized.append({
+                'key': key,
+                'label': label,
+                'type': field_type,
+                'required': bool(field.get('required', False)),
+                'placeholder': str(field.get('placeholder', '')).strip(),
+                'options': [str(option).strip() for option in options if str(option).strip()],
+                'position': index,
+            })
+
+        return normalized
+
     def save(self, *args, **kwargs):
         """Normalize cross-field settings before saving."""
         merged = self.get_form_fields_config()
+        responsible_fields = self.get_responsible_fields_config()
 
         for field_config in merged.values():
             if not field_config['enabled']:
@@ -536,10 +633,25 @@ class Settings(models.Model):
             }
             for field_name, config in merged.items()
         }
+        self.responsible_fields_config = [
+            {
+                'key': field['key'],
+                'label': field['label'],
+                'type': field['type'],
+                'required': field['required'],
+                'placeholder': field['placeholder'],
+                'options': field['options'],
+            }
+            for field in responsible_fields
+        ]
 
         update_fields = kwargs.get('update_fields')
         if update_fields is not None:
-            kwargs['update_fields'] = set(update_fields) | {'form_fields_config', 'enable_shirt_size_field'}
+            kwargs['update_fields'] = set(update_fields) | {
+                'form_fields_config',
+                'enable_shirt_size_field',
+                'responsible_fields_config',
+            }
 
         super().save(*args, **kwargs)
     

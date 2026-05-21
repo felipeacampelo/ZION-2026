@@ -1,4 +1,5 @@
-import { Navigate } from 'react-router-dom';
+import { Fragment } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AdminRouteProps {
@@ -7,6 +8,7 @@ interface AdminRouteProps {
 
 export default function AdminRoute({ children }: AdminRouteProps) {
   const { isAuthenticated, isAdmin, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -20,8 +22,7 @@ export default function AdminRoute({ children }: AdminRouteProps) {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login
-    return <Navigate to="/login" state={{ from: window.location.pathname }} replace />;
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   if (!isAdmin) {
@@ -29,5 +30,5 @@ export default function AdminRoute({ children }: AdminRouteProps) {
     return <Navigate to="/" replace />;
   }
 
-  return children;
+  return <Fragment key={location.pathname}>{children}</Fragment>;
 }

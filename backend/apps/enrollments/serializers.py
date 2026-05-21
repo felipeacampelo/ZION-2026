@@ -92,6 +92,7 @@ class EnrollmentCreateSerializer(serializers.Serializer):
         """Validate product and batch."""
         from apps.products.models import Product, Batch
         from .models import Settings
+        from datetime import datetime
         
         try:
             product = Product.objects.get(id=data['product_id'], is_active=True)
@@ -112,6 +113,7 @@ class EnrollmentCreateSerializer(serializers.Serializer):
         form_data = dict(data.get('form_data', {}))
         settings = Settings.get_settings()
         form_fields_config = settings.get_form_fields_config()
+        responsible_fields_config = settings.get_responsible_fields_config()
         conditional_required_fields = {
             'igreja': form_data.get('membro_batista_capital') == 'nao',
         }
@@ -145,19 +147,57 @@ class EnrollmentCreateSerializer(serializers.Serializer):
         data_nascimento = form_data.get('data_nascimento')
         
         if data_nascimento:
-            from datetime import datetime, date
             try:
                 birth_date = datetime.strptime(data_nascimento, '%Y-%m-%d').date()
-                
-                # Block anyone born in 2010 or later
-                if birth_date.year >= 2010:
+                if birth_date.year < settings.min_birth_year:
                     raise serializers.ValidationError({
-                        'form_data': 'Inscrições disponíveis apenas para nascidos até 2009.'
+                        'form_data': f'Inscrições disponíveis apenas para nascidos em {settings.min_birth_year} ou depois.'
                     })
             except ValueError:
                 raise serializers.ValidationError({
                     'form_data': 'Data de nascimento inválida. Use o formato AAAA-MM-DD.'
                 })
+
+        responsible_data = form_data.get('responsavel', {})
+        if not isinstance(responsible_data, dict):
+            raise serializers.ValidationError({
+                'form_data': 'Os dados do responsável devem ser enviados em formato válido.'
+            })
+
+        normalized_responsible_data = {}
+        for field_config in responsible_fields_config:
+            key = field_config['key']
+            value = responsible_data.get(key)
+
+            if field_config['required']:
+                if field_config['type'] == 'checkbox':
+                    if value is not True:
+                        raise serializers.ValidationError({
+                            'form_data': f'O campo "{field_config["label"]}" é obrigatório.'
+                        })
+                elif value is None or str(value).strip() == '':
+                    raise serializers.ValidationError({
+                        'form_data': f'O campo "{field_config["label"]}" é obrigatório.'
+                    })
+
+            if field_config['type'] == 'checkbox':
+                normalized_responsible_data[key] = bool(value)
+                continue
+
+            if value is None:
+                normalized_responsible_data[key] = ''
+                continue
+
+            string_value = str(value).strip()
+            if field_config['type'] == 'select' and string_value and string_value not in field_config['options']:
+                raise serializers.ValidationError({
+                    'form_data': f'O valor selecionado para "{field_config["label"]}" é inválido.'
+                })
+
+            normalized_responsible_data[key] = string_value
+
+        form_data['responsavel'] = normalized_responsible_data
+        data['form_data'] = form_data
         
         # Check for duplicate enrollment
         request = self.context.get('request')

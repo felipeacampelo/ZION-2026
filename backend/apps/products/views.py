@@ -16,6 +16,8 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
+        for product in Product.objects.filter(is_active=True):
+            product.sync_batch_transitions()
         return Product.objects.filter(is_active=True)
     
     def get_serializer_class(self):
@@ -51,6 +53,8 @@ class BatchViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
+        for batch in Batch.objects.select_related('product', 'next_batch').all():
+            batch.sync_status()
         queryset = Batch.objects.filter(status='ACTIVE')
         product_id = self.request.query_params.get('product')
         if product_id:

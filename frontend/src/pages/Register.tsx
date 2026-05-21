@@ -54,27 +54,21 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-black to-gray-900 flex items-start justify-center px-4 sm:px-6 lg:px-8 py-2">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
+        <div className="text-center mb-2">
+          <div className="inline-flex items-center justify-center">
             <img 
               src="/logo.png" 
-              alt="Área Mais" 
-              className="w-16 h-16 object-contain"
+              alt="JUMP" 
+              className="w-48 h-48 object-contain"
             />
           </div>
-          <h1 className="text-3xl font-bold mb-2" style={{ color: 'rgb(220, 253, 97)' }}>
-            Crie sua conta
-          </h1>
-          <p className="text-gray-300">
-            Preencha os dados abaixo para começar
-          </p>
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="bg-white rounded-xl shadow-lg p-5">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -82,7 +76,7 @@ export default function Register() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {/* Nome */}
             <div className="grid md:grid-cols-2 gap-6">
               <div>
@@ -97,7 +91,7 @@ export default function Register() {
                   onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   style={{ outline: 'none' }}
-                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px rgb(165, 44, 240)'}
+                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px #1a2e1a'}
                   onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                   placeholder="João"
                 />
@@ -114,7 +108,7 @@ export default function Register() {
                   onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   style={{ outline: 'none' }}
-                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px rgb(165, 44, 240)'}
+                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px #1a2e1a'}
                   onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                   placeholder="Silva"
                 />
@@ -150,7 +144,7 @@ export default function Register() {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   style={{ outline: 'none' }}
-                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px rgb(165, 44, 240)'}
+                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px #1a2e1a'}
                   onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                   placeholder="(11) 99999-9999"
                 />
@@ -167,7 +161,7 @@ export default function Register() {
                   onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   style={{ outline: 'none' }}
-                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px rgb(165, 44, 240)'}
+                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px #1a2e1a'}
                   onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                   placeholder="000.000.000-00"
                   maxLength={14}
@@ -189,7 +183,7 @@ export default function Register() {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   style={{ outline: 'none' }}
-                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px rgb(165, 44, 240)'}
+                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px #1a2e1a'}
                   onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                   placeholder="••••••••"
                   minLength={8}
@@ -207,7 +201,7 @@ export default function Register() {
                   onChange={(e) => setFormData({ ...formData, password2: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   style={{ outline: 'none' }}
-                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px rgb(165, 44, 240)'}
+                  onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 2px #1a2e1a'}
                   onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
                   placeholder="••••••••"
                   minLength={8}
@@ -220,15 +214,15 @@ export default function Register() {
                 type="checkbox"
                 required
                 className="w-4 h-4 border-gray-300 rounded mt-1"
-                style={{ accentColor: 'rgb(165, 44, 240)' }}
+                style={{ accentColor: '#1a2e1a' }}
               />
               <label className="ml-2 text-sm text-gray-600">
                 Eu concordo com os{' '}
-                <Link to="/terms" className="font-medium" style={{ color: 'rgb(165, 44, 240)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'} onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}>
+                <Link to="/terms" className="font-medium" style={{ color: '#1a2e1a' }} onMouseEnter={(e) => e.currentTarget.style.color = '#2a4a2a'} onMouseLeave={(e) => e.currentTarget.style.color = '#1a2e1a'}>
                   Termos de Uso
                 </Link>{' '}
                 e{' '}
-                <Link to="/privacy" className="font-medium" style={{ color: 'rgb(165, 44, 240)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'} onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}>
+                <Link to="/privacy" className="font-medium" style={{ color: '#1a2e1a' }} onMouseEnter={(e) => e.currentTarget.style.color = '#2a4a2a'} onMouseLeave={(e) => e.currentTarget.style.color = '#1a2e1a'}>
                   Política de Privacidade
                 </Link>
               </label>
@@ -249,9 +243,9 @@ export default function Register() {
               <Link
                 to="/login"
                 className="font-medium"
-                style={{ color: 'rgb(165, 44, 240)' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+                style={{ color: '#1a2e1a' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#2a4a2a'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#1a2e1a'}
               >
                 Faça login
               </Link>
@@ -262,10 +256,7 @@ export default function Register() {
         <div className="mt-6 text-center">
           <Link
             to="/"
-            className="text-sm"
-            style={{ color: 'rgb(220, 253, 97)' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(210, 243, 67)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(220, 253, 97)'}
+            className="text-sm text-white/70 hover:text-white transition-colors"
           >
             ← Voltar para início
           </Link>

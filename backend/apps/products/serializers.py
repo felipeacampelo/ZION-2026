@@ -11,6 +11,7 @@ class BatchSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     current_enrollments = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
+    next_batch_name = serializers.CharField(source='next_batch.name', read_only=True)
 
     class Meta:
         model = Batch
@@ -30,6 +31,8 @@ class BatchSerializer(serializers.ModelSerializer):
             'is_full',
             'status',
             'is_visible_on_site',
+            'next_batch',
+            'next_batch_name',
         ]
 
 

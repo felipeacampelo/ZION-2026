@@ -13,7 +13,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .permissions import IsAdminUser
-from apps.enrollments.models import Enrollment, Settings as AppSettings, Coupon
+from apps.enrollments.models import Enrollment, Settings as AppSettings, Coupon, RESPONSIBLE_FIELD_TYPES
 from apps.enrollments.serializers import EnrollmentSerializer
 from apps.payments.models import Payment
 from apps.products.models import Product, Batch
@@ -22,10 +22,15 @@ from apps.products.serializers import ProductSerializer, BatchSerializer
 
 class AdminSettingsSerializer(serializers.ModelSerializer):
     form_fields_config = serializers.JSONField(required=False)
+    responsible_fields_config = serializers.JSONField(required=False)
 
     class Meta:
         model = AppSettings
         fields = [
+            'home_description',
+            'home_date_text',
+            'home_location_text',
+            'home_location_subtext',
             'enrollment_start_at',
             'enrollment_end_at',
             'max_installments',
@@ -36,12 +41,16 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
             'enable_coupons',
             'enable_shirt_size_field',
             'form_fields_config',
+            'responsible_fields_config',
+            'max_age_years',
+            'min_birth_year',
         ]
         read_only_fields = ['max_installments_with_coupon']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['form_fields_config'] = instance.get_form_fields_config()
+        data['responsible_fields_config'] = instance.get_responsible_fields_config()
         return data
 
     def validate(self, attrs):
@@ -82,6 +91,67 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
             }
             attrs['enable_shirt_size_field'] = normalized['tamanho_camiseta']['enabled']
 
+        raw_responsible_fields = attrs.get('responsible_fields_config')
+        if raw_responsible_fields is not None:
+            if not isinstance(raw_responsible_fields, list):
+                raise serializers.ValidationError({
+                    'responsible_fields_config': 'Os campos do responsável devem ser enviados em uma lista.'
+                })
+
+            normalized_responsible_fields = []
+            used_keys = set()
+
+            for index, field in enumerate(raw_responsible_fields):
+                if not isinstance(field, dict):
+                    raise serializers.ValidationError({
+                        'responsible_fields_config': f'O campo do responsável na posição {index + 1} é inválido.'
+                    })
+
+                key = str(field.get('key', '')).strip()
+                label = str(field.get('label', '')).strip()
+                field_type = str(field.get('type', 'text')).strip()
+                placeholder = str(field.get('placeholder', '')).strip()
+                required = bool(field.get('required', False))
+                options = field.get('options', [])
+
+                if not key or not label:
+                    raise serializers.ValidationError({
+                        'responsible_fields_config': 'Todos os campos do responsável precisam de identificador e nome.'
+                    })
+
+                if key in used_keys:
+                    raise serializers.ValidationError({
+                        'responsible_fields_config': f'O identificador "{key}" está duplicado.'
+                    })
+                used_keys.add(key)
+
+                if field_type not in RESPONSIBLE_FIELD_TYPES:
+                    raise serializers.ValidationError({
+                        'responsible_fields_config': f'Tipo inválido para o campo "{label}".'
+                    })
+
+                if not isinstance(options, list):
+                    raise serializers.ValidationError({
+                        'responsible_fields_config': f'As opções do campo "{label}" devem ser enviadas em lista.'
+                    })
+
+                normalized_options = [str(option).strip() for option in options if str(option).strip()]
+                if field_type == 'select' and not normalized_options:
+                    raise serializers.ValidationError({
+                        'responsible_fields_config': f'O campo "{label}" precisa ter ao menos uma opção.'
+                    })
+
+                normalized_responsible_fields.append({
+                    'key': key,
+                    'label': label,
+                    'type': field_type,
+                    'required': required,
+                    'placeholder': placeholder,
+                    'options': normalized_options,
+                })
+
+            attrs['responsible_fields_config'] = normalized_responsible_fields
+
         return attrs
 
 
@@ -95,6 +165,7 @@ class AdminBatchListSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     current_enrollments = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
+    next_batch_name = serializers.CharField(source='next_batch.name', read_only=True)
 
     class Meta:
         model = Batch
@@ -113,6 +184,8 @@ class AdminBatchListSerializer(serializers.ModelSerializer):
             'is_full',
             'status',
             'is_visible_on_site',
+            'next_batch',
+            'next_batch_name',
         ]
 
 
@@ -398,6 +471,7 @@ def admin_enrollments_list(request):
     product_filter = request.query_params.get('product')
     payment_method_filter = request.query_params.get('payment_method')
     search = request.query_params.get('search')
+    ids = request.query_params.get('ids')
     
     if status_filter:
         enrollments = enrollments.filter(status=status_filter)
@@ -407,6 +481,11 @@ def admin_enrollments_list(request):
     
     if payment_method_filter:
         enrollments = enrollments.filter(payment_method=payment_method_filter)
+
+    if ids:
+        enrollment_ids = [int(value) for value in ids.split(',') if value.strip().isdigit()]
+        if enrollment_ids:
+            enrollments = enrollments.filter(id__in=enrollment_ids)
     
     if search:
         enrollments = enrollments.filter(
@@ -477,6 +556,9 @@ def admin_products_list(request):
 @permission_classes([IsAdminUser])
 def admin_batches_list(request):
     """List all batches with product data for admin management."""
+
+    for batch in Batch.objects.select_related('product', 'next_batch').all():
+        batch.sync_status()
 
     batches = Batch.objects.select_related('product').all().order_by('start_date')
     serializer = AdminBatchListSerializer(batches, many=True)

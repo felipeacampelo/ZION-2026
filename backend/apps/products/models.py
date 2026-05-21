@@ -1,8 +1,11 @@
 """
 Product and Batch models with clean architecture.
 """
+from datetime import timedelta
+
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
@@ -67,6 +70,7 @@ class Product(models.Model):
     
     def get_active_batch(self):
         """Returns the currently active batch for this product."""
+        self.sync_batch_transitions()
         now = timezone.now()
 
         candidate_batches = self.batches.filter(
@@ -80,6 +84,11 @@ class Product(models.Model):
                 return batch
 
         return None
+
+    def sync_batch_transitions(self):
+        """Refresh batch statuses and automatic transitions for this product."""
+        for batch in self.batches.select_related('next_batch').all().order_by('start_date'):
+            batch.sync_status()
 
 
 class Batch(models.Model):
@@ -169,6 +178,16 @@ class Batch(models.Model):
         default=False,
         help_text=_('Define o lote exibido no frontend quando houver múltiplos lotes elegíveis')
     )
+
+    next_batch = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='previous_batches',
+        verbose_name=_('Próximo Lote'),
+        help_text=_('Lote que será ativado automaticamente quando este encerrar ou esgotar')
+    )
     
     created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
     updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
@@ -181,6 +200,24 @@ class Batch(models.Model):
     
     def __str__(self):
         return f'{self.product.name} - {self.name}'
+
+    def clean(self):
+        super().clean()
+
+        if self.next_batch_id:
+            if self.next_batch_id == self.id:
+                raise ValidationError({'next_batch': 'Um lote não pode apontar para ele mesmo.'})
+
+            if self.product_id and self.next_batch and self.next_batch.product_id != self.product_id:
+                raise ValidationError({'next_batch': 'O próximo lote precisa pertencer ao mesmo produto.'})
+
+            visited_ids = {self.id} if self.id else set()
+            current = self.next_batch
+            while current:
+                if current.id in visited_ids:
+                    raise ValidationError({'next_batch': 'A sequência de próximos lotes não pode formar ciclo.'})
+                visited_ids.add(current.id)
+                current = current.next_batch
     
     @property
     def current_enrollments(self):
@@ -199,18 +236,69 @@ class Batch(models.Model):
         """Check if batch is currently active based on dates."""
         now = timezone.now()
         return self.start_date <= now <= self.end_date
-    
+
+    def get_computed_status(self, now=None):
+        """Return the status this batch should have based on current time and capacity."""
+        now = now or timezone.now()
+
+        if self.pk and self.is_full:
+            return 'FULL'
+        if self.start_date <= now <= self.end_date:
+            return 'ACTIVE'
+        if now > self.end_date:
+            return 'ENDED'
+        return 'SCHEDULED'
+
+    def activate_next_batch(self, now=None):
+        """Activate the configured next batch when this one ends or becomes full."""
+        now = now or timezone.now()
+
+        if not self.next_batch_id:
+            return
+
+        next_batch = self.next_batch
+        if not next_batch or next_batch.product_id != self.product_id:
+            return
+
+        next_batch.refresh_from_db()
+        if next_batch.is_full:
+            return
+
+        fields_to_update = set()
+        if next_batch.start_date > now:
+            next_batch.start_date = now
+            fields_to_update.add('start_date')
+        if next_batch.end_date <= now:
+            next_batch.end_date = now + timedelta(days=1)
+            fields_to_update.add('end_date')
+
+        next_status = next_batch.get_computed_status(now)
+        if next_batch.status != next_status:
+            next_batch.status = next_status
+            fields_to_update.add('status')
+
+        if not fields_to_update:
+            return
+
+        next_batch.save(update_fields=list(fields_to_update))
+
+    def sync_status(self, now=None):
+        """Persist the current status and execute automatic transitions if necessary."""
+        now = now or timezone.now()
+        computed_status = self.get_computed_status(now)
+
+        if computed_status != self.status:
+            self.status = computed_status
+            super().save(update_fields=['status', 'updated_at'])
+
+        if computed_status in {'FULL', 'ENDED'}:
+            self.activate_next_batch(now)
+
     def save(self, *args, **kwargs):
         """Auto-update status based on dates and enrollments."""
-        # Only check is_full if the object already exists (has pk)
-        if self.pk and self.is_full:
-            self.status = 'FULL'
-        elif self.is_active_now:
-            self.status = 'ACTIVE'
-        elif timezone.now() > self.end_date:
-            self.status = 'ENDED'
-        elif timezone.now() < self.start_date:
-            self.status = 'SCHEDULED'
+        self.full_clean()
+        now = timezone.now()
+        self.status = self.get_computed_status(now)
 
         super().save(*args, **kwargs)
 
@@ -219,3 +307,6 @@ class Batch(models.Model):
                 status='ENDED',
                 end_date=timezone.now(),
             )
+
+        if self.status in {'FULL', 'ENDED'}:
+            self.activate_next_batch(now)

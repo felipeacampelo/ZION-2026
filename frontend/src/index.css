@@ -1,69 +1,91 @@
-@font-face {
-  font-family: 'Procerus';
-  src: url('/fonts/Procerus%20Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-}
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply text-gray-900;
+    background-color: #faf7f2;
+    font-family: 'angie-sans', 'Inter', system-ui, sans-serif;
+    line-height: 1.6;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'bc-vajgar', 'Inter', system-ui, sans-serif;
+    font-weight: 400;
+    font-style: normal;
+    line-height: 1.2;
   }
 }
 
 @layer components {
+  .btn-gold {
+    @apply font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md;
+    background-color: #c9a84c;
+    color: #1a2e1a;
+  }
+  
+  .btn-gold:hover {
+    background-color: #dcc075;
+    box-shadow: 0 10px 25px -5px rgba(201, 168, 76, 0.4);
+    transform: translateY(-1px);
+  }
+  
+  .btn-outline {
+    @apply font-semibold py-3 px-6 rounded-lg border-2 transition-all duration-300;
+    background-color: transparent;
+    color: #c9a84c;
+    border-color: #c9a84c;
+  }
+  
+  .btn-outline:hover {
+    background-color: rgba(201, 168, 76, 0.1);
+    border-color: #dcc075;
+    color: #dcc075;
+  }
+  
   .btn-primary {
-    @apply font-semibold py-3 px-6 rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg;
-    background-color: rgb(165, 44, 240);
+    @apply font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-md;
+    background-color: #1a2e1a;
     color: #ffffff;
   }
   
   .btn-primary:hover {
-    background-color: rgb(145, 24, 220);
+    background-color: #2a4a2a;
+    transform: translateY(-1px);
   }
-  
-  .btn-secondary {
-    @apply font-semibold py-3 px-6 rounded-lg border-2 transition-colors duration-200;
-    background-color: #000000;
-    color: rgb(220, 253, 97);
-    border-color: rgb(220, 253, 97);
-  }
-  
-  .btn-secondary:hover {
-    background-color: #1a1a1a;
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
   }
   
   .card {
     @apply bg-white rounded-xl shadow-lg p-6;
   }
+  
+  .card-dark {
+    @apply bg-dark-800 rounded-xl shadow-lg p-6;
+  }
 }
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  color: #1a2e1a;
+  background-color: #faf7f2;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
 }
 
 body {
@@ -74,26 +96,13 @@ body {
   width: 100%;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
 button {
   font-family: inherit;
   cursor: pointer;
 }
+
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
+  outline: 2px auto #c9a84c;
+  outline-offset: 2px;
 }

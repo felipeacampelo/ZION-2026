@@ -12,6 +12,10 @@ __pycache__/
 venv/
 env/
 ENV/
+.venv/
+.venv312/
+backend/.venv/
+backend/.venv312/
 *.log
 db.sqlite3
 db.sqlite3-journal

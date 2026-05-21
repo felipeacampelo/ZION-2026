@@ -523,6 +523,7 @@ def get_campaign_recipients_queryset(filters):
     product_filter = filters.get('product')
     payment_method_filter = filters.get('payment_method')
     search = (filters.get('search') or '').strip()
+    enrollment_ids = filters.get('enrollment_ids') or []
 
     if status_filter:
         queryset = queryset.filter(status=status_filter)
@@ -530,6 +531,8 @@ def get_campaign_recipients_queryset(filters):
         queryset = queryset.filter(product_id=product_filter)
     if payment_method_filter:
         queryset = queryset.filter(payment_method=payment_method_filter)
+    if enrollment_ids:
+        queryset = queryset.filter(id__in=enrollment_ids)
     if search:
         queryset = queryset.filter(
             Q(user__first_name__icontains=search) |
