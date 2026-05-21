@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Copy, Check, QrCode, CreditCard as CreditCardIcon } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Clock3, QrCode, CreditCard as CreditCardIcon } from 'lucide-react';
 import { getEnrollment, createPayment, getSettings, type Enrollment, type Payment } from '../services/api';
 import ProgressSteps from '../components/ProgressSteps';
 
@@ -254,10 +254,7 @@ export default function PaymentPage() {
         {/* Botão Voltar */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center mb-6 font-medium transition-colors"
-          style={{ color: 'rgb(165, 44, 240)' }}
-          onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-          onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+          className="mb-6 flex items-center font-medium text-dark transition-colors hover:text-gold-700"
         >
           <ArrowLeft className="w-5 h-5 mr-2" style={{ color: 'inherit' }} />
           Voltar
@@ -491,24 +488,27 @@ export default function PaymentPage() {
                 style={{
                   backgroundColor: payment.status === 'CONFIRMED' || payment.status === 'RECEIVED'
                     ? 'rgba(220, 253, 97, 0.2)'
-                    : 'rgba(165, 44, 240, 0.2)'
+                    : 'rgba(201, 168, 76, 0.18)'
                 }}
               >
-                <Check 
-                  className="w-8 h-8"
-                  style={{
-                    color: payment.status === 'CONFIRMED' || payment.status === 'RECEIVED'
-                      ? 'rgb(210, 243, 67)'
-                      : 'rgb(165, 44, 240)'
-                  }}
-                />
+                {payment.status === 'CONFIRMED' || payment.status === 'RECEIVED' ? (
+                  <Check
+                    className="w-8 h-8"
+                    style={{ color: 'rgb(210, 243, 67)' }}
+                  />
+                ) : (
+                  <Clock3
+                    className="w-8 h-8"
+                    style={{ color: '#c9a84c' }}
+                  />
+                )}
               </div>
               <h1 className="text-3xl font-bold mb-2">
                 {payment.status === 'CONFIRMED' || payment.status === 'RECEIVED'
                   ? '🎉 Pagamento Confirmado!'
                   : payment.pix_qr_code 
-                    ? 'Pagamento Gerado!' 
-                    : 'Pagamento Processado!'}
+                    ? 'Pagamento Pendente'
+                    : 'Pagamento Pendente'}
               </h1>
               
               {/* Indicação da Parcela */}
@@ -524,8 +524,8 @@ export default function PaymentPage() {
                 {payment.status === 'CONFIRMED' || payment.status === 'RECEIVED'
                   ? 'Seu pagamento foi confirmado com sucesso! Você receberá um email de confirmação.'
                   : payment.pix_qr_code 
-                    ? 'Escaneie o QR Code ou copie o código PIX'
-                    : 'Finalize o pagamento do cartão na página segura do Asaas'}
+                    ? 'Escaneie o QR Code ou copie o código PIX para concluir o pagamento.'
+                    : 'Seu pagamento ainda não foi concluído. Finalize o pagamento do cartão na página segura do Asaas.'}
               </p>
             </div>
 

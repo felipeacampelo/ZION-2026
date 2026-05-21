@@ -246,8 +246,7 @@ export default function AdminBatchSettings() {
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white"
-            style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+            className="inline-flex items-center gap-2 rounded-lg bg-dark px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-dark-700"
           >
             <Plus className="h-4 w-4" />
             Novo Lote
@@ -296,7 +295,7 @@ export default function AdminBatchSettings() {
                     {batch.max_enrollments ? (
                       <div className="h-2 rounded-full bg-gray-200">
                         <div
-                          className="h-2 rounded-full bg-purple"
+                          className="h-2 rounded-full bg-dark"
                           style={{ width: `${Math.min((batch.current_enrollments / batch.max_enrollments) * 100, 100)}%` }}
                         />
                       </div>
@@ -416,8 +415,7 @@ export default function AdminBatchSettings() {
                         type="button"
                         onClick={() => void saveBatch(batch.id)}
                         disabled={saving}
-                        className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                        style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+                        className="inline-flex items-center gap-2 rounded-lg bg-dark px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-dark-700 disabled:opacity-60"
                       >
                         <Save className="h-4 w-4" />
                         Salvar lote
@@ -575,8 +573,7 @@ export default function AdminBatchSettings() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                    style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+                    className="inline-flex items-center gap-2 rounded-lg bg-dark px-5 py-2.5 font-medium text-white transition-colors hover:bg-dark-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     Criar lote
