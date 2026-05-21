@@ -10,16 +10,12 @@ export default function MyEnrollments() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    console.log('MyEnrollments component mounted');
     loadEnrollments();
   }, []);
 
   const loadEnrollments = async () => {
-    console.log('loadEnrollments called');
     try {
-      console.log('Calling getEnrollments API...');
       const response = await getEnrollments();
-      console.log('API Response:', response);
       
       // Handle both array and paginated response
       let enrollmentsData: Enrollment[] = [];
@@ -31,15 +27,6 @@ export default function MyEnrollments() {
         enrollmentsData = (response.data as any).results;
       }
       
-      console.log('Loaded enrollments:', enrollmentsData);
-      enrollmentsData.forEach((e: any) => {
-        console.log(`Enrollment ${e.id}:`, {
-          payment_method: e.payment_method,
-          installments: e.installments,
-          payments_count: e.payments?.length || 0,
-          payments: e.payments
-        });
-      });
       setEnrollments(enrollmentsData);
     } catch (err: any) {
       console.error('Error loading enrollments:', err);
@@ -92,16 +79,17 @@ export default function MyEnrollments() {
     }
   };
 
+  const backButtonClass = 'flex items-center mb-8 font-medium text-dark transition-colors hover:text-gold-700';
+  const darkButtonClass = 'px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 bg-dark text-white hover:bg-dark-700';
+  const goldButtonClass = 'px-4 py-2 rounded-lg font-medium transition-colors text-dark bg-gold hover:bg-gold-400';
+
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <button
           onClick={() => navigate('/')}
-          className="flex items-center mb-8 font-medium"
-          style={{ color: 'rgb(165, 44, 240)' }}
-          onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-          onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+          className={backButtonClass}
         >
           <ArrowLeft className="w-5 h-5 mr-2" style={{ color: 'inherit' }} />
           Voltar
@@ -121,7 +109,7 @@ export default function MyEnrollments() {
 
           {loading ? (
             <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: 'rgb(165, 44, 240)' }}></div>
+              <div className="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-dark"></div>
               <p className="mt-4 text-gray-600">Carregando inscrições...</p>
             </div>
           ) : enrollments.length === 0 ? (
@@ -214,7 +202,7 @@ export default function MyEnrollments() {
                     {enrollment.payment_method === 'PIX_INSTALLMENT' && enrollment.payments && enrollment.payments.length > 0 && (
                       <div className="mt-6 pt-6 border-t">
                         <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                          <CreditCard className="w-5 h-5" style={{ color: 'rgb(165, 44, 240)' }} />
+                          <CreditCard className="w-5 h-5 text-dark" />
                           Parcelas PIX ({enrollment.installments}x)
                         </h4>
                         
@@ -293,13 +281,7 @@ export default function MyEnrollments() {
                                   {payment.status !== 'RECEIVED' && payment.status !== 'CONFIRMED' && (
                                     <button
                                       onClick={() => navigate(`/payment/${enrollment.id}?paymentId=${payment.id}`)}
-                                      className="px-4 py-2 rounded-lg font-medium transition-colors text-sm sm:text-base whitespace-nowrap"
-                                      style={{
-                                        backgroundColor: 'rgb(165, 44, 240)',
-                                        color: 'white'
-                                      }}
-                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(145, 24, 220)'}
-                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(165, 44, 240)'}
+                                      className={`${goldButtonClass} text-sm sm:text-base whitespace-nowrap`}
                                     >
                                       Pagar Agora
                                     </button>
@@ -335,13 +317,7 @@ export default function MyEnrollments() {
 
                         <button
                           onClick={() => navigate(`/enrollment/edit/${enrollment.id}`)}
-                          className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                          style={{
-                            backgroundColor: 'rgb(165, 44, 240)',
-                            color: 'white'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(145, 24, 220)'}
-                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(165, 44, 240)'}
+                          className={darkButtonClass}
                           title={editTitle}
                         >
                           <Edit className="w-4 h-4" />

@@ -43,6 +43,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
                 'installment_number': p.installment_number,
                 'due_date': p.due_date.isoformat() if p.due_date else None,
                 'paid_at': p.paid_at.isoformat() if p.paid_at else None,
+                'payment_url': getattr(p, 'payment_url', None),
                 'pix_qr_code': getattr(p, 'pix_qr_code', None),
                 'pix_copy_paste': getattr(p, 'pix_copy_paste', None),
             } for p in payments]
@@ -363,6 +364,7 @@ class EnrollmentListSerializer(serializers.ModelSerializer):
                 'installment_number': p.installment_number,
                 'due_date': p.due_date.isoformat() if p.due_date else None,
                 'paid_at': p.paid_at.isoformat() if p.paid_at else None,
+                'payment_url': getattr(p, 'payment_url', None),
                 'pix_qr_code': getattr(p, 'pix_qr_code', None),
                 'pix_copy_paste': getattr(p, 'pix_copy_paste', None),
             } for p in payments]

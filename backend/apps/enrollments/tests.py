@@ -10,6 +10,7 @@ from rest_framework.test import APITestCase
 
 from apps.enrollments.models import Settings
 from apps.products.models import Batch, Product
+from apps.payments.models import Payment
 
 
 User = get_user_model()
@@ -231,3 +232,45 @@ class EnrollmentSecurityTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
+    def test_enrollment_detail_includes_payment_url_for_pending_card_payment(self, mock_send_email):
+        self.client.force_authenticate(user=self.user)
+
+        create_response = self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': {
+                    'email': self.user.email,
+                    'nome_completo': 'Participant User',
+                    'telefone': '(11) 99999-0000',
+                    'data_nascimento': '2000-01-01',
+                    'cpf': '123.456.789-00',
+                    'rg': '12.345.678-9',
+                    'cep': '01000-000',
+                    'tamanho_camiseta': 'G',
+                    'membro_batista_capital': 'sim',
+                    'lider_pg': 'Não tenho PG',
+                },
+            },
+            format='json',
+        )
+
+        enrollment_id = create_response.data['id']
+        payment = Payment.objects.create(
+            enrollment_id=enrollment_id,
+            amount=Decimal('10.00'),
+            status='PENDING',
+            payment_url='https://sandbox.asaas.com/i/pay-card-test',
+        )
+
+        detail_response = self.client.get(reverse('enrollments:enrollment-detail', args=[enrollment_id]))
+
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_response.data['payments'][0]['id'], payment.id)
+        self.assertEqual(
+            detail_response.data['payments'][0]['payment_url'],
+            'https://sandbox.asaas.com/i/pay-card-test',
+        )
