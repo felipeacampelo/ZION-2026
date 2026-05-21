@@ -315,13 +315,6 @@ class PaymentSecurityTests(APITestCase):
                 'enrollment_id': self.owner_enrollment.id,
                 'payment_method': 'CREDIT_CARD',
                 'installments': 1,
-                'credit_card_data': {
-                    'number': '4111111111111111',
-                    'holderName': 'Owner User',
-                    'expiryMonth': '12',
-                    'expiryYear': '2030',
-                    'ccv': '123',
-                },
             },
             format='json',
         )

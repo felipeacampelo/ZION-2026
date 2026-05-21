@@ -38,8 +38,6 @@ class PaymentCreateSerializer(serializers.Serializer):
         choices=['PIX_CASH', 'PIX_INSTALLMENT', 'CREDIT_CARD']
     )
     installments = serializers.IntegerField(default=1, min_value=1, max_value=12)
-    credit_card_token = serializers.CharField(required=False, allow_blank=True)
-    credit_card_data = serializers.JSONField(required=False)
     
     def validate(self, data):
         """Validate payment data."""
@@ -104,12 +102,6 @@ class PaymentCreateSerializer(serializers.Serializer):
                     'installments': f'Máximo de {max_installments} parcelas permitidas'
                 })
         
-        if payment_method == 'CREDIT_CARD':
-            if not data.get('credit_card_token') and not data.get('credit_card_data'):
-                raise serializers.ValidationError({
-                    'credit_card': 'Token ou dados do cartão são obrigatórios'
-                })
-        
         data['enrollment'] = enrollment
         return data
     
@@ -122,10 +114,7 @@ class PaymentCreateSerializer(serializers.Serializer):
         enrollment = validated_data['enrollment']
         payment_method = validated_data['payment_method']
         installments = validated_data['installments']
-        credit_card_token = validated_data.get('credit_card_token')
-        credit_card_data = validated_data.get('credit_card_data')
-        
-        logger.info(f"Creating payment - Method: {payment_method}, Installments: {installments}, Has token: {bool(credit_card_token)}, Has data: {bool(credit_card_data)}")
+        logger.info(f"Creating payment - Method: {payment_method}, Installments: {installments}")
         
         # Update enrollment with payment info and recalculate amounts
         enrollment.payment_method = payment_method
@@ -142,12 +131,7 @@ class PaymentCreateSerializer(serializers.Serializer):
                 payments = service.create_pix_installment_payments(enrollment, installments)
                 payment = payments[0]  # Return first payment
             else:  # CREDIT_CARD
-                payment = service.create_credit_card_payment(
-                    enrollment,
-                    installments,
-                    credit_card_token,
-                    credit_card_data
-                )
+                payment = service.create_credit_card_payment(enrollment, installments)
             
             return payment
             

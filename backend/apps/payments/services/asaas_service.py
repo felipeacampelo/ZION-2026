@@ -166,23 +166,19 @@ class AsaasService:
         self,
         customer_id: str,
         value: Decimal,
-        card_data: dict,
         description: str,
         external_reference: str,
         installments: int = 1,
-        holder_info: Optional[dict] = None
     ) -> dict:
         """
-        Create credit card payment directly (without separate tokenization).
+        Create a hosted credit card payment.
         
         Args:
             customer_id: Asaas customer ID
             value: Payment value
-            card_data: Card information (number, holderName, expiryMonth, expiryYear, ccv)
             description: Payment description
             external_reference: External reference ID
             installments: Number of installments
-            holder_info: Card holder information (name, email, cpfCnpj, etc)
         
         Returns:
             Payment data from Asaas
@@ -194,28 +190,15 @@ class AsaasService:
             'billingType': 'CREDIT_CARD',
             'description': description,
             'externalReference': external_reference,
-            'capture': True,
-            'creditCard': {
-                'holderName': str(card_data.get('holderName', '')),
-                'number': str(card_data.get('number', '')),
-                'expiryMonth': str(card_data.get('expiryMonth', '')).zfill(2),
-                'expiryYear': str(card_data.get('expiryYear', '')),
-                'ccv': str(card_data.get('ccv', '')),
-            },
+            'value': float(value),
             'dueDate': date_module.today().strftime('%Y-%m-%d'),
         }
-        
-        # Add holder info if provided
-        if holder_info:
-            payload['creditCardHolderInfo'] = holder_info
-        
+
         # Handle installments
         if installments > 1:
             per_installment = float(value) / installments
             payload['installmentCount'] = installments
             payload['installmentValue'] = round(per_installment, 2)
-        else:
-            payload['value'] = float(value)
         
         return self._make_request('POST', 'payments', payload)
     

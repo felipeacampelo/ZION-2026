@@ -258,14 +258,6 @@ export const createPayment = (data: {
   enrollment_id: number;
   payment_method: string;
   installments: number;
-  credit_card_token?: string;
-  credit_card_data?: {
-    number: string;
-    holderName: string;
-    expiryMonth: string;
-    expiryYear: string;
-    ccv: string;
-  };
 }) => api.post<Payment>('/payments/', data);
 
 export const calculatePayment = (data: {

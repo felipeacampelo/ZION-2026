@@ -242,16 +242,13 @@ class PaymentService:
         self,
         enrollment: 'Enrollment',
         installments: int = 1,
-        credit_card_token: Optional[str] = None,
-        credit_card_data: Optional[dict] = None
     ) -> 'Payment':
         """
-        Create credit card payment.
+        Create a hosted credit card payment.
         
         Args:
             enrollment: Enrollment instance
             installments: Number of installments
-            credit_card_token: Tokenized credit card from frontend
             
         Returns:
             Payment instance
@@ -261,50 +258,15 @@ class PaymentService:
         
         # Due date (immediate for credit card)
         due_date = timezone.now().date()
-        
-        # Prepare holder info from enrollment form_data
-        form_data = enrollment.form_data or {}
-        
-        # Normalize phone (remove non-digits)
-        phone = form_data.get('telefone', '')
-        if phone:
-            import re
-            phone = re.sub(r'\D', '', phone)
-        
-        # Normalize CPF (remove non-digits)
-        cpf = form_data.get('cpf', '')
-        if cpf:
-            import re
-            cpf = re.sub(r'\D', '', cpf)
-        
-        # Normalize CEP (remove non-digits)
-        cep = form_data.get('cep', '')
-        if cep:
-            import re
-            cep = re.sub(r'\D', '', cep)
-        
-        holder_info = {
-            'name': enrollment.user.get_full_name() or form_data.get('nome_completo') or enrollment.user.email,
-            'email': enrollment.user.email,
-            'cpfCnpj': cpf,
-            'postalCode': cep or '01310100',  # Usa CEP do formulário ou padrão
-            'addressNumber': 'S/N',
-        }
-        
-        # Add phone if available
-        if phone and len(phone) >= 10:
-            holder_info['phone'] = phone
-            holder_info['mobilePhone'] = phone
-        
-        # Create payment in Asaas using card data directly
+
+        # Create payment in Asaas and let the user complete card details on
+        # the hosted invoice page instead of handling PAN/CVV in this app.
         asaas_payment = self.asaas.create_credit_card_payment(
             customer_id=customer_id,
             value=enrollment.final_amount,
-            card_data=credit_card_data or {},
             description=f'Inscrição - {enrollment.product.name}',
             external_reference=str(enrollment.id),
             installments=installments,
-            holder_info=holder_info
         )
         
         # Create local payment record

@@ -70,31 +70,34 @@ class AsaasWebhookView(APIView):
         import logging
         from threading import Thread
         logger = logging.getLogger(__name__)
-        
-        # Log webhook received
-        logger.info(f'Webhook received: {request.data}')
-        print(f'[WEBHOOK] Received: {request.data}')
-        
-        # Validate webhook token (desabilitado para testes)
-        # webhook_token = request.headers.get('asaas-access-token')
-        # expected_token = settings.ASAAS_WEBHOOK_TOKEN
-        # 
-        # if expected_token and webhook_token != expected_token:
-        #     return Response(
-        #         {'detail': 'Invalid webhook token'},
-        #         status=status.HTTP_401_UNAUTHORIZED
-        #     )
+
+        webhook_token = request.headers.get('asaas-access-token')
+        expected_token = settings.ASAAS_WEBHOOK_TOKEN
+
+        if not expected_token:
+            logger.error('Asaas webhook token is not configured')
+            return Response(
+                {'detail': 'Webhook not configured'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+        if webhook_token != expected_token:
+            logger.warning('Rejected Asaas webhook with invalid token')
+            return Response(
+                {'detail': 'Invalid webhook token'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        logger.info('Asaas webhook received and authenticated')
         
         # Process webhook asynchronously to avoid timeout
         def process_async():
             try:
                 service = PaymentService()
                 service.process_webhook(request.data)
-                logger.info(f'Webhook processed successfully')
-                print(f'[WEBHOOK] Processed successfully')
+                logger.info('Asaas webhook processed successfully')
             except Exception as e:
-                logger.error(f'Webhook error: {str(e)}')
-                print(f'[WEBHOOK] Error: {str(e)}')
+                logger.error(f'Asaas webhook error: {str(e)}')
         
         # Start processing in background thread
         thread = Thread(target=process_async)

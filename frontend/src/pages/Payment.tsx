@@ -3,7 +3,6 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Copy, Check, QrCode, CreditCard as CreditCardIcon } from 'lucide-react';
 import { getEnrollment, createPayment, getSettings, type Enrollment, type Payment } from '../services/api';
 import ProgressSteps from '../components/ProgressSteps';
-import CreditCardForm, { type CardData } from '../components/CreditCardForm';
 
 export default function PaymentPage() {
   console.log('PaymentPage component loaded');
@@ -26,7 +25,6 @@ export default function PaymentPage() {
   
   const [paymentMethod, setPaymentMethod] = useState<'PIX_CASH' | 'PIX_INSTALLMENT' | 'CREDIT_CARD'>('PIX_CASH');
   const [installments, setInstallments] = useState(1);
-  const [showCardForm, setShowCardForm] = useState(false);
   const [enablePixCash, setEnablePixCash] = useState(true);
   const [enablePixInstallment, setEnablePixInstallment] = useState(true);
   const [enableCreditCard, setEnableCreditCard] = useState(true);
@@ -133,7 +131,6 @@ export default function PaymentPage() {
       const nextMethod = availableMethods[0];
       setPaymentMethod(nextMethod);
       setInstallments(nextMethod === 'PIX_CASH' ? 1 : Math.min(Math.max(installments, nextMethod === 'PIX_INSTALLMENT' ? 2 : 1), maxInstallments));
-      setShowCardForm(false);
     }
   }, [enablePixCash, enablePixInstallment, enableCreditCard, paymentMethod, installments, maxInstallments]);
 
@@ -216,12 +213,6 @@ export default function PaymentPage() {
   const handleCreatePayment = async () => {
     if (!enrollmentId) return;
 
-    // Se for cartão, mostrar formulário
-    if (paymentMethod === 'CREDIT_CARD') {
-      setShowCardForm(true);
-      return;
-    }
-
     setLoading(true);
     setError('');
 
@@ -233,40 +224,15 @@ export default function PaymentPage() {
       });
 
       setPayment(response.data);
-      // Mark payment as loaded to prevent overwriting
       setPaymentLoaded(true);
-    } catch (err: any) {
-      setError(getPaymentErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleCardSubmit = async (cardData: CardData) => {
-    if (!enrollmentId) return;
-
-    setLoading(true);
-    setError('');
-
-    try {
-      // Enviar dados do cartão para o backend tokenizar
-      // O backend vai tokenizar de forma segura com a API do Asaas
-      const response = await createPayment({
-        enrollment_id: Number(enrollmentId),
-        payment_method: 'CREDIT_CARD',
-        installments: Math.min(installments, maxInstallments),
-        credit_card_data: {
-          number: cardData.number.replace(/\s/g, ''),
-          holderName: cardData.holderName,
-          expiryMonth: cardData.expiryMonth,
-          expiryYear: cardData.expiryYear,
-          ccv: cardData.ccv,
-        },
-      });
-
-      setPayment(response.data);
-      // Mark payment as loaded to prevent overwriting
-      setPaymentLoaded(true);
+      if (paymentMethod === 'CREDIT_CARD') {
+        if (!response.data.payment_url) {
+          throw new Error('A cobrança de cartão foi criada, mas a URL de pagamento não foi retornada.');
+        }
+        window.location.href = response.data.payment_url;
+        return;
+      }
     } catch (err: any) {
       setError(getPaymentErrorMessage(err));
     } finally {
@@ -464,7 +430,7 @@ export default function PaymentPage() {
                       <CreditCardIcon className="w-6 h-6 mr-3 flex-shrink-0" style={{ color: 'rgb(165, 44, 240)' }} />
                       <div>
                         <h3 className="font-semibold text-base sm:text-lg">Cartão de Crédito</h3>
-                        <p className="text-xs sm:text-sm text-gray-600">Parcele em até {maxInstallments}x no cartão</p>
+                        <p className="text-xs sm:text-sm text-gray-600">Pagamento seguro na página do Asaas em até {maxInstallments}x</p>
                       </div>
                     </div>
                     {enrollment && (
@@ -508,32 +474,13 @@ export default function PaymentPage() {
               )}
             </div>
 
-            {!showCardForm ? (
-              <button
-                onClick={handleCreatePayment}
-                disabled={loading}
-                className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Processando...' : 'Continuar'}
-              </button>
-            ) : (
-              <div className="mt-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold">Dados do Cartão</h2>
-                  <button
-                    onClick={() => setShowCardForm(false)}
-                    className="text-sm font-medium"
-                    style={{ color: 'rgb(165, 44, 240)' }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
-                    disabled={loading}
-                  >
-                    ← Voltar
-                  </button>
-                </div>
-                <CreditCardForm onSubmit={handleCardSubmit} loading={loading} />
-              </div>
-            )}
+            <button
+              onClick={handleCreatePayment}
+              disabled={loading}
+              className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Processando...' : paymentMethod === 'CREDIT_CARD' ? 'Ir para o pagamento' : 'Continuar'}
+            </button>
           </div>
         ) : (
           /* Confirmação de Pagamento */
@@ -578,9 +525,23 @@ export default function PaymentPage() {
                   ? 'Seu pagamento foi confirmado com sucesso! Você receberá um email de confirmação.'
                   : payment.pix_qr_code 
                     ? 'Escaneie o QR Code ou copie o código PIX'
-                    : 'Seu pagamento com cartão está sendo processado'}
+                    : 'Finalize o pagamento do cartão na página segura do Asaas'}
               </p>
             </div>
+
+            {payment.payment_url && !payment.pix_qr_code && payment.status !== 'CONFIRMED' && payment.status !== 'RECEIVED' && (
+              <div className="mb-8 text-center">
+                <a
+                  href={payment.payment_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-lg px-6 py-3 font-semibold text-white"
+                  style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+                >
+                  Abrir página de pagamento
+                </a>
+              </div>
+            )}
 
             {/* QR Code */}
             {payment.pix_qr_code && (
