@@ -3,7 +3,7 @@ Enrollment serializers.
 """
 from decimal import Decimal
 from rest_framework import serializers
-from .models import DEFAULT_FORM_FIELDS_CONFIG, Enrollment
+from .models import DEFAULT_FORM_FIELDS_CONFIG, DEFAULT_RESPONSIBLE_CONTACT_FIELDS, Enrollment
 from apps.products.serializers import ProductSerializer, BatchSerializer
 
 
@@ -165,6 +165,14 @@ class EnrollmentCreateSerializer(serializers.Serializer):
             })
 
         normalized_responsible_data = {}
+        for field_key, field_meta in DEFAULT_RESPONSIBLE_CONTACT_FIELDS.items():
+            value = responsible_data.get(field_key)
+            if value is None or str(value).strip() == '':
+                raise serializers.ValidationError({
+                    'form_data': f'O campo "{field_meta["label"]}" é obrigatório.'
+                })
+            normalized_responsible_data[field_key] = str(value).strip()
+
         for field_config in responsible_fields_config:
             key = field_config['key']
             value = responsible_data.get(key)

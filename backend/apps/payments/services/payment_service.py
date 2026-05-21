@@ -29,8 +29,47 @@ class PaymentService:
         base_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000').rstrip('/')
         query = urlencode({'source': 'asaas'})
         return f'{base_url}/payment/{enrollment.id}?{query}'
+
+    def _normalize_digits(self, value: Optional[str]) -> str:
+        """Return only digits from a string value."""
+        if not value:
+            return ''
+
+        import re
+        return re.sub(r'\D', '', str(value))
+
+    def _get_customer_payload(self, user, enrollment: Optional[Enrollment] = None) -> dict:
+        """Resolve customer data prioritizing enrollment form_data, then profile."""
+        profile = user.profile
+        form_data = enrollment.form_data if enrollment and enrollment.form_data else {}
+        responsible_data = form_data.get('responsavel', {}) if isinstance(form_data.get('responsavel', {}), dict) else {}
+
+        full_name = (
+            str(responsible_data.get('nome_responsavel', '')).strip()
+            or str(form_data.get('nome_completo', '')).strip()
+            or user.get_full_name().strip()
+            or user.email
+        )
+        email = (
+            str(responsible_data.get('email_responsavel', '')).strip().lower()
+            or str(form_data.get('email', '')).strip().lower()
+            or user.email
+        )
+        phone = (
+            self._normalize_digits(responsible_data.get('telefone_responsavel'))
+            or self._normalize_digits(form_data.get('telefone'))
+            or self._normalize_digits(profile.phone)
+        )
+        cpf = self._normalize_digits(form_data.get('cpf')) or self._normalize_digits(profile.cpf)
+
+        return {
+            'name': full_name,
+            'email': email,
+            'phone': phone,
+            'cpf': cpf,
+        }
     
-    def ensure_customer_exists(self, user) -> str:
+    def ensure_customer_exists(self, user, enrollment: Optional[Enrollment] = None) -> str:
         """
         Ensure user has an Asaas customer ID.
         Creates customer if doesn't exist.
@@ -60,23 +99,12 @@ class PaymentService:
                 profile.asaas_customer_id = None
                 profile.save()
         
-        # Create customer in Asaas
-        # Get CPF from enrollment form_data first (more recent), then from profile
-        cpf = None
-        
-        # Try to get from latest enrollment first
-        from apps.enrollments.models import Enrollment
-        enrollment = Enrollment.objects.filter(user=user).order_by('-created_at').first()
-        if enrollment and enrollment.form_data:
-            cpf = enrollment.form_data.get('cpf', '')
-        
-        # If not found in enrollment, use profile CPF
-        if not cpf:
-            cpf = profile.cpf
-        
-        # Clean CPF format (remove dots, dashes, spaces)
-        if cpf:
-            cpf = cpf.replace('.', '').replace('-', '').replace(' ', '').strip()
+        # Create customer in Asaas using enrollment data as the primary source.
+        if enrollment is None:
+            enrollment = Enrollment.objects.filter(user=user).order_by('-created_at').first()
+
+        customer_payload = self._get_customer_payload(user, enrollment)
+        cpf = customer_payload['cpf']
         
         # Validate CPF format
         if not cpf or len(cpf) != 11 or not cpf.isdigit():
@@ -88,10 +116,10 @@ class PaymentService:
             raise ValueError("CPF inválido. Por favor, verifique o número digitado.")
         
         customer_data = self.asaas.create_customer(
-            name=user.get_full_name() or user.email,
-            email=user.email,
+            name=customer_payload['name'],
+            email=customer_payload['email'],
             cpf_cnpj=cpf,
-            phone=profile.phone
+            phone=customer_payload['phone'] or None,
         )
         
         profile.asaas_customer_id = customer_data['id']
@@ -115,7 +143,7 @@ class PaymentService:
         """
         Create a PIX charge in Asaas and return the raw payment and QR data.
         """
-        customer_id = self.ensure_customer_exists(enrollment.user)
+        customer_id = self.ensure_customer_exists(enrollment.user, enrollment)
 
         try:
             asaas_payment = self.asaas.create_pix_payment(
@@ -135,7 +163,7 @@ class PaymentService:
             profile.asaas_customer_id = None
             profile.save()
 
-            customer_id = self.ensure_customer_exists(enrollment.user)
+            customer_id = self.ensure_customer_exists(enrollment.user, enrollment)
             asaas_payment = self.asaas.create_pix_payment(
                 customer_id=customer_id,
                 value=amount,
@@ -262,7 +290,7 @@ class PaymentService:
             Payment instance
         """
         # Ensure customer exists
-        customer_id = self.ensure_customer_exists(enrollment.user)
+        customer_id = self.ensure_customer_exists(enrollment.user, enrollment)
         
         # Due date (immediate for credit card)
         due_date = timezone.now().date()

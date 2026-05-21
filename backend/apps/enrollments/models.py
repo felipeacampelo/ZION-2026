@@ -35,6 +35,12 @@ RESPONSIBLE_FIELD_TYPES = {
     'checkbox',
 }
 
+DEFAULT_RESPONSIBLE_CONTACT_FIELDS = {
+    'nome_responsavel': {'label': 'Nome do Responsável'},
+    'email_responsavel': {'label': 'Email do Responsável'},
+    'telefone_responsavel': {'label': 'Telefone do Responsável'},
+}
+
 
 class Enrollment(models.Model):
     """

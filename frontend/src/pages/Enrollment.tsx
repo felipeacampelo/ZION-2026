@@ -15,6 +15,12 @@ import {
 } from '../services/api';
 import ProgressSteps from '../components/ProgressSteps';
 
+const fixedResponsibleFields = [
+  { key: 'nome_responsavel', label: 'Nome do Responsável', type: 'text' as const, placeholder: 'Nome completo do responsável' },
+  { key: 'email_responsavel', label: 'Email do Responsável', type: 'email' as const, placeholder: 'responsavel@email.com' },
+  { key: 'telefone_responsavel', label: 'Telefone do Responsável', type: 'tel' as const, placeholder: '(11) 99999-9999' },
+];
+
 export default function Enrollment() {
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
@@ -39,7 +45,11 @@ export default function Enrollment() {
   const [formFieldsConfig, setFormFieldsConfig] = useState<Record<string, FormFieldConfig>>({});
   const [responsibleFieldsConfig, setResponsibleFieldsConfig] = useState<ResponsibleFieldConfig[]>([]);
   const [minBirthYear, setMinBirthYear] = useState(2009);
-  const [responsibleFormData, setResponsibleFormData] = useState<Record<string, string | boolean>>({});
+  const [responsibleFormData, setResponsibleFormData] = useState<Record<string, string | boolean>>({
+    nome_responsavel: '',
+    email_responsavel: '',
+    telefone_responsavel: '',
+  });
 
   const hasActiveBatch = !!selectedProduct?.active_batch;
 
@@ -607,9 +617,6 @@ export default function Enrollment() {
                   onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
                 />
-                <p className="mt-2 text-sm text-gray-500">
-                  Permitido apenas para nascidos em {minBirthYear} ou depois.
-                </p>
               </div>
               )}
             </div>
@@ -763,25 +770,38 @@ export default function Enrollment() {
             </div>
             )}
 
-            {responsibleFieldsConfig.length > 0 && (
-              <div className="border-t pt-6 mt-6">
-                <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
-                  Dados do Responsável
-                </h3>
-                <div className="grid gap-6 md:grid-cols-2">
-                  {responsibleFieldsConfig.map((field) => (
-                    <div key={field.key} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
-                      {field.type !== 'checkbox' && (
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {field.label} {field.required ? '*' : ''}
-                        </label>
-                      )}
-                      {renderResponsibleField(field)}
-                    </div>
-                  ))}
-                </div>
+            <div className="border-t pt-6 mt-6">
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+                Dados do Responsável
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                {fixedResponsibleFields.map((field) => (
+                  <div key={field.key}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {field.label} *
+                    </label>
+                    <input
+                      type={field.type}
+                      value={typeof responsibleFormData[field.key] === 'string' ? String(responsibleFormData[field.key]) : ''}
+                      onChange={(e) => setResponsibleFormData((current) => ({ ...current, [field.key]: e.target.value }))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                      placeholder={field.placeholder}
+                      required
+                    />
+                  </div>
+                ))}
+                {responsibleFieldsConfig.map((field) => (
+                  <div key={field.key} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
+                    {field.type !== 'checkbox' && (
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {field.label} {field.required ? '*' : ''}
+                      </label>
+                    )}
+                    {renderResponsibleField(field)}
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
 
             {/* Cupom de Desconto */}
             <div className="border-t pt-6">

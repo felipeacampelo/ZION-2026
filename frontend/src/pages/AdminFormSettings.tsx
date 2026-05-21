@@ -226,6 +226,13 @@ export default function AdminFormSettings() {
                 </div>
               </div>
 
+              <div className="rounded-xl border border-gray-200 p-4">
+                <h3 className="text-lg font-semibold text-gray-900">Dados fixos do responsável</h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  O formulário sempre exibirá nome, email e telefone do responsável. Os campos abaixo servem apenas para adicionar informações extras.
+                </p>
+              </div>
+
               <div className="overflow-hidden rounded-xl border border-gray-200">
                 <div className="grid grid-cols-[minmax(0,1fr)_120px_140px] gap-4 border-b border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700">
                   <span>Campo</span>
