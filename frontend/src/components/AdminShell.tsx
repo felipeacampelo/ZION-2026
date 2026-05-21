@@ -32,8 +32,6 @@ const NAV_ITEMS = [
   { to: '/admin/settings/emails', label: 'Emails', icon: Mail, end: false },
 ];
 
-const brandPurple = 'rgb(165, 44, 240)';
-
 export default function AdminShell({ children }: AdminShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
@@ -95,7 +93,7 @@ export default function AdminShell({ children }: AdminShellProps) {
           </div>
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-purple transition-colors hover:bg-purple/5"
+            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-dark transition-colors hover:bg-gold/10"
             title="Voltar ao site"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -151,7 +149,7 @@ export default function AdminShell({ children }: AdminShellProps) {
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-purple/10 text-purple'
+                        ? 'bg-dark text-white shadow-sm'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`
                   }
@@ -164,8 +162,8 @@ export default function AdminShell({ children }: AdminShellProps) {
 
             <div className="border-t border-gray-100 px-4 py-4">
               <div className="mb-3 flex items-center gap-3 rounded-xl px-2 py-1">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple/10">
-                  <User className="h-5 w-5 text-purple" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15">
+                  <User className="h-5 w-5 text-dark" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-900">{userName}</p>

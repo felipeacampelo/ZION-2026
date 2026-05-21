@@ -316,7 +316,7 @@ export default function Enrollment() {
   };
 
   const renderResponsibleField = (field: ResponsibleFieldConfig) => {
-    const commonClassName = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white';
+    const commonClassName = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent text-gray-900 bg-white';
     const value = responsibleFormData[field.key];
 
     if (field.type === 'textarea') {
@@ -384,6 +384,11 @@ export default function Enrollment() {
     );
   };
 
+  const backButtonClass = 'flex items-center mb-8 font-medium text-dark transition-colors hover:text-gold-700';
+  const inputClass = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent text-gray-900 bg-white';
+  const selectClass = `${inputClass} appearance-none cursor-pointer`;
+  const primaryButtonClass = 'px-6 py-3 bg-dark text-white rounded-lg font-medium hover:bg-dark-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+
   // Show completed enrollment page if payment is confirmed
   if (completedEnrollment) {
     return (
@@ -391,10 +396,7 @@ export default function Enrollment() {
         <div className="container mx-auto px-4 max-w-4xl">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center mb-8 font-medium"
-            style={{ color: 'rgb(165, 44, 240)' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+            className={backButtonClass}
           >
             <ArrowLeft className="w-5 h-5 mr-2" style={{ color: 'inherit' }} />
             Voltar
@@ -472,10 +474,7 @@ export default function Enrollment() {
         <div className="container mx-auto px-4 max-w-4xl">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center mb-8 font-medium transition-colors"
-            style={{ color: 'rgb(165, 44, 240)' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+            className={backButtonClass}
           >
             <ArrowLeft className="w-5 h-5 mr-2" style={{ color: 'inherit' }} />
             Voltar
@@ -500,10 +499,7 @@ export default function Enrollment() {
         {/* Header */}
         <button
           onClick={() => navigate('/')}
-          className="flex items-center mb-8 font-medium transition-colors"
-          style={{ color: 'rgb(165, 44, 240)' }}
-          onMouseEnter={(e) => e.currentTarget.style.color = 'rgb(145, 24, 220)'}
-          onMouseLeave={(e) => e.currentTarget.style.color = 'rgb(165, 44, 240)'}
+          className={backButtonClass}
         >
           <ArrowLeft className="w-5 h-5 mr-2" style={{ color: 'inherit' }} />
           Voltar
@@ -526,7 +522,7 @@ export default function Enrollment() {
 
           {/* Produto Selecionado */}
           {selectedProduct && (
-            <div className="rounded-lg p-6 mb-8" style={{ backgroundColor: 'rgba(165, 44, 240, 0.05)', border: '1px solid rgba(165, 44, 240, 0.2)' }}>
+            <div className="mb-8 rounded-lg border border-gold/30 bg-gold/10 p-6">
               <h3 className="font-semibold text-lg mb-2">
                 {selectedProduct.name}
               </h3>
@@ -564,7 +560,7 @@ export default function Enrollment() {
                 required={getFieldConfig('nome_completo').required}
                 value={formData.nome_completo}
                 onChange={(e) => setFormData({ ...formData, nome_completo: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                className={inputClass}
                 placeholder="Seu nome completo"
               />
             </div>
@@ -580,7 +576,7 @@ export default function Enrollment() {
                 required={getFieldConfig('email').required}
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                className={inputClass}
                 placeholder="seu@email.com"
               />
             </div>
@@ -598,7 +594,7 @@ export default function Enrollment() {
                   required={getFieldConfig('telefone').required}
                   value={formData.telefone}
                   onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                  className={inputClass}
                   placeholder="(11) 99999-9999"
                 />
               </div>
@@ -615,7 +611,7 @@ export default function Enrollment() {
                   required={getFieldConfig('data_nascimento').required}
                   value={formData.data_nascimento}
                   onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                  className={inputClass}
                 />
               </div>
               )}
@@ -633,7 +629,7 @@ export default function Enrollment() {
                   required={getFieldConfig('cpf').required}
                   value={formData.cpf}
                   onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                  className={inputClass}
                   placeholder="000.000.000-00"
                   maxLength={14}
                 />
@@ -651,7 +647,7 @@ export default function Enrollment() {
                   required={getFieldConfig('rg').required}
                   value={formData.rg}
                   onChange={(e) => setFormData({ ...formData, rg: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                  className={inputClass}
                   placeholder="00.000.000-0"
                 />
               </div>
@@ -668,7 +664,7 @@ export default function Enrollment() {
                 required={getFieldConfig('cep').required}
                 value={formData.cep}
                 onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                className={inputClass}
                 placeholder="00000-000"
                 maxLength={9}
               />
@@ -684,7 +680,7 @@ export default function Enrollment() {
                   required={getFieldConfig('tamanho_camiseta').required}
                   value={formData.tamanho_camiseta}
                   onChange={(e) => setFormData({ ...formData, tamanho_camiseta: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white appearance-none cursor-pointer"
+                  className={selectClass}
                   style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.25rem' }}
                 >
                   <option value="">Selecione o tamanho...</option>
@@ -699,7 +695,7 @@ export default function Enrollment() {
             )}
             
             <div className="border-t pt-6 mt-6">
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+              <h3 className="mb-4 text-lg font-semibold text-dark">
               </h3>
               
               {getFieldConfig('membro_batista_capital').enabled && (
@@ -711,7 +707,7 @@ export default function Enrollment() {
                   required={getFieldConfig('membro_batista_capital').required}
                   value={formData.membro_batista_capital}
                   onChange={(e) => setFormData({ ...formData, membro_batista_capital: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 bg-white appearance-none cursor-pointer"
+                  className={selectClass}
                   style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.25rem' }}
                 >
                   <option value="">Selecione...</option>
@@ -731,7 +727,7 @@ export default function Enrollment() {
                     required={getFieldConfig('igreja').required}
                     value={formData.igreja}
                     onChange={(e) => setFormData({ ...formData, igreja: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                    className={inputClass}
                     placeholder="Nome da sua igreja"
                   />
                 </div>
@@ -747,7 +743,7 @@ export default function Enrollment() {
                   required={getFieldConfig('lider_pg').required}
                   value={formData.lider_pg}
                   onChange={(e) => setFormData({ ...formData, lider_pg: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                  className={inputClass}
                   placeholder="Digite o nome do seu líder de PG"
                 />
               </div>
@@ -764,14 +760,14 @@ export default function Enrollment() {
                 value={formData.observacoes}
                 onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
                 rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
-                placeholder="Deseja ficar no quarto com alguém? Restrições alimentares, necessidades especiais, etc..."
+                className={inputClass}
+                placeholder="Restrições alimentares, necessidades especiais, etc..."
               />
             </div>
             )}
 
             <div className="border-t pt-6 mt-6">
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'rgb(165, 44, 240)' }}>
+              <h3 className="mb-4 text-lg font-semibold text-dark">
                 Dados do Responsável
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
@@ -784,7 +780,7 @@ export default function Enrollment() {
                       type={field.type}
                       value={typeof responsibleFormData[field.key] === 'string' ? String(responsibleFormData[field.key]) : ''}
                       onChange={(e) => setResponsibleFormData((current) => ({ ...current, [field.key]: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                      className={inputClass}
                       placeholder={field.placeholder}
                       required
                     />
@@ -817,14 +813,14 @@ export default function Enrollment() {
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                     placeholder="Digite o código do cupom"
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-gray-900 bg-white uppercase"
+                    className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-3 uppercase text-gray-900 focus:border-transparent focus:ring-2 focus:ring-gold"
                     disabled={validatingCoupon}
                   />
                   <button
                     type="button"
                     onClick={handleApplyCoupon}
                     disabled={validatingCoupon || !couponCode.trim()}
-                    className="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={primaryButtonClass}
                   >
                     {validatingCoupon ? 'Validando...' : 'Aplicar'}
                   </button>
@@ -878,7 +874,7 @@ export default function Enrollment() {
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold" style={{ color: 'rgb(165, 44, 240)' }}>
+                <h2 className="text-2xl font-bold text-dark">
                   Política de Reembolso
                 </h2>
                 <button
@@ -900,7 +896,7 @@ export default function Enrollment() {
 
                 <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
                   <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-semibold">
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-dark text-sm font-semibold">
                       1
                     </span>
                     <p>
@@ -909,7 +905,7 @@ export default function Enrollment() {
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-semibold">
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-dark text-sm font-semibold">
                       2
                     </span>
                     <p>
@@ -918,7 +914,7 @@ export default function Enrollment() {
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-semibold">
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-dark text-sm font-semibold">
                       3
                     </span>
                     <p>
@@ -927,7 +923,7 @@ export default function Enrollment() {
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-semibold">
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-dark text-sm font-semibold">
                       4
                     </span>
                     <p>
@@ -951,8 +947,7 @@ export default function Enrollment() {
                     // Process enrollment after accepting policy
                     await processEnrollment();
                   }}
-                  className="w-full py-3 px-6 rounded-lg font-semibold text-white transition-colors"
-                  style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+                  className={`w-full ${primaryButtonClass}`}
                 >
                   Aceito os Termos de Reembolso
                 </button>

@@ -12,6 +12,9 @@ interface ProgressStepsProps {
 }
 
 export default function ProgressSteps({ currentStep, steps }: ProgressStepsProps) {
+  const completedColor = '#1a2e1a';
+  const activeColor = '#c9a84c';
+
   return (
     <div className="w-full py-8">
       <div className="flex items-center justify-between max-w-3xl mx-auto">
@@ -23,16 +26,16 @@ export default function ProgressSteps({ currentStep, steps }: ProgressStepsProps
                 className="w-12 h-12 rounded-full flex items-center justify-center font-semibold text-lg transition-all duration-300"
                 style={{
                   backgroundColor: step.number < currentStep 
-                    ? 'rgb(220, 253, 97)' 
+                    ? completedColor
                     : step.number === currentStep 
-                    ? 'rgb(165, 44, 240)' 
+                    ? activeColor
                     : '#e5e7eb',
                   color: step.number < currentStep 
-                    ? '#000000' 
+                    ? '#ffffff'
                     : step.number === currentStep 
-                    ? '#ffffff' 
+                    ? '#1a2e1a'
                     : '#6b7280',
-                  boxShadow: step.number === currentStep ? '0 0 0 4px rgba(165, 44, 240, 0.2)' : 'none'
+                  boxShadow: step.number === currentStep ? '0 0 0 4px rgba(201, 168, 76, 0.18)' : 'none'
                 }}
               >
                 {step.number < currentStep ? (
@@ -46,7 +49,7 @@ export default function ProgressSteps({ currentStep, steps }: ProgressStepsProps
               <div className="mt-3 text-center">
                 <div
                   className="text-sm font-semibold"
-                  style={{ color: step.number === currentStep ? 'rgb(165, 44, 240)' : '#374151' }}
+                  style={{ color: step.number === currentStep ? activeColor : '#374151' }}
                 >
                   {step.title}
                 </div>
@@ -61,7 +64,7 @@ export default function ProgressSteps({ currentStep, steps }: ProgressStepsProps
               <div className="flex-1 h-1 mx-4 -mt-12">
                 <div
                   className="h-full transition-all duration-300"
-                  style={{ backgroundColor: step.number < currentStep ? 'rgb(220, 253, 97)' : '#e5e7eb' }}
+                  style={{ backgroundColor: step.number < currentStep ? completedColor : '#e5e7eb' }}
                 />
               </div>
             )}

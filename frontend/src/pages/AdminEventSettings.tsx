@@ -17,6 +17,10 @@ type EventSettingsForm = Pick<
 >;
 
 export default function AdminEventSettings() {
+  const primaryButtonClass =
+    'inline-flex items-center gap-2 rounded-lg bg-dark px-5 py-3 font-medium text-white transition-colors hover:bg-dark-700 disabled:cursor-not-allowed disabled:opacity-60';
+  const activeTabClass = 'bg-gold/20 text-dark';
+
   const [products, setProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'event'>('home');
   const [eventProductId, setEventProductId] = useState<number | null>(null);
@@ -176,7 +180,7 @@ export default function AdminEventSettings() {
               type="button"
               onClick={() => setActiveTab('home')}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'home' ? 'bg-purple/10 text-purple' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                activeTab === 'home' ? activeTabClass : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
               Home
@@ -185,7 +189,7 @@ export default function AdminEventSettings() {
               type="button"
               onClick={() => setActiveTab('event')}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === 'event' ? 'bg-purple/10 text-purple' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                activeTab === 'event' ? activeTabClass : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
               Evento
@@ -268,8 +272,7 @@ export default function AdminEventSettings() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg px-5 py-3 font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+                  className={primaryButtonClass}
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? 'Salvando...' : 'Salvar conteúdo'}
@@ -386,8 +389,7 @@ export default function AdminEventSettings() {
                 <button
                   type="submit"
                   disabled={savingProduct}
-                  className="inline-flex items-center gap-2 rounded-lg px-5 py-3 font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+                  className={primaryButtonClass}
                 >
                   {savingProduct ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {savingProduct ? 'Salvando...' : eventProductId ? 'Salvar evento' : 'Criar evento'}

@@ -31,6 +31,11 @@ const slugify = (value: string) =>
     .replace(/^_+|_+$/g, '');
 
 export default function AdminFormSettings() {
+  const primaryButtonClass =
+    'inline-flex items-center gap-2 rounded-lg bg-dark px-5 py-3 font-medium text-white transition-colors hover:bg-dark-700 disabled:cursor-not-allowed disabled:opacity-60';
+  const secondaryButtonClass =
+    'inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-gold-400';
+
   const [formData, setFormData] = useState<FormSettingsForm>({
     form_fields_config: {},
     responsible_fields_config: [],
@@ -353,8 +358,7 @@ export default function AdminFormSettings() {
                     <button
                       type="button"
                       onClick={addResponsibleField}
-                      className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white"
-                      style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+                      className={secondaryButtonClass}
                     >
                       <Plus className="h-4 w-4" />
                       Adicionar campo
@@ -460,8 +464,7 @@ export default function AdminFormSettings() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg px-5 py-3 font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{ backgroundColor: 'rgb(165, 44, 240)' }}
+                  className={primaryButtonClass}
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? 'Salvando...' : 'Salvar opções'}
