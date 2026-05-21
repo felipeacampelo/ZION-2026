@@ -23,6 +23,7 @@ def _get_base_styles():
         body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background: linear-gradient(135deg, #a52cf0 0%, #7c3aed 100%); color: white; padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0; }
+        .header-logo { display: block; margin: 0 auto 18px auto; max-width: 180px; width: 100%; height: auto; }
         .header h1 { margin: 0; font-size: 28px; font-weight: 600; }
         .header-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
         .content { background: white; padding: 40px 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
@@ -39,6 +40,20 @@ def _get_base_styles():
         ul { padding-left: 20px; }
         li { margin: 8px 0; color: #4b5563; }
     """
+
+
+def _get_email_logo_url():
+    frontend_url = getattr(settings, 'FRONTEND_URL', '').rstrip('/')
+    if not frontend_url:
+        return ''
+    return f'{frontend_url}/logo.png'
+
+
+def _get_email_logo_html():
+    logo_url = _get_email_logo_url()
+    if not logo_url:
+        return ''
+    return f'<img src="{logo_url}" alt="ZION 2026" class="header-logo" />'
 
 
 DEFAULT_TEMPLATE_TOKENS = [
@@ -82,6 +97,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
 <body>
     <div class="container">
         <div class="header">
+            {_get_email_logo_html()}
             <div class="emoji">✅</div>
             <h1>Inscrição Confirmada!</h1>
         </div>
@@ -107,7 +123,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
             </center>
             <div class="footer">
                 <p>Este é um email automático, por favor não responda.</p>
-                <p>© 2025 AreaMais - Todos os direitos reservados</p>
+                <p>© ZION 2026 - Todos os direitos reservados</p>
             </div>
         </div>
     </div>
@@ -137,6 +153,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
 <body>
     <div class="container">
         <div class="header header-success">
+            {_get_email_logo_html()}
             <div class="emoji">🎉</div>
             <h1>Pagamento Confirmado!</h1>
         </div>
@@ -161,7 +178,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
             </center>
             <div class="footer">
                 <p>Este é um email automático, por favor não responda.</p>
-                <p>© 2025 AreaMais - Todos os direitos reservados</p>
+                <p>© ZION 2026 - Todos os direitos reservados</p>
             </div>
         </div>
     </div>
@@ -192,6 +209,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
 <body>
     <div class="container">
         <div class="header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+            {_get_email_logo_html()}
             <div class="emoji">⏰</div>
             <h1>Lembrete de Parcela</h1>
         </div>
@@ -211,7 +229,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
             </center>
             <div class="footer">
                 <p>Este é um email automático, por favor não responda.</p>
-                <p>© 2025 AreaMais - Todos os direitos reservados</p>
+                <p>© ZION 2026 - Todos os direitos reservados</p>
             </div>
         </div>
     </div>
@@ -239,6 +257,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
 <body>
     <div class="container">
         <div class="header" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
+            {_get_email_logo_html()}
             <div class="emoji">🔐</div>
             <h1>Recuperação de Senha</h1>
         </div>
@@ -255,7 +274,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
             </p>
             <div class="footer">
                 <p>Este é um email automático, por favor não responda.</p>
-                <p>© 2025 AreaMais - Todos os direitos reservados</p>
+                <p>© ZION 2026 - Todos os direitos reservados</p>
             </div>
         </div>
     </div>
