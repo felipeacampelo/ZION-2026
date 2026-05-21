@@ -213,7 +213,7 @@ export default function AdminEnrollments() {
         'Data Nascimento', 'Tamanho Camiseta', 'Membro Batista Capital',
         'Igreja', 'Líder PG', 'Produto', 'Lote', 'Status',
         'Método Pagamento', 'Parcelas', 'Valor Total', 'Desconto',
-        'Valor Final', 'Data Inscrição', 'Data Pagamento'
+        'Valor Final', 'Observações', 'Data Inscrição', 'Data Pagamento'
       ];
       const rows = allEnrollments.map(e => [
         e.id,
@@ -237,6 +237,7 @@ export default function AdminEnrollments() {
         e.total_amount || '',
         e.discount_amount || '',
         e.final_amount,
+        e.form_data?.observacoes || '',
         new Date(e.created_at).toLocaleDateString('pt-BR'),
         e.paid_at ? new Date(e.paid_at).toLocaleDateString('pt-BR') : ''
       ]);

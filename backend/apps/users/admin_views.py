@@ -471,7 +471,8 @@ def admin_enrollments_list(request):
     product_filter = request.query_params.get('product')
     payment_method_filter = request.query_params.get('payment_method')
     search = request.query_params.get('search')
-    ids = request.query_params.get('ids')
+<<<<<<< HEAD
+    enrollment_ids = request.query_params.get('ids')
     
     if status_filter:
         enrollments = enrollments.filter(status=status_filter)
@@ -482,11 +483,14 @@ def admin_enrollments_list(request):
     if payment_method_filter:
         enrollments = enrollments.filter(payment_method=payment_method_filter)
 
-    if ids:
-        enrollment_ids = [int(value) for value in ids.split(',') if value.strip().isdigit()]
-        if enrollment_ids:
-            enrollments = enrollments.filter(id__in=enrollment_ids)
-    
+    if enrollment_ids:
+        parsed_ids = [
+            int(raw_id)
+            for raw_id in enrollment_ids.split(',')
+            if raw_id.strip().isdigit()
+        ]
+        if parsed_ids:
+            enrollments = enrollments.filter(id__in=parsed_ids)
     if search:
         enrollments = enrollments.filter(
             Q(user__first_name__icontains=search) |

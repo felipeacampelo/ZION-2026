@@ -99,13 +99,12 @@ export default function AdminEmailSettings() {
     setError('');
 
     const [templatesRes, campaignsRes, productsRes] = await Promise.allSettled([
-        getAdminEmailTemplates(),
-        getAdminEmailCampaigns(),
-        getAdminProducts(),
-      ]);
+      getAdminEmailTemplates(),
+      getAdminEmailCampaigns(),
+      getAdminProducts(),
+    ]);
 
     const loadErrors: string[] = [];
-
     if (templatesRes.status === 'fulfilled') {
       setTemplates(templatesRes.value.data);
       const initialTemplate =

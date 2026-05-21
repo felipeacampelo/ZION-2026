@@ -292,8 +292,8 @@ def admin_email_campaigns(request):
 
     serializer = EmailCampaignSerializer(data=request.data)
     if serializer.is_valid():
-        campaign = serializer.save(created_by=request.user)
-        return Response(EmailCampaignListSerializer(campaign).data, status=status.HTTP_201_CREATED)
+        serializer.save(created_by=request.user)
+        return Response(EmailCampaignListSerializer(serializer.instance).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
