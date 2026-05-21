@@ -1,1 +1,1 @@
-web: python manage.py migrate && python manage.py init_settings && mkdir -p staticfiles && python manage.py collectstatic --noinput --clear && gunicorn config.wsgi -c gunicorn.conf.py
+web: python manage.py migrate && python manage.py init_settings && python manage.py create_superuser_if_none && mkdir -p staticfiles && python manage.py collectstatic --noinput --clear && gunicorn config.wsgi -c gunicorn.conf.py
