@@ -232,7 +232,7 @@ export default function Home() {
                   {user?.first_name || user?.email}
                 </span>
                 <button
-                  onClick={() => navigate('/my-enrollments')}
+                  onClick={() => navigate('/minhas-inscricoes')}
                   className="text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors bg-white text-dark-900 hover:bg-cream shadow-sm"
                 >
                   Minhas inscrições

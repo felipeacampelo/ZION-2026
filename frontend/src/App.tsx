@@ -48,6 +48,10 @@ function App() {
               </PrivateRoute>
             } 
           />
+          <Route
+            path="/my-enrollments"
+            element={<Navigate to="/minhas-inscricoes" replace />}
+          />
           <Route 
             path="/enrollment/edit/:id" 
             element={
