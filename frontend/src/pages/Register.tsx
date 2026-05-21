@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, Phone, FileText, AlertCircle } from 'lucide-react';
 import { register as apiRegister } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import GoogleLoginButton from '../components/GoogleLoginButton';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -236,6 +237,16 @@ export default function Register() {
               {loading ? 'Criando conta...' : 'Criar Conta'}
             </button>
           </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs font-medium uppercase tracking-[0.2em] text-gray-400">
+              Ou continue com
+            </span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <GoogleLoginButton onError={setError} />
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">

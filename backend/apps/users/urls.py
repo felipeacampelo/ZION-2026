@@ -2,6 +2,7 @@
 User authentication URLs.
 """
 from django.urls import path, include
+from .google_auth import google_login
 from .views import (
     CurrentUserView, 
     user_profile, 
@@ -52,6 +53,7 @@ urlpatterns = [
     # Authentication endpoints
     path('register/', register_view, name='register'),
     path('login/', login_view, name='login'),
+    path('google-login/', google_login, name='google-login'),
     path('logout/', logout_view, name='logout'),
     path('change-password/', change_password_view, name='change-password'),
     
