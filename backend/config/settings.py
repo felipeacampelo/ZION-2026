@@ -249,3 +249,15 @@ BACKEND_URL = config('BACKEND_URL', default='http://localhost:8000')
 ASAAS_API_KEY = config('ASAAS_API_KEY', default='')
 ASAAS_ENV = config('ASAAS_ENV', default='sandbox')
 ASAAS_WEBHOOK_TOKEN = config('ASAAS_WEBHOOK_TOKEN', default='')
+ASAAS_WEBHOOK_TOKENS = tuple(
+    token
+    for token in {
+        ASAAS_WEBHOOK_TOKEN.strip(),
+        *[
+            item.strip()
+            for item in config('ASAAS_WEBHOOK_TOKENS', default='').split(',')
+            if item.strip()
+        ],
+    }
+    if token
+)

@@ -71,17 +71,21 @@ class AsaasWebhookView(APIView):
         from threading import Thread
         logger = logging.getLogger(__name__)
 
-        webhook_token = request.headers.get('asaas-access-token')
-        expected_token = settings.ASAAS_WEBHOOK_TOKEN
+        webhook_token = request.headers.get('asaas-access-token', '').strip()
+        expected_tokens = tuple(
+            token.strip()
+            for token in getattr(settings, 'ASAAS_WEBHOOK_TOKENS', ())
+            if token and token.strip()
+        )
 
-        if not expected_token:
+        if not expected_tokens:
             logger.error('Asaas webhook token is not configured')
             return Response(
                 {'detail': 'Webhook not configured'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        if webhook_token != expected_token:
+        if webhook_token not in expected_tokens:
             logger.warning('Rejected Asaas webhook with invalid token')
             return Response(
                 {'detail': 'Invalid webhook token'},

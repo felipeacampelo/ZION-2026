@@ -375,14 +375,18 @@ class PaymentService:
         event = webhook_data.get('event')
         payment_data = webhook_data.get('payment', {})
         payment_id = payment_data.get('id')
+
+        import logging
+        logger = logging.getLogger(__name__)
         
         if not payment_id:
+            logger.info('Ignoring Asaas webhook without payment id')
             return
         
         try:
             payment = Payment.objects.get(asaas_payment_id=payment_id)
         except Payment.DoesNotExist:
-            # Payment not found, ignore
+            logger.info('Ignoring authenticated Asaas webhook for unknown payment %s', payment_id)
             return
         
         # Update payment based on event
