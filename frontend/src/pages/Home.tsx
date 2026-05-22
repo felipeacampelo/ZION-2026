@@ -296,12 +296,12 @@ export default function Home() {
             initial="hidden"
             animate="visible"
             variants={staggerContainer}
-            className="flex flex-col items-center justify-center gap-10"
+            className="flex flex-col items-center justify-center gap-16"
           >
             <motion.div
               variants={fadeUp}
               custom={0}
-              className="flex flex-col sm:flex-row items-center justify-center gap-5"
+              className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-32 md:pt-44 lg:pt-52"
             >
               <button
                 onClick={() => scrollToSection('inscricao')}
