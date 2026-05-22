@@ -301,7 +301,7 @@ export default function Home() {
             <motion.div
               variants={fadeUp}
               custom={0}
-              className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-56 md:pt-52 lg:pt-60"
+              className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-72 md:pt-64 lg:pt-72"
             >
               <button
                 onClick={() => scrollToSection('inscricao')}
