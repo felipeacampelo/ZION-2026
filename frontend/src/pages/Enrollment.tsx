@@ -208,18 +208,10 @@ export default function Enrollment() {
     }
 
     // Validate age based on admin configuration.
-    if (formData.data_nascimento) {
-      const birthDate = new Date(formData.data_nascimento);
-      if (birthDate.getFullYear() < minBirthYear) {
-        setError(`Inscrições disponíveis apenas para nascidos em ${minBirthYear} ou depois.`);
-        setLoading(false);
-        return;
-      }
-      if (maxBirthYear && birthDate.getFullYear() > maxBirthYear) {
-        setError(`Inscrições disponíveis apenas para nascidos em ${maxBirthYear} ou antes.`);
-        setLoading(false);
-        return;
-      }
+    if (birthYearError) {
+      setError(birthYearError);
+      setLoading(false);
+      return;
     }
 
     try {
@@ -309,6 +301,29 @@ export default function Enrollment() {
 
     if (enrollmentWindowState === 'closed') {
       return 'Inscrições encerradas.';
+    }
+
+    return '';
+  })();
+
+  const birthYearError = (() => {
+    if (!formData.data_nascimento) {
+      return '';
+    }
+
+    const birthDate = new Date(formData.data_nascimento);
+    if (Number.isNaN(birthDate.getTime())) {
+      return '';
+    }
+
+    const birthYear = birthDate.getFullYear();
+
+    if (birthYear < minBirthYear) {
+      return `Inscrições disponíveis apenas para nascidos em ${minBirthYear} ou depois.`;
+    }
+
+    if (maxBirthYear && birthYear > maxBirthYear) {
+      return `Inscrições disponíveis apenas para nascidos em ${maxBirthYear} ou antes.`;
     }
 
     return '';
@@ -625,8 +640,11 @@ export default function Enrollment() {
                   required={getFieldConfig('data_nascimento').required}
                   value={formData.data_nascimento}
                   onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
-                  className={inputClass}
+                  className={`${inputClass} ${birthYearError ? 'border-red-400 focus:ring-red-300' : ''}`}
                 />
+                {birthYearError && (
+                  <p className="mt-2 text-sm text-red-600">{birthYearError}</p>
+                )}
               </div>
               )}
             </div>
@@ -913,7 +931,7 @@ export default function Enrollment() {
 
             <button
               type="submit"
-              disabled={loading || !hasActiveBatch}
+              disabled={loading || !hasActiveBatch || Boolean(birthYearError)}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Processando...' : hasActiveBatch ? 'Continuar para Pagamento' : 'Sem lote disponível'}
