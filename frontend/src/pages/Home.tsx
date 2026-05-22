@@ -296,18 +296,11 @@ export default function Home() {
             initial="hidden"
             animate="visible"
             variants={staggerContainer}
-            className="flex flex-col items-center justify-center gap-16"
+            className="flex flex-col items-center justify-center gap-10"
           >
-            <motion.img
-              variants={fadeUp}
-              custom={0}
-              src="/images/logo-zion.png"
-              alt="Logo ZION"
-              className="w-96 md:w-[30rem] lg:w-[36rem] drop-shadow-2xl"
-            />
             <motion.div
               variants={fadeUp}
-              custom={1}
+              custom={0}
               className="flex flex-col sm:flex-row items-center justify-center gap-5"
             >
               <button
