@@ -281,10 +281,10 @@ export default function Home() {
           <img
             src="/images/banner-zion-borrado.png"
             alt="Banner ZION 2026"
-            className="w-full h-full object-cover opacity-70"
+            className="w-full h-full object-cover opacity-85"
           />
           {/* Dark overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-black/45" />
         </div>
 
         {/* Hero Content */}
@@ -301,7 +301,7 @@ export default function Home() {
             <motion.div
               variants={fadeUp}
               custom={0}
-              className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-32 md:pt-44 lg:pt-52"
+              className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-44 md:pt-44 lg:pt-52"
             >
               <button
                 onClick={() => scrollToSection('inscricao')}
