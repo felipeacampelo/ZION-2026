@@ -626,6 +626,24 @@ export default function Home() {
       <footer className="bg-black py-8">
         <div className="container mx-auto px-6">
           <div className="max-w-5xl mx-auto text-center">
+            <div className="mb-4 flex flex-wrap items-center justify-center gap-6 text-sm text-white/70">
+              <a
+                href="/docs/termo-de-consentimento-zion.pdf"
+                target="_blank"
+                rel="noreferrer"
+                className="transition-colors hover:text-white"
+              >
+                Termo de Consentimento
+              </a>
+              <a
+                href="https://www.instagram.com/jump_capital/"
+                target="_blank"
+                rel="noreferrer"
+                className="transition-colors hover:text-white"
+              >
+                Instagram
+              </a>
+            </div>
             <p className="text-white/50 text-sm">
               &copy; 2026 Jump Capital | Igreja Batista Capital
             </p>
