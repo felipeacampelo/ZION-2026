@@ -21,6 +21,8 @@ DEFAULT_FORM_FIELDS_CONFIG = {
     'membro_batista_capital': {'enabled': True, 'required': True, 'label': 'Membro Batista Capital'},
     'igreja': {'enabled': True, 'required': True, 'label': 'Igreja'},
     'lider_pg': {'enabled': True, 'required': True, 'label': 'Líder de PG'},
+    'ja_participou_zion': {'enabled': True, 'required': True, 'label': 'Você já participou do ZION?'},
+    'imperio_zion': {'enabled': True, 'required': True, 'label': 'Qual o seu império?'},
     'observacoes': {'enabled': True, 'required': False, 'label': 'Observações'},
 }
 
@@ -519,6 +521,14 @@ class Settings(models.Model):
         validators=[MinValueValidator(1900), MaxValueValidator(2100)],
         verbose_name='Ano Mínimo de Nascimento',
         help_text='Permite inscrição apenas para nascidos neste ano ou depois'
+    )
+
+    max_birth_year = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1900), MaxValueValidator(2100)],
+        verbose_name='Ano Máximo de Nascimento',
+        help_text='Permite inscrição apenas para nascidos neste ano ou antes'
     )
 
     max_installments = models.IntegerField(

@@ -45,6 +45,7 @@ export default function Enrollment() {
   const [formFieldsConfig, setFormFieldsConfig] = useState<Record<string, FormFieldConfig>>({});
   const [responsibleFieldsConfig, setResponsibleFieldsConfig] = useState<ResponsibleFieldConfig[]>([]);
   const [minBirthYear, setMinBirthYear] = useState(2009);
+  const [maxBirthYear, setMaxBirthYear] = useState<number | null>(null);
   const [responsibleFormData, setResponsibleFormData] = useState<Record<string, string | boolean>>({
     nome_responsavel: '',
     email_responsavel: '',
@@ -71,6 +72,8 @@ export default function Enrollment() {
     membro_batista_capital: '',
     igreja: '',
     lider_pg: '',
+    ja_participou_zion: '',
+    imperio_zion: '',
     observacoes: '',
   });
 
@@ -86,6 +89,7 @@ export default function Enrollment() {
       setFormFieldsConfig(response.data.form_fields_config);
       setResponsibleFieldsConfig(response.data.responsible_fields_config || []);
       setMinBirthYear(response.data.min_birth_year ?? 2009);
+      setMaxBirthYear(response.data.max_birth_year ?? null);
       setEnrollmentStartAt(response.data.enrollment_start_at);
       setEnrollmentEndAt(response.data.enrollment_end_at);
     } catch (err) {
@@ -206,6 +210,11 @@ export default function Enrollment() {
       const birthDate = new Date(formData.data_nascimento);
       if (birthDate.getFullYear() < minBirthYear) {
         setError(`Inscrições disponíveis apenas para nascidos em ${minBirthYear} ou depois.`);
+        setLoading(false);
+        return;
+      }
+      if (maxBirthYear && birthDate.getFullYear() > maxBirthYear) {
+        setError(`Inscrições disponíveis apenas para nascidos em ${maxBirthYear} ou antes.`);
         setLoading(false);
         return;
       }
@@ -748,6 +757,46 @@ export default function Enrollment() {
                 />
               </div>
               )}
+
+              {getFieldConfig('ja_participou_zion').enabled && (
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Você já participou do ZION? {getFieldConfig('ja_participou_zion').required ? '*' : ''}
+                </label>
+                <select
+                  required={getFieldConfig('ja_participou_zion').required}
+                  value={formData.ja_participou_zion}
+                  onChange={(e) => setFormData({ ...formData, ja_participou_zion: e.target.value, imperio_zion: e.target.value === 'sim' ? formData.imperio_zion : '' })}
+                  className={selectClass}
+                  style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.25rem' }}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="sim">Sim</option>
+                  <option value="nao">Não</option>
+                </select>
+              </div>
+              )}
+
+              {getFieldConfig('imperio_zion').enabled && formData.ja_participou_zion === 'sim' && (
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Qual o seu império? {getFieldConfig('imperio_zion').required ? '*' : ''}
+                </label>
+                <select
+                  required={getFieldConfig('imperio_zion').required}
+                  value={formData.imperio_zion}
+                  onChange={(e) => setFormData({ ...formData, imperio_zion: e.target.value })}
+                  className={selectClass}
+                  style={{ backgroundImage: "url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e')", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.25rem' }}
+                >
+                  <option value="">Selecione o império...</option>
+                  <option value="egito">Egito</option>
+                  <option value="persia">Pérsia</option>
+                  <option value="grecia">Grécia</option>
+                  <option value="roma">Roma</option>
+                </select>
+              </div>
+              )}
             </div>
 
             {getFieldConfig('observacoes').enabled && (
@@ -890,17 +939,13 @@ export default function Enrollment() {
                   O jovem tem o direito de solicitar reembolso nas seguintes condições:
                 </p>
 
-                <p className="text-sm text-gray-600">
-                  A contar do primeiro dia de inscrição (15/11/25)
-                </p>
-
                 <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
                   <div className="flex items-start gap-3">
                     <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-dark text-sm font-semibold">
                       1
                     </span>
                     <p>
-                      O reembolso será concedido <strong>integralmente</strong>, com até <strong>120 dias</strong> antes do acampamento;
+                      O reembolso será concedido <strong>em 100% do valor pago</strong>, com até <strong>1 mês</strong> antes do evento, <em>descontando taxas</em>.
                     </p>
                   </div>
 
@@ -909,7 +954,7 @@ export default function Enrollment() {
                       2
                     </span>
                     <p>
-                      O reembolso será de <strong>80% do valor pago</strong>, com até <strong>90 dias</strong> antes do acampamento;
+                      O reembolso será de <strong>50% do valor pago</strong>, com até <strong>1 semana</strong> antes do evento, <em>descontando taxas</em>.
                     </p>
                   </div>
 
@@ -918,24 +963,9 @@ export default function Enrollment() {
                       3
                     </span>
                     <p>
-                      O reembolso será de <strong>40% do valor pago</strong>, com até <strong>60 dias</strong> antes do acampamento;
+                      Não será concedido reembolso com <strong>menos de 1 semana</strong> para o evento.
                     </p>
                   </div>
-
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gold/20 text-dark text-sm font-semibold">
-                      4
-                    </span>
-                    <p>
-                      O reembolso será de <strong>20% do valor pago</strong>, com até <strong>30 dias</strong> antes do acampamento.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-                  <p className="text-red-800 font-semibold">
-                    Obs.: Não será concedido reembolso em caso de cancelamento ou desistência, após o prazo de trinta dias antes do acampamento.
-                  </p>
                 </div>
               </div>
 

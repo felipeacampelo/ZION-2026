@@ -390,6 +390,7 @@ export interface AppSettings {
   responsible_fields_config: ResponsibleFieldConfig[];
   max_age_years: number;
   min_birth_year: number;
+  max_birth_year: number | null;
 }
 
 export const getSettings = () => api.get<AppSettings>('/enrollments/settings/');

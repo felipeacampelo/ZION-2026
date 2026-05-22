@@ -44,6 +44,7 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
             'responsible_fields_config',
             'max_age_years',
             'min_birth_year',
+            'max_birth_year',
         ]
         read_only_fields = ['max_installments_with_coupon']
 
@@ -60,6 +61,14 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
         if start_at and end_at and end_at < start_at:
             raise serializers.ValidationError({
                 'enrollment_end_at': 'A data final deve ser posterior à data de início.'
+            })
+
+        min_birth_year = attrs.get('min_birth_year', self.instance.min_birth_year if self.instance else None)
+        max_birth_year = attrs.get('max_birth_year', self.instance.max_birth_year if self.instance else None)
+
+        if min_birth_year and max_birth_year and max_birth_year < min_birth_year:
+            raise serializers.ValidationError({
+                'max_birth_year': 'O ano máximo de nascimento não pode ser anterior ao ano mínimo.'
             })
 
         enable_pix_cash = attrs.get('enable_pix_cash', self.instance.enable_pix_cash if self.instance else True)

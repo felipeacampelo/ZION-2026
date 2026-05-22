@@ -212,4 +212,5 @@ def get_settings(request):
         'responsible_fields_config': settings.get_responsible_fields_config(),
         'max_age_years': settings.max_age_years,
         'min_birth_year': settings.min_birth_year,
+        'max_birth_year': settings.max_birth_year,
     })

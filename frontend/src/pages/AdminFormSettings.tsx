@@ -9,7 +9,7 @@ import {
   type ResponsibleFieldConfig,
 } from '../services/api';
 
-type FormSettingsForm = Pick<AppSettings, 'form_fields_config' | 'responsible_fields_config' | 'min_birth_year'>;
+type FormSettingsForm = Pick<AppSettings, 'form_fields_config' | 'responsible_fields_config' | 'min_birth_year' | 'max_birth_year'>;
 
 const FIELD_TYPE_OPTIONS: Array<{ value: ResponsibleFieldConfig['type']; label: string }> = [
   { value: 'text', label: 'Texto' },
@@ -40,6 +40,7 @@ export default function AdminFormSettings() {
     form_fields_config: {},
     responsible_fields_config: [],
     min_birth_year: 2009,
+    max_birth_year: null,
   });
   const [newResponsibleField, setNewResponsibleField] = useState({
     label: '',
@@ -62,6 +63,7 @@ export default function AdminFormSettings() {
           form_fields_config: response.data.form_fields_config,
           responsible_fields_config: response.data.responsible_fields_config || [],
           min_birth_year: response.data.min_birth_year ?? 2009,
+          max_birth_year: response.data.max_birth_year ?? null,
         });
         setPendingChanges(false);
       } catch (err) {
@@ -86,6 +88,7 @@ export default function AdminFormSettings() {
         form_fields_config: response.data.form_fields_config,
         responsible_fields_config: response.data.responsible_fields_config || [],
         min_birth_year: response.data.min_birth_year ?? 2009,
+        max_birth_year: response.data.max_birth_year ?? null,
       });
       setSuccess('Opções do formulário salvas com sucesso.');
       setPendingChanges(false);
@@ -206,28 +209,54 @@ export default function AdminFormSettings() {
                 <p className="mt-1 text-sm text-gray-600">
                   O bloqueio de inscrição será feito pelo ano de nascimento.
                 </p>
-                <div className="mt-4 max-w-xs">
-                  <label className="mb-2 block text-sm font-medium text-gray-700">Ano mínimo de nascimento</label>
-                  <input
-                    type="number"
-                    min="1900"
-                    max="2100"
-                    value={formData.min_birth_year}
-                    onChange={(e) =>
-                      {
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div className="max-w-xs">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Ano mínimo de nascimento</label>
+                    <input
+                      type="number"
+                      min="1900"
+                      max="2100"
+                      value={formData.min_birth_year}
+                      onChange={(e) =>
+                        {
+                          setFormData((current) => ({
+                            ...current,
+                            min_birth_year: Number(e.target.value),
+                          }));
+                          setPendingChanges(true);
+                          setSuccess('');
+                        }
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+                    />
+                    <p className="mt-2 text-sm text-gray-500">
+                      Exemplo: 2009 permite apenas nascidos em 2009 ou depois.
+                    </p>
+                  </div>
+
+                  <div className="max-w-xs">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Ano máximo de nascimento</label>
+                    <input
+                      type="number"
+                      min="1900"
+                      max="2100"
+                      value={formData.max_birth_year ?? ''}
+                      onChange={(e) => {
+                        const nextValue = e.target.value.trim();
                         setFormData((current) => ({
                           ...current,
-                          min_birth_year: Number(e.target.value),
+                          max_birth_year: nextValue ? Number(nextValue) : null,
                         }));
                         setPendingChanges(true);
                         setSuccess('');
-                      }
-                    }
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
-                  />
-                  <p className="mt-2 text-sm text-gray-500">
-                    Exemplo: 2009 permite apenas nascidos em 2009 ou depois.
-                  </p>
+                      }}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+                      placeholder="Opcional"
+                    />
+                    <p className="mt-2 text-sm text-gray-500">
+                      Exemplo: 2013 permite apenas nascidos em 2013 ou antes.
+                    </p>
+                  </div>
                 </div>
               </div>
 

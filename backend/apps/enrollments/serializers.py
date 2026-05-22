@@ -117,6 +117,7 @@ class EnrollmentCreateSerializer(serializers.Serializer):
         responsible_fields_config = settings.get_responsible_fields_config()
         conditional_required_fields = {
             'igreja': form_data.get('membro_batista_capital') == 'nao',
+            'imperio_zion': form_data.get('ja_participou_zion') == 'sim',
         }
 
         for field_name in DEFAULT_FORM_FIELDS_CONFIG:
@@ -153,6 +154,10 @@ class EnrollmentCreateSerializer(serializers.Serializer):
                 if birth_date.year < settings.min_birth_year:
                     raise serializers.ValidationError({
                         'form_data': f'Inscrições disponíveis apenas para nascidos em {settings.min_birth_year} ou depois.'
+                    })
+                if settings.max_birth_year and birth_date.year > settings.max_birth_year:
+                    raise serializers.ValidationError({
+                        'form_data': f'Inscrições disponíveis apenas para nascidos em {settings.max_birth_year} ou antes.'
                     })
             except ValueError:
                 raise serializers.ValidationError({
