@@ -279,7 +279,7 @@ export default function Home() {
         {/* Background Image */}
         <div className="absolute inset-0">
           <img
-            src="/images/background_zion.png"
+            src="/images/banner-zion-borrado.png"
             alt="Banner ZION 2026"
             className="w-full h-full object-cover opacity-70"
           />
