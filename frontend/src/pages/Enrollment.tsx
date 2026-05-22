@@ -40,6 +40,8 @@ export default function Enrollment() {
   const [enrollmentEndAt, setEnrollmentEndAt] = useState<string | null>(null);
   
   // Refund policy modal
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentTermAccepted, setConsentTermAccepted] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundPolicyAccepted, setRefundPolicyAccepted] = useState(false);
   const [formFieldsConfig, setFormFieldsConfig] = useState<Record<string, FormFieldConfig>>({});
@@ -314,8 +316,11 @@ export default function Enrollment() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Check if refund policy was accepted
+    if (!consentTermAccepted) {
+      setShowConsentModal(true);
+      return;
+    }
+
     if (!refundPolicyAccepted) {
       setShowRefundModal(true);
       return;
@@ -916,6 +921,134 @@ export default function Enrollment() {
           </form>
         </div>
       </div>
+
+      {/* Consent Term Modal */}
+      {showConsentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-2xl">
+            <div className="p-6">
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-dark">
+                  Termo de Consentimento
+                </h2>
+                <button
+                  onClick={() => setShowConsentModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-5 text-gray-700">
+                <p>
+                  A participação no Acampamento ZION implica ciência e concordância com os termos abaixo.
+                </p>
+
+                <div className="space-y-4 rounded-lg bg-gray-50 p-4">
+                  <div>
+                    <p className="font-semibold text-dark">1. Termo de Responsabilidade</p>
+                    <p className="mt-1 text-sm">
+                      Ao realizar a inscrição no evento, o participante declara estar ciente e de acordo com as normas e regulamentos estabelecidos pela organização do evento, realizado pela Igreja Batista Capital. O participante assume total responsabilidade por sua participação no evento, isentando a Igreja Batista Capital e seus organizadores de qualquer responsabilidade por eventuais acidentes ou incidentes que possam ocorrer, bem como por quaisquer danos materiais ou pessoais causados a terceiros.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dark">2. Utilização de Imagem</p>
+                    <p className="mt-1 text-sm">
+                      O participante autoriza a Igreja Batista Capital a utilizar sua imagem, voz e/ou nome capturados durante o evento em materiais promocionais, institucionais, publicitários e informativos, sem remuneração ou compensação financeira.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dark">3. Tratamento de Dados Pessoais (LGPD)</p>
+                    <p className="mt-1 text-sm">
+                      O participante autoriza o tratamento dos dados pessoais fornecidos para gestão e organização do evento, comunicação sobre o ZION e divulgação de futuras ações e eventos da Igreja Batista Capital, nos termos da Lei nº 13.709/2018.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dark">4. Restrições Alimentares e de Saúde</p>
+                    <p className="mt-1 text-sm">
+                      O participante ou seu responsável legal deve informar à liderança do evento, por meio de documento, quaisquer restrições alimentares, condições médicas ou limitações físicas. Caso necessário, deve ser providenciado atestado médico.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dark">5. Objetos de Valor</p>
+                    <p className="mt-1 text-sm">
+                      Quaisquer objetos de valor que estiverem em posse do participante são de sua total responsabilidade. A Igreja Batista Capital não se responsabiliza por perdas, furtos ou danos.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dark">6. Danos Materiais</p>
+                    <p className="mt-1 text-sm">
+                      O participante assume responsabilidade por danos materiais causados ao patrimônio do CNTI, da organização do evento ou de terceiros, desde que sua responsabilidade seja comprovada.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dark">7. Comportamento Inadequado</p>
+                    <p className="mt-1 text-sm">
+                      A liderança poderá aplicar advertências, comunicar os responsáveis legais e, em situações graves, excluir o participante do evento. Caso seja necessário retorno antecipado, os responsáveis legais deverão providenciar o transporte, sem direito a reembolso.
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dark">8. Regras do Acampamento</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                      <li>Respeitar os líderes e a equipe organizadora.</li>
+                      <li>É proibido qualquer tipo de namoro durante o acampamento.</li>
+                      <li>Não é permitido entrar nos quartos do sexo oposto.</li>
+                      <li>É proibido circular sozinho pela chácara; sempre esteja acompanhado.</li>
+                      <li>Respeitar os horários estabelecidos para atividades, refeições e descanso.</li>
+                      <li>É proibido portar objetos cortantes, armas ou itens perigosos.</li>
+                      <li>É proibido o consumo ou posse de bebidas alcoólicas, cigarros e cigarros eletrônicos.</li>
+                      <li>O uso de celular é proibido durante o evento, salvo em casos de emergência.</li>
+                      <li>Vestimentas devem ser adequadas ao ambiente do acampamento.</li>
+                      <li>Brigas e atos de desrespeito entre participantes não serão tolerados.</li>
+                      <li>É proibido sair do local sem autorização da liderança.</li>
+                      <li>O participante deve manter a organização e limpeza dos espaços compartilhados.</li>
+                      <li>Todo lixo deve ser descartado corretamente nos locais indicados.</li>
+                      <li>A participação em todas as atividades programadas é obrigatória, salvo motivo de saúde informado previamente.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-dark">9. Informações Importantes</p>
+                    <p className="mt-1 text-sm">
+                      Data do evento: 24 a 26 de julho de 2026<br />
+                      Local: CNTI<br />
+                      Contato: contatojumpcapital@gmail.com | (61) 99962-6171 (Ana Clara)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setConsentTermAccepted(true);
+                    setShowConsentModal(false);
+                    if (!refundPolicyAccepted) {
+                      setShowRefundModal(true);
+                    }
+                  }}
+                  className={`w-full ${primaryButtonClass}`}
+                >
+                  Aceito o Termo de Consentimento
+                </button>
+                <button
+                  onClick={() => setShowConsentModal(false)}
+                  className="w-full rounded-lg bg-gray-200 px-6 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-300"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Refund Policy Modal */}
       {showRefundModal && (
