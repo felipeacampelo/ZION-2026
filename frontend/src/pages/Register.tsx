@@ -218,14 +218,18 @@ export default function Register() {
                 style={{ accentColor: '#1a2e1a' }}
               />
               <label className="ml-2 text-sm text-gray-600">
-                Eu concordo com os{' '}
-                <Link to="/terms" className="font-medium" style={{ color: '#1a2e1a' }} onMouseEnter={(e) => e.currentTarget.style.color = '#2a4a2a'} onMouseLeave={(e) => e.currentTarget.style.color = '#1a2e1a'}>
-                  Termos de Uso
-                </Link>{' '}
-                e{' '}
-                <Link to="/privacy" className="font-medium" style={{ color: '#1a2e1a' }} onMouseEnter={(e) => e.currentTarget.style.color = '#2a4a2a'} onMouseLeave={(e) => e.currentTarget.style.color = '#1a2e1a'}>
+                Eu concordo com a{' '}
+                <a
+                  href="/docs/politica-privacidade-igreja-capital.pdf"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium"
+                  style={{ color: '#1a2e1a' }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = '#2a4a2a'}
+                  onMouseLeave={(e) => e.currentTarget.style.color = '#1a2e1a'}
+                >
                   Política de Privacidade
-                </Link>
+                </a>
               </label>
             </div>
 
