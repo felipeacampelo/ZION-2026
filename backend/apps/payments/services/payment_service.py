@@ -303,8 +303,12 @@ class PaymentService:
             description=f'Inscrição - {enrollment.product.name}',
             external_reference=str(enrollment.id),
             installments=installments,
-            callback_success_url=self._build_payment_return_url(enrollment),
-            callback_auto_redirect=True,
+            # Temporarily disable Asaas callback redirects because some
+            # accounts reject successUrl unless the site domain is accepted in
+            # the account settings. The hosted invoice flow still works via
+            # invoiceUrl and payment status continues through the webhook.
+            # callback_success_url=self._build_payment_return_url(enrollment),
+            # callback_auto_redirect=True,
         )
         
         # Create local payment record
