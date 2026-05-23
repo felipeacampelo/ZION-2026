@@ -63,6 +63,39 @@ type EnrollmentListResponse =
       results: Enrollment[];
     };
 
+const RESPONSAVEL_FIXED_LABELS: Record<string, string> = {
+  nome_responsavel: 'Nome do Responsável',
+  email_responsavel: 'Email do Responsável',
+  telefone_responsavel: 'Telefone do Responsável',
+};
+
+const formatBooleanChoice = (value?: string) => {
+  if (value === 'sim') return 'Sim';
+  if (value === 'nao') return 'Não';
+  return '-';
+};
+
+const formatEmpire = (value?: string) => {
+  const empireLabels: Record<string, string> = {
+    egito: 'Egito',
+    persia: 'Pérsia',
+    grecia: 'Grécia',
+    roma: 'Roma',
+  };
+
+  return empireLabels[value || ''] || '-';
+};
+
+const formatResponsibleFieldLabel = (key: string) => {
+  if (RESPONSAVEL_FIXED_LABELS[key]) {
+    return RESPONSAVEL_FIXED_LABELS[key];
+  }
+
+  return key
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
 export default function AdminEnrollments() {
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [enrollmentCount, setEnrollmentCount] = useState(0);
@@ -210,8 +243,10 @@ export default function AdminEnrollments() {
 
       const headers = [
         'ID', 'Nome Completo', 'Email', 'Telefone', 'CPF', 'RG',
-        'Data Nascimento', 'Tamanho Camiseta', 'Membro Batista Capital',
-        'Igreja', 'Líder PG', 'Produto', 'Lote', 'Status',
+        'Data Nascimento', 'Membro Batista Capital',
+        'Igreja', 'Líder PG', 'Já Participou do ZION', 'Império',
+        'Nome do Responsável', 'Email do Responsável', 'Telefone do Responsável',
+        'Produto', 'Lote', 'Status',
         'Método Pagamento', 'Parcelas', 'Valor Total', 'Desconto',
         'Valor Final', 'Observações', 'Data Inscrição', 'Data Pagamento'
       ];
@@ -223,10 +258,14 @@ export default function AdminEnrollments() {
         formatCpfForCsv(e.form_data?.cpf),
         e.form_data?.rg || '',
         e.form_data?.data_nascimento || '',
-        e.form_data?.tamanho_camiseta || '',
         e.form_data?.membro_batista_capital || '',
         e.form_data?.igreja || '',
         e.form_data?.lider_pg || '',
+        e.form_data?.ja_participou_zion || '',
+        e.form_data?.imperio_zion || '',
+        e.form_data?.responsavel?.nome_responsavel || '',
+        e.form_data?.responsavel?.email_responsavel || '',
+        e.form_data?.responsavel?.telefone_responsavel || '',
         e.product?.name || '',
         e.batch?.name || '',
         e.status,
@@ -430,7 +469,6 @@ export default function AdminEnrollments() {
                       {sortIndicator(sortKey === 'telefone', sortDirection)}
                     </button>
                   </th>
-                  <th className="text-left py-3 px-2 lg:px-4 font-semibold text-sm hidden xl:table-cell">Camiseta</th>
                   <th className="text-left py-3 px-2 lg:px-4 font-semibold text-sm">
                     <button type="button" onClick={() => handleSort('status')} className="inline-flex items-center gap-1">
                       Status
@@ -459,7 +497,6 @@ export default function AdminEnrollments() {
                     <td className="py-3 px-2 lg:px-4 font-medium text-sm">{enrollment.form_data?.nome_completo || '-'}</td>
                     <td className="py-3 px-2 lg:px-4 text-sm hidden lg:table-cell">{enrollment.user_email}</td>
                     <td className="py-3 px-2 lg:px-4 text-sm hidden xl:table-cell">{enrollment.form_data?.telefone || '-'}</td>
-                    <td className="py-3 px-2 lg:px-4 text-sm hidden xl:table-cell">{enrollment.form_data?.tamanho_camiseta || '-'}</td>
                     <td className="py-3 px-2 lg:px-4">
                       <span
                         className="px-2 lg:px-3 py-1 rounded-full text-xs lg:text-sm font-medium whitespace-nowrap"
@@ -569,7 +606,7 @@ export default function AdminEnrollments() {
                       </div>
                       <div className="col-span-2 sm:col-span-1">
                         <label className="text-xs sm:text-sm text-gray-600">Email</label>
-                        <p className="font-medium text-sm sm:text-base break-all">{selectedEnrollment.user_email}</p>
+                        <p className="font-medium text-sm sm:text-base break-all">{selectedEnrollment.form_data?.email || selectedEnrollment.user_email || '-'}</p>
                       </div>
                       <div>
                         <label className="text-xs sm:text-sm text-gray-600">Telefone</label>
@@ -592,16 +629,40 @@ export default function AdminEnrollments() {
 
                   <div>
                     <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3" style={{ color: 'rgb(165, 44, 240)' }}>
-                      Acampamento
+                      Responsável
                     </h3>
                     <div className="grid grid-cols-2 gap-2 sm:gap-4">
                       <div>
-                        <label className="text-xs sm:text-sm text-gray-600">Camiseta</label>
-                        <p className="font-medium text-sm sm:text-base">{selectedEnrollment.form_data?.tamanho_camiseta || '-'}</p>
+                        <label className="text-xs sm:text-sm text-gray-600">Nome do Responsável</label>
+                        <p className="font-medium text-sm sm:text-base">{selectedEnrollment.form_data?.responsavel?.nome_responsavel || '-'}</p>
                       </div>
                       <div>
+                        <label className="text-xs sm:text-sm text-gray-600">Email do Responsável</label>
+                        <p className="font-medium text-sm sm:text-base break-all">{selectedEnrollment.form_data?.responsavel?.email_responsavel || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs sm:text-sm text-gray-600">Telefone do Responsável</label>
+                        <p className="font-medium text-sm sm:text-base">{selectedEnrollment.form_data?.responsavel?.telefone_responsavel || '-'}</p>
+                      </div>
+                      {Object.entries(selectedEnrollment.form_data?.responsavel || {})
+                        .filter(([key, value]) => !RESPONSAVEL_FIXED_LABELS[key] && value !== '' && value !== null && value !== false)
+                        .map(([key, value]) => (
+                          <div key={key}>
+                            <label className="text-xs sm:text-sm text-gray-600">{formatResponsibleFieldLabel(key)}</label>
+                            <p className="font-medium text-sm sm:text-base">{typeof value === 'boolean' ? (value ? 'Sim' : 'Não') : String(value)}</p>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3" style={{ color: 'rgb(165, 44, 240)' }}>
+                      Informações do Evento
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                      <div>
                         <label className="text-xs sm:text-sm text-gray-600">Membro BC</label>
-                        <p className="font-medium text-sm sm:text-base">{selectedEnrollment.form_data?.membro_batista_capital === 'sim' ? 'Sim' : selectedEnrollment.form_data?.membro_batista_capital === 'nao' ? 'Não' : '-'}</p>
+                        <p className="font-medium text-sm sm:text-base">{formatBooleanChoice(selectedEnrollment.form_data?.membro_batista_capital)}</p>
                       </div>
                       {selectedEnrollment.form_data?.membro_batista_capital === 'nao' && (
                         <div>
@@ -612,6 +673,20 @@ export default function AdminEnrollments() {
                       <div>
                         <label className="text-xs sm:text-sm text-gray-600">Líder PG</label>
                         <p className="font-medium text-sm sm:text-base">{selectedEnrollment.form_data?.lider_pg || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs sm:text-sm text-gray-600">Já participou do ZION?</label>
+                        <p className="font-medium text-sm sm:text-base">{formatBooleanChoice(selectedEnrollment.form_data?.ja_participou_zion)}</p>
+                      </div>
+                      {selectedEnrollment.form_data?.ja_participou_zion === 'sim' && (
+                        <div>
+                          <label className="text-xs sm:text-sm text-gray-600">Império</label>
+                          <p className="font-medium text-sm sm:text-base">{formatEmpire(selectedEnrollment.form_data?.imperio_zion)}</p>
+                        </div>
+                      )}
+                      <div className="col-span-2">
+                        <label className="text-xs sm:text-sm text-gray-600">Observações</label>
+                        <p className="font-medium text-sm sm:text-base whitespace-pre-wrap">{selectedEnrollment.form_data?.observacoes || '-'}</p>
                       </div>
                     </div>
                   </div>
