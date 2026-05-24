@@ -4,6 +4,7 @@ Enrollment serializers.
 from decimal import Decimal
 from rest_framework import serializers
 from .models import DEFAULT_FORM_FIELDS_CONFIG, DEFAULT_RESPONSIBLE_CONTACT_FIELDS, Enrollment
+from .utils import find_duplicate_enrollment_by_cpf, normalize_digits
 from apps.products.serializers import ProductSerializer, BatchSerializer
 
 
@@ -147,6 +148,10 @@ class EnrollmentCreateSerializer(serializers.Serializer):
             })
 
         data_nascimento = form_data.get('data_nascimento')
+        cpf = normalize_digits(form_data.get('cpf'))
+
+        if cpf:
+            form_data['cpf'] = cpf
         
         if data_nascimento:
             try:
@@ -212,38 +217,15 @@ class EnrollmentCreateSerializer(serializers.Serializer):
 
         form_data['responsavel'] = normalized_responsible_data
         data['form_data'] = form_data
-        
-        # Check for duplicate enrollment
-        request = self.context.get('request')
-        
-        # If user is authenticated, check by user
-        if request and request.user.is_authenticated:
-            existing_enrollment = Enrollment.objects.filter(
-                user=request.user,
-                product=product,
-                status__in=['PENDING_PAYMENT', 'PAID']
-            ).exists()
-            
-            if existing_enrollment:
-                raise serializers.ValidationError({
-                    'form_data': 'Você já possui uma inscrição ativa para este produto. Cada pessoa pode fazer apenas uma inscrição.'
-                })
-        else:
-            # If not authenticated, check by email in form_data
-            form_data = data.get('form_data', {})
-            email = form_data.get('email', '').lower().strip()
-            
-            if email:
-                existing_enrollment = Enrollment.objects.filter(
-                    user__email__iexact=email,
-                    product=product,
-                    status__in=['PENDING_PAYMENT', 'PAID']
-                ).exists()
-                
-                if existing_enrollment:
-                    raise serializers.ValidationError({
-                        'form_data': 'Você já possui uma inscrição ativa para este produto. Cada pessoa pode fazer apenas uma inscrição.'
-                    })
+
+        duplicate_enrollment = find_duplicate_enrollment_by_cpf(
+            product=product,
+            cpf=cpf,
+        )
+        if duplicate_enrollment:
+            raise serializers.ValidationError({
+                'form_data': f'Já existe uma inscrição para este CPF em {product.name}.'
+            })
         
         data['product'] = product
         data['batch'] = batch
@@ -356,7 +338,11 @@ class EnrollmentListSerializer(serializers.ModelSerializer):
     
     product_name = serializers.CharField(source='product.name', read_only=True)
     batch_name = serializers.CharField(source='batch.name', read_only=True)
+    participant_name = serializers.SerializerMethodField()
     payments = serializers.SerializerMethodField()
+
+    def get_participant_name(self, obj):
+        return (obj.form_data or {}).get('nome_completo', '')
     
     def get_payments(self, obj):
         """Get payments for this enrollment."""
@@ -380,6 +366,7 @@ class EnrollmentListSerializer(serializers.ModelSerializer):
         model = Enrollment
         fields = [
             'id',
+            'participant_name',
             'product_name',
             'batch_name',
             'status',

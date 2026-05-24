@@ -3,9 +3,10 @@ Enrollment views.
 """
 import logging
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from .models import Enrollment, Settings
+from .utils import find_duplicate_enrollment_by_cpf, normalize_digits
 from .serializers import (
     EnrollmentSerializer,
     EnrollmentCreateSerializer,
@@ -102,6 +103,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         # Update form_data
         if 'form_data' in request.data:
             enrollment.form_data.update(request.data['form_data'])
+            cpf = normalize_digits(enrollment.form_data.get('cpf'))
+            if cpf:
+                enrollment.form_data['cpf'] = cpf
+                duplicate_enrollment = find_duplicate_enrollment_by_cpf(
+                    product=enrollment.product,
+                    cpf=cpf,
+                    exclude_enrollment_id=enrollment.id,
+                )
+                if duplicate_enrollment:
+                    return Response(
+                        {'detail': f'Já existe uma inscrição para este CPF em {enrollment.product.name}.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
         
         # Apply coupon if provided and enrollment doesn't have one yet
         if 'coupon_code' in request.data and not enrollment.coupon:
@@ -213,4 +227,34 @@ def get_settings(request):
         'max_age_years': settings.max_age_years,
         'min_birth_year': settings.min_birth_year,
         'max_birth_year': settings.max_birth_year,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def check_cpf(request):
+    product_id = request.data.get('product_id')
+    cpf = normalize_digits(request.data.get('cpf'))
+
+    if not product_id:
+        return Response({'detail': 'product_id é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not cpf:
+        return Response({'exists': False, 'message': ''})
+
+    from apps.products.models import Product
+
+    try:
+        product = Product.objects.get(id=product_id, is_active=True)
+    except Product.DoesNotExist:
+        return Response({'detail': 'Produto não encontrado ou inativo.'}, status=status.HTTP_404_NOT_FOUND)
+
+    duplicate_enrollment = find_duplicate_enrollment_by_cpf(product=product, cpf=cpf)
+    if not duplicate_enrollment:
+        return Response({'exists': False, 'message': ''})
+
+    return Response({
+        'exists': True,
+        'message': f'Já existe uma inscrição para este CPF em {product.name}.',
+        'enrollment_id': duplicate_enrollment.id,
     })

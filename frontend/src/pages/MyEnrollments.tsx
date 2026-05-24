@@ -82,6 +82,8 @@ export default function MyEnrollments() {
   const backButtonClass = 'flex items-center mb-8 font-medium text-dark transition-colors hover:text-gold-700';
   const darkButtonClass = 'px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 bg-dark text-white hover:bg-dark-700';
   const goldButtonClass = 'px-4 py-2 rounded-lg font-medium transition-colors text-dark bg-gold hover:bg-gold-400';
+  const getParticipantName = (enrollment: Enrollment) => enrollment.participant_name || enrollment.product_name || 'Participante';
+  const getParticipantFirstName = (enrollment: Enrollment) => getParticipantName(enrollment).split(' ')[0] || 'participante';
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -100,6 +102,17 @@ export default function MyEnrollments() {
           <p className="text-sm sm:text-base text-gray-600 mb-6 sm:mb-8">
             Visualize todas as suas inscrições e seus status
           </p>
+
+          {!loading && enrollments.length > 0 && (
+            <div className="mb-6 rounded-2xl border border-gold/40 bg-gold/10 px-5 py-4">
+              <p className="text-sm font-semibold uppercase tracking-wide text-gold-700">
+                Resumo da conta
+              </p>
+              <p className="mt-1 text-lg font-bold text-dark-900">
+                Sua conta está vinculada a {enrollments.length} {enrollments.length === 1 ? 'inscrição' : 'inscrições'}.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
@@ -151,9 +164,12 @@ export default function MyEnrollments() {
                         <div className="flex items-center gap-2 sm:gap-3 mb-3">
                           {getStatusIcon(enrollment.status)}
                           <h3 className="text-lg sm:text-xl font-semibold">
-                            {enrollment.product_name || 'Produto'}
+                            {getParticipantName(enrollment)}
                           </h3>
                         </div>
+                        <p className="text-sm font-medium text-gray-500">
+                          {enrollment.product_name || 'Evento'}
+                        </p>
                         
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4">
                           <div>
@@ -283,7 +299,7 @@ export default function MyEnrollments() {
                                       onClick={() => navigate(`/payment/${enrollment.id}?paymentId=${payment.id}`)}
                                       className={`${goldButtonClass} text-sm sm:text-base whitespace-nowrap`}
                                     >
-                                      Pagar Agora
+                                      Pagar inscrição de {getParticipantFirstName(enrollment)}
                                     </button>
                                   )}
                                 </div>
@@ -311,7 +327,7 @@ export default function MyEnrollments() {
                             onClick={() => navigate(`/payment/${enrollment.id}`)}
                             className="btn-primary flex-1"
                           >
-                            Continuar Pagamento
+                            Continuar pagamento de {getParticipantFirstName(enrollment)}
                           </button>
                         )}
 
@@ -321,7 +337,7 @@ export default function MyEnrollments() {
                           title={editTitle}
                         >
                           <Edit className="w-4 h-4" />
-                          <span className="text-sm sm:text-base">{editLabel}</span>
+                          <span className="text-sm sm:text-base">{`${editLabel} de ${getParticipantFirstName(enrollment)}`}</span>
                         </button>
                       </div>
                     </div>

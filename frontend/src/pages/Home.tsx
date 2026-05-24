@@ -3,7 +3,7 @@ import { motion, useInView, useScroll, useTransform } from 'framer-motion';
 import { Calendar, MapPin, LogIn, LogOut, User as UserIcon, ChevronDown, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getProducts, getProduct, getSettings, type Product } from '../services/api';
+import { getEnrollments, getProducts, getProduct, getSettings, type Product } from '../services/api';
 
 import type { Variants } from 'framer-motion';
 
@@ -62,6 +62,8 @@ export default function Home() {
   const [enablePixInstallment, setEnablePixInstallment] = useState(true);
   const [enableCreditCard, setEnableCreditCard] = useState(true);
   const [scrolled, setScrolled] = useState(false);
+  const [existingEnrollmentCount, setExistingEnrollmentCount] = useState(0);
+  const [showExistingEnrollmentModal, setShowExistingEnrollmentModal] = useState(false);
 
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
@@ -75,6 +77,16 @@ export default function Home() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setExistingEnrollmentCount(0);
+      setShowExistingEnrollmentModal(false);
+      return;
+    }
+
+    void loadExistingEnrollments();
+  }, [isAuthenticated]);
 
   const loadProducts = async () => {
     try {
@@ -105,6 +117,19 @@ export default function Home() {
       setEnableCreditCard(response.data.enable_credit_card);
     } catch (err) {
       console.error('Erro ao carregar configurações:', err);
+    }
+  };
+
+  const loadExistingEnrollments = async () => {
+    try {
+      const response = await getEnrollments();
+      const enrollmentsData = Array.isArray(response.data)
+        ? response.data
+        : (response.data as any).results || [];
+      setExistingEnrollmentCount(enrollmentsData.length);
+    } catch (err) {
+      console.error('Erro ao carregar inscrições da conta:', err);
+      setExistingEnrollmentCount(0);
     }
   };
 
@@ -191,6 +216,20 @@ export default function Home() {
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleStartEnrollment = () => {
+    if (!isAuthenticated) {
+      navigate('/inscricao');
+      return;
+    }
+
+    if (existingEnrollmentCount > 0) {
+      setShowExistingEnrollmentModal(true);
+      return;
+    }
+
+    navigate('/inscricao');
   };
 
   return (
@@ -304,7 +343,7 @@ export default function Home() {
               className="flex flex-col sm:flex-row items-center justify-center gap-5 pt-72 md:pt-64 lg:pt-72"
             >
               <button
-                onClick={() => scrollToSection('inscricao')}
+                onClick={handleStartEnrollment}
                 className="btn-gold text-base md:text-lg px-10 py-4 font-semibold"
               >
                 Fazer Inscrição
@@ -481,7 +520,7 @@ export default function Home() {
                         ))}
                       </div>
                       <button
-                        onClick={() => navigate('/inscricao')}
+                        onClick={handleStartEnrollment}
                         className="btn-gold w-full md:w-auto px-8 py-3.5 text-base font-semibold"
                       >
                         Inscrever-se
@@ -521,7 +560,7 @@ export default function Home() {
                       </div>
                       <p className="text-gray-600 text-base mb-10 font-light">Pagamento único via PIX</p>
                       <button
-                        onClick={() => navigate('/inscricao')}
+                        onClick={handleStartEnrollment}
                         className="btn-gold w-full text-lg py-4 font-semibold"
                       >
                         Inscrever-se
@@ -552,7 +591,7 @@ export default function Home() {
                         Até {maxInstallments}x de R$ {pixInstallmentValue} via PIX
                       </p>
                       <button
-                        onClick={() => navigate('/inscricao')}
+                        onClick={handleStartEnrollment}
                         className="btn-outline w-full text-lg py-4 border-2 border-dark-900 text-dark-900 hover:bg-dark-50 font-semibold"
                       >
                         Inscrever-se
@@ -583,7 +622,7 @@ export default function Home() {
                         Até {maxInstallments}x de R$ {creditCardInstallmentValue} no cartão
                       </p>
                       <button
-                        onClick={() => navigate('/inscricao')}
+                        onClick={handleStartEnrollment}
                         className="btn-outline w-full text-lg py-4 border-2 border-dark-900 text-dark-900 hover:bg-dark-50 font-semibold"
                       >
                         Inscrever-se
@@ -643,6 +682,52 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {showExistingEnrollmentModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
+            <div className="text-center">
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-gold-700">
+                Inscrições encontradas
+              </p>
+              <h3 className="text-2xl font-bold text-dark-900">
+                Sua conta já possui inscrições
+              </h3>
+              <p className="mt-4 text-base leading-relaxed text-gray-600">
+                Encontramos {existingEnrollmentCount} {existingEnrollmentCount === 1 ? 'inscrição vinculada' : 'inscrições vinculadas'} à sua conta.
+                Deseja revisar as inscrições atuais ou fazer uma nova inscrição?
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-3">
+              <button
+                onClick={() => {
+                  setShowExistingEnrollmentModal(false);
+                  navigate('/minhas-inscricoes');
+                }}
+                className="btn-outline w-full border-2 border-dark-900 py-3 font-semibold text-dark-900 hover:bg-dark-50"
+              >
+                Ver minhas inscrições
+              </button>
+              <button
+                onClick={() => {
+                  setShowExistingEnrollmentModal(false);
+                  navigate('/inscricao');
+                }}
+                className="btn-gold w-full py-3 font-semibold"
+              >
+                Fazer nova inscrição
+              </button>
+              <button
+                onClick={() => setShowExistingEnrollmentModal(false)}
+                className="mt-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

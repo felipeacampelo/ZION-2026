@@ -96,6 +96,7 @@ export interface Coupon {
 export interface Enrollment {
   id: number;
   user_email?: string;
+  participant_name?: string;
   product?: Product;
   batch?: Batch;
   product_name?: string;
@@ -244,6 +245,9 @@ export const validateCoupon = (data: {
   payment_method?: string;
   installments?: number;
 }) => api.post('/enrollments/validate-coupon/', data);
+
+export const checkEnrollmentCpf = (data: { product_id: number; cpf: string }) =>
+  api.post<{ exists: boolean; message: string; enrollment_id?: number }>('/enrollments/check-cpf/', data);
 
 export const getEnrollments = () => api.get<Enrollment[]>('/enrollments/');
 

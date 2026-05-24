@@ -2,15 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Phone, FileText, Calendar, CreditCard, Check, Ticket, X } from 'lucide-react';
 import {
+  checkEnrollmentCpf,
   getProducts,
   getProduct,
   createEnrollment,
-  getEnrollments,
   getSettings,
   validateCoupon,
   type FormFieldConfig,
   type Product,
-  type Enrollment,
   type ResponsibleFieldConfig,
 } from '../services/api';
 import ProgressSteps from '../components/ProgressSteps';
@@ -28,7 +27,6 @@ export default function Enrollment() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [completedEnrollment, setCompletedEnrollment] = useState<Enrollment | null>(null);
   
   // Coupon states
   const [couponCode, setCouponCode] = useState('');
@@ -48,6 +46,8 @@ export default function Enrollment() {
   const [responsibleFieldsConfig, setResponsibleFieldsConfig] = useState<ResponsibleFieldConfig[]>([]);
   const [minBirthYear, setMinBirthYear] = useState(2009);
   const [maxBirthYear, setMaxBirthYear] = useState<number | null>(null);
+  const [cpfDuplicateError, setCpfDuplicateError] = useState('');
+  const [validatingCpf, setValidatingCpf] = useState(false);
   const [responsibleFormData, setResponsibleFormData] = useState<Record<string, string | boolean>>({
     nome_responsavel: '',
     email_responsavel: '',
@@ -81,7 +81,6 @@ export default function Enrollment() {
 
   useEffect(() => {
     loadProducts();
-    checkCompletedEnrollment();
     loadSettings();
   }, []);
 
@@ -103,26 +102,6 @@ export default function Enrollment() {
     enabled: true,
     required: false,
     label: fieldName,
-  };
-
-  const checkCompletedEnrollment = async () => {
-    try {
-      const enrollmentsResponse = await getEnrollments();
-      const enrollmentsData = Array.isArray(enrollmentsResponse.data) 
-        ? enrollmentsResponse.data 
-        : (enrollmentsResponse.data as any).results || [];
-      
-      // Find enrollment with paid status
-      const paidEnrollment = enrollmentsData.find(
-        (enrollment: any) => enrollment.status === 'PAID'
-      );
-      
-      if (paidEnrollment) {
-        setCompletedEnrollment(paidEnrollment);
-      }
-    } catch (err) {
-      console.error('Error checking completed enrollment:', err);
-    }
   };
 
   const loadProducts = async () => {
@@ -210,6 +189,12 @@ export default function Enrollment() {
     // Validate age based on admin configuration.
     if (birthYearError) {
       setError(birthYearError);
+      setLoading(false);
+      return;
+    }
+
+    if (cpfDuplicateError) {
+      setError(cpfDuplicateError);
       setLoading(false);
       return;
     }
@@ -306,6 +291,8 @@ export default function Enrollment() {
     return '';
   })();
 
+  const normalizedCpf = formData.cpf.replace(/\D/g, '');
+
   const birthYearError = (() => {
     if (!formData.data_nascimento) {
       return '';
@@ -328,6 +315,32 @@ export default function Enrollment() {
 
     return '';
   })();
+
+  useEffect(() => {
+    if (!selectedProduct || normalizedCpf.length !== 11) {
+      setCpfDuplicateError('');
+      setValidatingCpf(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setValidatingCpf(true);
+        const response = await checkEnrollmentCpf({
+          product_id: selectedProduct.id,
+          cpf: normalizedCpf,
+        });
+        setCpfDuplicateError(response.data.exists ? response.data.message : '');
+      } catch (err: any) {
+        console.error('Erro ao validar CPF da inscrição:', err);
+        setCpfDuplicateError('');
+      } finally {
+        setValidatingCpf(false);
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [normalizedCpf, selectedProduct]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -417,85 +430,6 @@ export default function Enrollment() {
   const inputClass = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent text-gray-900 bg-white';
   const selectClass = `${inputClass} appearance-none cursor-pointer`;
   const primaryButtonClass = 'px-6 py-3 bg-dark text-white rounded-lg font-medium hover:bg-dark-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
-
-  // Show completed enrollment page if payment is confirmed
-  if (completedEnrollment) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <button
-            onClick={() => navigate('/')}
-            className={backButtonClass}
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" style={{ color: 'inherit' }} />
-            Voltar
-          </button>
-
-          <ProgressSteps currentStep={3} steps={steps} />
-
-          <div className="bg-white rounded-xl shadow-lg p-8 mt-8">
-            <div className="text-center mb-8">
-              <div 
-                className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4"
-                style={{ backgroundColor: 'rgba(220, 253, 97, 0.2)' }}
-              >
-                <Check 
-                  className="w-8 h-8"
-                  style={{ color: 'rgb(210, 243, 67)' }}
-                />
-              </div>
-              <h1 className="text-3xl font-bold mb-2">🎉 Inscrição Completa!</h1>
-              <p className="text-gray-600">
-                Sua inscrição foi confirmada com sucesso. Obrigado por se inscrever!
-              </p>
-            </div>
-
-            <div 
-              className="border rounded-lg p-6 mb-8"
-              style={{
-                backgroundColor: 'rgba(220, 253, 97, 0.1)',
-                borderColor: 'rgb(220, 253, 97)'
-              }}
-            >
-              <h3 className="font-semibold text-lg mb-4">Detalhes da Inscrição</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Produto:</span>
-                  <span className="font-semibold">{completedEnrollment.product_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Lote:</span>
-                  <span className="font-semibold">{completedEnrollment.batch_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Valor:</span>
-                  <span className="font-semibold">R$ {completedEnrollment.final_amount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Status:</span>
-                  <span 
-                    className="font-semibold"
-                    style={{ color: 'rgb(210, 243, 67)' }}
-                  >
-                    ✓ Pago
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <button
-                onClick={() => navigate('/')}
-                className="btn-secondary"
-              >
-                Voltar para Início
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (enrollmentWindowState !== 'open') {
     return (
@@ -661,10 +595,16 @@ export default function Enrollment() {
                   required={getFieldConfig('cpf').required}
                   value={formData.cpf}
                   onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                  className={inputClass}
+                  className={`${inputClass} ${cpfDuplicateError ? 'border-red-400 focus:ring-red-300' : ''}`}
                   placeholder="000.000.000-00"
                   maxLength={14}
                 />
+                {validatingCpf && normalizedCpf.length === 11 && (
+                  <p className="mt-2 text-sm text-gray-500">Validando CPF...</p>
+                )}
+                {cpfDuplicateError && (
+                  <p className="mt-2 text-sm text-red-600">{cpfDuplicateError}</p>
+                )}
               </div>
               )}
 
@@ -931,7 +871,7 @@ export default function Enrollment() {
 
             <button
               type="submit"
-              disabled={loading || !hasActiveBatch || Boolean(birthYearError)}
+              disabled={loading || !hasActiveBatch || Boolean(birthYearError) || Boolean(cpfDuplicateError) || validatingCpf}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Processando...' : hasActiveBatch ? 'Continuar para Pagamento' : 'Sem lote disponível'}

@@ -45,6 +45,29 @@ class EnrollmentSecurityTests(APITestCase):
             status='ACTIVE',
         )
 
+    def build_form_data(self, **overrides):
+        form_data = {
+            'email': self.user.email,
+            'nome_completo': 'Participant User',
+            'telefone': '(11) 99999-0000',
+            'data_nascimento': '2010-01-01',
+            'cpf': '123.456.789-00',
+            'rg': '12.345.678-9',
+            'cep': '01000-000',
+            'tamanho_camiseta': 'G',
+            'membro_batista_capital': 'sim',
+            'lider_pg': 'Não tenho PG',
+            'ja_participou_zion': 'nao',
+            'observacoes': '',
+            'responsavel': {
+                'nome_responsavel': 'Responsável Teste',
+                'email_responsavel': 'responsavel@example.com',
+                'telefone_responsavel': '(11) 98888-0000',
+            },
+        }
+        form_data.update(overrides)
+        return form_data
+
     def test_anonymous_cannot_list_enrollments(self):
         response = self.client.get(reverse('enrollments:enrollment-list'))
 
@@ -59,18 +82,7 @@ class EnrollmentSecurityTests(APITestCase):
             {
                 'product_id': self.product.id,
                 'batch_id': self.batch.id,
-                'form_data': {
-                    'email': self.user.email,
-                    'nome_completo': 'Participant User',
-                    'telefone': '(11) 99999-0000',
-                    'data_nascimento': '2000-01-01',
-                    'cpf': '123.456.789-00',
-                    'rg': '12.345.678-9',
-                    'cep': '01000-000',
-                    'tamanho_camiseta': 'G',
-                    'membro_batista_capital': 'sim',
-                    'lider_pg': 'Não tenho PG',
-                },
+                'form_data': self.build_form_data(),
             },
             format='json',
         )
@@ -78,6 +90,98 @@ class EnrollmentSecurityTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['product']['id'], self.product.id)
         self.assertEqual(response.data['batch']['id'], self.batch.id)
+
+    @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
+    def test_authenticated_user_can_create_multiple_enrollments_with_different_cpfs(self, mock_send_email):
+        self.client.force_authenticate(user=self.user)
+
+        first_response = self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': self.build_form_data(
+                    nome_completo='Filho Um',
+                    cpf='123.456.789-00',
+                    email='filho1@example.com',
+                ),
+            },
+            format='json',
+        )
+        second_response = self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': self.build_form_data(
+                    nome_completo='Filho Dois',
+                    cpf='987.654.321-00',
+                    email='filho2@example.com',
+                ),
+            },
+            format='json',
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+
+    @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
+    def test_create_enrollment_rejects_duplicate_cpf_for_same_product(self, mock_send_email):
+        self.client.force_authenticate(user=self.user)
+
+        self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': self.build_form_data(
+                    nome_completo='Filho Um',
+                    cpf='123.456.789-00',
+                ),
+            },
+            format='json',
+        )
+
+        response = self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': self.build_form_data(
+                    nome_completo='Filho Dois',
+                    cpf='12345678900',
+                    email='filho2@example.com',
+                ),
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('Já existe uma inscrição para este CPF', response.data['form_data'][0])
+
+    def test_check_cpf_endpoint_returns_duplicate_for_same_product(self):
+        self.client.force_authenticate(user=self.user)
+        self.client.post(
+            reverse('enrollments:enrollment-list'),
+            {
+                'product_id': self.product.id,
+                'batch_id': self.batch.id,
+                'form_data': self.build_form_data(cpf='123.456.789-00'),
+            },
+            format='json',
+        )
+
+        response = self.client.post(
+            reverse('enrollments:check-cpf'),
+            {
+                'product_id': self.product.id,
+                'cpf': '12345678900',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['exists'])
 
     def test_public_settings_exposes_feature_flags(self):
         settings = Settings.get_settings()
@@ -114,24 +218,13 @@ class EnrollmentSecurityTests(APITestCase):
             {
                 'product_id': self.product.id,
                 'batch_id': self.batch.id,
-                'form_data': {
-                    'email': self.user.email,
-                    'nome_completo': 'Participant User',
-                    'telefone': '(11) 99999-0000',
-                    'data_nascimento': '2000-01-01',
-                    'cpf': '123.456.789-00',
-                    'rg': '12.345.678-9',
-                    'cep': '01000-000',
-                    'tamanho_camiseta': 'G',
-                    'membro_batista_capital': 'sim',
-                    'lider_pg': 'Não tenho PG',
-                },
+                'form_data': self.build_form_data(),
             },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('Inscrições iniciam em', response.data['detail'])
+        self.assertIn('Inscrições iniciam em', response.data['detail'][0])
 
     @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
     def test_create_enrollment_rejects_after_end_window(self, mock_send_email):
@@ -147,24 +240,13 @@ class EnrollmentSecurityTests(APITestCase):
             {
                 'product_id': self.product.id,
                 'batch_id': self.batch.id,
-                'form_data': {
-                    'email': self.user.email,
-                    'nome_completo': 'Participant User',
-                    'telefone': '(11) 99999-0000',
-                    'data_nascimento': '2000-01-01',
-                    'cpf': '123.456.789-00',
-                    'rg': '12.345.678-9',
-                    'cep': '01000-000',
-                    'tamanho_camiseta': 'G',
-                    'membro_batista_capital': 'sim',
-                    'lider_pg': 'Não tenho PG',
-                },
+                'form_data': self.build_form_data(),
             },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['detail'], 'Inscrições encerradas.')
+        self.assertEqual(response.data['detail'][0], 'Inscrições encerradas.')
 
     @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
     def test_create_enrollment_rejects_when_birth_year_is_after_max_birth_year(self, mock_send_email):
@@ -179,24 +261,13 @@ class EnrollmentSecurityTests(APITestCase):
             {
                 'product_id': self.product.id,
                 'batch_id': self.batch.id,
-                'form_data': {
-                    'email': self.user.email,
-                    'nome_completo': 'Participant User',
-                    'telefone': '(11) 99999-0000',
-                    'data_nascimento': '2014-01-01',
-                    'cpf': '123.456.789-00',
-                    'rg': '12.345.678-9',
-                    'cep': '01000-000',
-                    'tamanho_camiseta': 'G',
-                    'membro_batista_capital': 'sim',
-                    'lider_pg': 'Não tenho PG',
-                },
+                'form_data': self.build_form_data(data_nascimento='2014-01-01'),
             },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('2013 ou antes', response.data['form_data'])
+        self.assertIn('2013 ou antes', response.data['form_data'][0])
 
     @patch('apps.enrollments.email_service.send_enrollment_confirmation_email')
     def test_create_enrollment_ignores_shirt_size_when_disabled(self, mock_send_email):
@@ -211,18 +282,7 @@ class EnrollmentSecurityTests(APITestCase):
             {
                 'product_id': self.product.id,
                 'batch_id': self.batch.id,
-                'form_data': {
-                    'email': self.user.email,
-                    'nome_completo': 'Participant User',
-                    'telefone': '(11) 99999-0000',
-                    'data_nascimento': '2000-01-01',
-                    'cpf': '123.456.789-00',
-                    'rg': '12.345.678-9',
-                    'cep': '01000-000',
-                    'tamanho_camiseta': 'G',
-                    'membro_batista_capital': 'sim',
-                    'lider_pg': 'Não tenho PG',
-                },
+                'form_data': self.build_form_data(),
             },
             format='json',
         )
@@ -248,17 +308,7 @@ class EnrollmentSecurityTests(APITestCase):
             {
                 'product_id': self.product.id,
                 'batch_id': self.batch.id,
-                'form_data': {
-                    'email': self.user.email,
-                    'nome_completo': 'Participant User',
-                    'data_nascimento': '2000-01-01',
-                    'cpf': '123.456.789-00',
-                    'rg': '12.345.678-9',
-                    'cep': '01000-000',
-                    'tamanho_camiseta': 'G',
-                    'membro_batista_capital': 'sim',
-                    'lider_pg': 'Não tenho PG',
-                },
+                'form_data': self.build_form_data(telefone=''),
             },
             format='json',
         )
@@ -274,18 +324,7 @@ class EnrollmentSecurityTests(APITestCase):
             {
                 'product_id': self.product.id,
                 'batch_id': self.batch.id,
-                'form_data': {
-                    'email': self.user.email,
-                    'nome_completo': 'Participant User',
-                    'telefone': '(11) 99999-0000',
-                    'data_nascimento': '2000-01-01',
-                    'cpf': '123.456.789-00',
-                    'rg': '12.345.678-9',
-                    'cep': '01000-000',
-                    'tamanho_camiseta': 'G',
-                    'membro_batista_capital': 'sim',
-                    'lider_pg': 'Não tenho PG',
-                },
+                'form_data': self.build_form_data(),
             },
             format='json',
         )
