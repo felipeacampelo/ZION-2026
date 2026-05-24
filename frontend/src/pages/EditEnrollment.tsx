@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, User, Phone, Calendar, CreditCard, Ticket, Check, X } from 'lucide-react';
-import { getEnrollment, updateEnrollment, validateCoupon, type Enrollment } from '../services/api';
+import { getEnrollment, getSettings, updateEnrollment, validateCoupon, type Enrollment, type FormFieldConfig } from '../services/api';
 
 export default function EditEnrollment() {
   const navigate = useNavigate();
@@ -19,6 +19,7 @@ export default function EditEnrollment() {
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [hasCoupon, setHasCoupon] = useState(false);
   const [hasConfirmedPayments, setHasConfirmedPayments] = useState(false);
+  const [formFieldsConfig, setFormFieldsConfig] = useState<Record<string, FormFieldConfig>>({});
   
   const [formData, setFormData] = useState({
     nome_completo: '',
@@ -37,7 +38,29 @@ export default function EditEnrollment() {
 
   useEffect(() => {
     loadEnrollment();
+    loadFormSettings();
   }, [id]);
+
+  const getFieldConfig = (fieldName: string) => {
+    if (formFieldsConfig[fieldName]) {
+      return formFieldsConfig[fieldName];
+    }
+
+    if (fieldName === 'tamanho_camiseta') {
+      return { enabled: false, required: false, label: 'Tamanho da Camiseta' };
+    }
+
+    return { enabled: true, required: true, label: fieldName };
+  };
+
+  const loadFormSettings = async () => {
+    try {
+      const response = await getSettings();
+      setFormFieldsConfig(response.data.form_fields_config || {});
+    } catch (err) {
+      console.error('Erro ao carregar configurações do formulário:', err);
+    }
+  };
 
   const loadEnrollment = async () => {
     try {
@@ -312,26 +335,28 @@ export default function EditEnrollment() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tamanho da Camiseta *
-              </label>
-              <select
-                required
-                value={formData.tamanho_camiseta}
-                onChange={(e) => setFormData({ ...formData, tamanho_camiseta: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
-                disabled={hasConfirmedPayments}
-              >
-                <option value="">Selecione o tamanho...</option>
-                <option value="PP">PP</option>
-                <option value="P">P</option>
-                <option value="M">M</option>
-                <option value="G">G</option>
-                <option value="GG">GG</option>
-                <option value="XG">XG</option>
-              </select>
-            </div>
+            {getFieldConfig('tamanho_camiseta').enabled && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tamanho da Camiseta {getFieldConfig('tamanho_camiseta').required ? '*' : ''}
+                </label>
+                <select
+                  required={getFieldConfig('tamanho_camiseta').required}
+                  value={formData.tamanho_camiseta}
+                  onChange={(e) => setFormData({ ...formData, tamanho_camiseta: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple focus:border-transparent text-gray-900 bg-white"
+                  disabled={hasConfirmedPayments}
+                >
+                  <option value="">Selecione o tamanho...</option>
+                  <option value="PP">PP</option>
+                  <option value="P">P</option>
+                  <option value="M">M</option>
+                  <option value="G">G</option>
+                  <option value="GG">GG</option>
+                  <option value="XG">XG</option>
+                </select>
+              </div>
+            )}
 
             <div className="border-t pt-6 mt-6">
               <div className="mb-6">

@@ -17,7 +17,7 @@ DEFAULT_FORM_FIELDS_CONFIG = {
     'cpf': {'enabled': True, 'required': True, 'label': 'CPF'},
     'rg': {'enabled': True, 'required': True, 'label': 'RG'},
     'cep': {'enabled': True, 'required': True, 'label': 'CEP'},
-    'tamanho_camiseta': {'enabled': True, 'required': True, 'label': 'Tamanho da Camiseta'},
+    'tamanho_camiseta': {'enabled': False, 'required': False, 'label': 'Tamanho da Camiseta'},
     'membro_batista_capital': {'enabled': True, 'required': True, 'label': 'Membro Batista Capital'},
     'igreja': {'enabled': True, 'required': True, 'label': 'Igreja'},
     'lider_pg': {'enabled': True, 'required': True, 'label': 'Líder de PG'},
@@ -490,7 +490,7 @@ class Settings(models.Model):
     )
 
     enable_shirt_size_field = models.BooleanField(
-        default=True,
+        default=False,
         verbose_name='Exibir Campo Tamanho da Camiseta',
         help_text='Controla a exibição do campo de tamanho da camiseta em novas inscrições'
     )
