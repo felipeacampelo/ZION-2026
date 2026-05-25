@@ -183,26 +183,26 @@ export default function AdminSocialQuota() {
           </form>
         </div>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <article className="rounded-3xl border border-white/80 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Adolescentes</p>
-            <p className="mt-3 text-3xl font-bold text-gray-950">{summary.total}</p>
-            <p className="mt-1 text-sm text-gray-600">inscrições em cota social</p>
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-2xl border border-white/80 bg-white px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Adolescentes</p>
+            <p className="mt-2 text-2xl font-bold leading-none text-gray-950">{summary.total}</p>
+            <p className="mt-1 text-xs text-gray-600">inscrições em cota social</p>
           </article>
-          <article className="rounded-3xl border border-white/80 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Fecharam valor</p>
-            <p className="mt-3 text-3xl font-bold text-gray-950">{summary.completed}</p>
-            <p className="mt-1 text-sm text-gray-600">já bateram a meta total</p>
+          <article className="rounded-2xl border border-white/80 bg-white px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Fecharam valor</p>
+            <p className="mt-2 text-2xl font-bold leading-none text-gray-950">{summary.completed}</p>
+            <p className="mt-1 text-xs text-gray-600">já bateram a meta total</p>
           </article>
-          <article className="rounded-3xl border border-white/80 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Arrecadado</p>
-            <p className="mt-3 text-3xl font-bold text-gray-950">{formatCurrency(summary.raised_total)}</p>
-            <p className="mt-1 text-sm text-gray-600">lançamentos manuais somados</p>
+          <article className="rounded-2xl border border-white/80 bg-white px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Arrecadado</p>
+            <p className="mt-2 text-2xl font-bold leading-none text-gray-950">{formatCurrency(summary.raised_total)}</p>
+            <p className="mt-1 text-xs text-gray-600">lançamentos manuais somados</p>
           </article>
-          <article className="rounded-3xl border border-white/80 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Ainda falta</p>
-            <p className="mt-3 text-3xl font-bold text-gray-950">{formatCurrency(summary.remaining_total)}</p>
-            <p className="mt-1 text-sm text-gray-600">para fechar todas as metas</p>
+          <article className="rounded-2xl border border-white/80 bg-white px-4 py-3.5 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Ainda falta</p>
+            <p className="mt-2 text-2xl font-bold leading-none text-gray-950">{formatCurrency(summary.remaining_total)}</p>
+            <p className="mt-1 text-xs text-gray-600">para fechar todas as metas</p>
           </article>
         </section>
 
