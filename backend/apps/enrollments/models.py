@@ -219,6 +219,49 @@ class Enrollment(models.Model):
             self.batch.save(update_fields=['status', 'updated_at'])
 
 
+class SocialQuotaContribution(models.Model):
+    """Manual fund-raising entries for enrollments using social quota coupons."""
+
+    enrollment = models.ForeignKey(
+        'Enrollment',
+        on_delete=models.CASCADE,
+        related_name='social_quota_contributions',
+        verbose_name=_('Inscrição'),
+    )
+
+    date = models.DateField(
+        _('Data'),
+        help_text=_('Data em que o valor foi arrecadado'),
+    )
+
+    amount = models.DecimalField(
+        _('Valor'),
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
+
+    notes = models.TextField(
+        _('Observações'),
+        blank=True,
+        help_text=_('Observações opcionais sobre a arrecadação'),
+    )
+
+    created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Lançamento de Cota Social')
+        verbose_name_plural = _('Lançamentos de Cota Social')
+        ordering = ['-date', '-created_at']
+        indexes = [
+            models.Index(fields=['enrollment', 'date']),
+        ]
+
+    def __str__(self):
+        return f'{self.enrollment_id} - {self.date} - R$ {self.amount}'
+
+
 class Coupon(models.Model):
     """
     Discount coupon model.

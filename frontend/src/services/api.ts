@@ -112,6 +112,37 @@ export interface Enrollment {
   created_at: string;
   paid_at?: string | null;
   payments?: Payment[];
+  social_quota_contributions?: SocialQuotaContribution[];
+  is_social_quota?: boolean;
+  social_coupon_code?: string;
+  social_goal_amount?: string;
+  social_paid_amount?: string;
+  social_raised_amount?: string;
+  social_total_progress?: string;
+  social_remaining_amount?: string;
+  social_is_completed?: boolean;
+}
+
+export interface SocialQuotaContribution {
+  id: number;
+  date: string;
+  amount: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SocialQuotaSummary {
+  total: number;
+  completed: number;
+  raised_total: number;
+  remaining_total: number;
+}
+
+export interface SocialQuotaListResponse {
+  count: number;
+  summary: SocialQuotaSummary;
+  results: Enrollment[];
 }
 
 export interface Payment {
@@ -320,6 +351,7 @@ export const getAdminEnrollments = (params?: {
   product?: number;
   search?: string;
   payment_method?: string;
+  social_quota?: string;
   ids?: number[];
   page?: number;
   page_size?: number;
@@ -338,6 +370,24 @@ export const getAdminOverdueEnrollments = () =>
     total_overdue_amount: string;
     results: OverdueEnrollmentSummary[];
   }>('/users/admin/overdue-enrollments/');
+
+export const getAdminSocialQuotas = (params?: { search?: string }) =>
+  api.get<SocialQuotaListResponse>('/users/admin/social-quotas/', { params });
+
+export const createAdminSocialQuotaContribution = (data: {
+  enrollment_id: number;
+  date: string;
+  amount: string;
+  notes?: string;
+}) => api.post<SocialQuotaContribution>('/users/admin/social-quotas/contributions/', data);
+
+export const updateAdminSocialQuotaContribution = (
+  id: number,
+  data: Partial<{ enrollment_id: number; date: string; amount: string; notes: string }>
+) => api.patch<SocialQuotaContribution>(`/users/admin/social-quotas/contributions/${id}/`, data);
+
+export const deleteAdminSocialQuotaContribution = (id: number) =>
+  api.delete(`/users/admin/social-quotas/contributions/${id}/`);
 
 export const updateAdminEnrollment = (id: number, data: { status: string }) =>
   api.patch(`/users/admin/enrollments/${id}/`, data);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   CheckCircle,
@@ -57,6 +58,12 @@ interface DashboardStats {
     count: number;
   }>;
   batches: BatchStats[];
+  social_quota: {
+    total: number;
+    completed: number;
+    raised_total: number;
+    remaining_total: number;
+  };
 }
 
 type OverdueSummaryResponse = {
@@ -135,6 +142,7 @@ const sectionCardClass =
   'rounded-[28px] border border-white/80 bg-white/92 shadow-[0_20px_50px_rgba(15,23,42,0.07)]';
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [overdueSummary, setOverdueSummary] = useState<OverdueSummaryResponse>({
     count: 0,
@@ -320,6 +328,33 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-gray-500">{stats.payments.pending} pagamentos ainda pendentes</p>
+              </article>
+
+              <article
+                className={`${sectionCardClass} cursor-pointer p-5 transition-transform hover:-translate-y-0.5`}
+                onClick={() => navigate('/admin/social-quotas')}
+              >
+                <div className="flex items-start justify-between">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: brandPurpleSoft }}
+                  >
+                    <Layers3 className="h-6 w-6" style={{ color: brandPurple }} />
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                    Cota social
+                  </span>
+                </div>
+                <p className="mt-5 text-3xl font-bold text-gray-950">{stats.social_quota.total}</p>
+                <p className="mt-1 text-sm text-gray-600">adolescentes acompanhados</p>
+                <div className="mt-5 flex gap-2 text-xs font-semibold">
+                  <span className="rounded-full bg-green-50 px-2.5 py-1 text-green-700">
+                    {stats.social_quota.completed} fecharam valor
+                  </span>
+                  <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+                    R$ {formatCurrency(stats.social_quota.remaining_total)} faltando
+                  </span>
+                </div>
               </article>
 
               <div className={`${sectionCardClass} p-5 lg:p-6`}>

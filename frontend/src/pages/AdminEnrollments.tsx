@@ -86,6 +86,9 @@ const formatEmpire = (value?: string) => {
   return empireLabels[value || ''] || '-';
 };
 
+const formatCurrency = (value: string | number | undefined) =>
+  Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
 const formatResponsibleFieldLabel = (key: string) => {
   if (RESPONSAVEL_FIXED_LABELS[key]) {
     return RESPONSAVEL_FIXED_LABELS[key];
@@ -106,6 +109,7 @@ export default function AdminEnrollments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('');
+  const [socialQuotaFilter, setSocialQuotaFilter] = useState('');
   const [selectedEnrollment, setSelectedEnrollment] = useState<any>(null);
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -117,6 +121,7 @@ export default function AdminEnrollments() {
     search: searchTerm.trim() || undefined,
     status: statusFilter || undefined,
     payment_method: paymentMethodFilter || undefined,
+    social_quota: socialQuotaFilter || undefined,
     page,
     page_size: ENROLLMENTS_PAGE_SIZE,
   });
@@ -206,7 +211,7 @@ export default function AdminEnrollments() {
     }, 300);
 
     return clearSearchDebounce;
-  }, [searchTerm, statusFilter, paymentMethodFilter]);
+  }, [searchTerm, statusFilter, paymentMethodFilter, socialQuotaFilter]);
 
   const visibleEnrollments = [...enrollments].sort((a, b) => {
     const comparison = compareEnrollmentValues(a, b, sortKey);
@@ -389,6 +394,17 @@ export default function AdminEnrollments() {
                   <option value="CREDIT_CARD">Cartão</option>
                 </select>
 
+                <select
+                  value={socialQuotaFilter}
+                  onChange={(e) => setSocialQuotaFilter(e.target.value)}
+                  disabled={isBusy}
+                  className="flex-1 sm:flex-none px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white"
+                >
+                  <option value="">Cota social</option>
+                  <option value="true">Só cota social</option>
+                  <option value="false">Sem cota social</option>
+                </select>
+
                 <button
                   type="submit"
                   disabled={isBusy}
@@ -412,6 +428,11 @@ export default function AdminEnrollments() {
                   <div>
                     <p className="font-medium text-sm">{enrollment.form_data?.nome_completo || '-'}</p>
                     <p className="text-xs text-gray-500">#{enrollment.id}</p>
+                    {enrollment.is_social_quota && (
+                      <span className="mt-1 inline-flex rounded-full bg-dark px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                        Cota social
+                      </span>
+                    )}
                   </div>
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-medium"
@@ -494,7 +515,16 @@ export default function AdminEnrollments() {
                 {visibleEnrollments.map((enrollment) => (
                   <tr key={enrollment.id} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-2 lg:px-4 text-sm">#{enrollment.id}</td>
-                    <td className="py-3 px-2 lg:px-4 font-medium text-sm">{enrollment.form_data?.nome_completo || '-'}</td>
+                    <td className="py-3 px-2 lg:px-4 font-medium text-sm">
+                      <div className="flex items-center gap-2">
+                        <span>{enrollment.form_data?.nome_completo || '-'}</span>
+                        {enrollment.is_social_quota && (
+                          <span className="rounded-full bg-dark px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                            Cota
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-2 lg:px-4 text-sm hidden lg:table-cell">{enrollment.user_email}</td>
                     <td className="py-3 px-2 lg:px-4 text-sm hidden xl:table-cell">{enrollment.form_data?.telefone || '-'}</td>
                     <td className="py-3 px-2 lg:px-4">
@@ -595,6 +625,46 @@ export default function AdminEnrollments() {
                 </div>
 
                 <div className="space-y-4 sm:space-y-6">
+                  {selectedEnrollment.is_social_quota && (
+                    <div>
+                      <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3" style={{ color: 'rgb(165, 44, 240)' }}>
+                        Cota Social
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                        <div>
+                          <label className="text-xs sm:text-sm text-gray-600">Arrecadado</label>
+                          <p className="font-medium text-sm sm:text-base">
+                            {formatCurrency(selectedEnrollment.social_raised_amount)}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs sm:text-sm text-gray-600">Pago no sistema</label>
+                          <p className="font-medium text-sm sm:text-base">
+                            {formatCurrency(selectedEnrollment.social_paid_amount)}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs sm:text-sm text-gray-600">Progresso total</label>
+                          <p className="font-medium text-sm sm:text-base">
+                            {formatCurrency(selectedEnrollment.social_total_progress)}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-xs sm:text-sm text-gray-600">Faltante</label>
+                          <p className="font-medium text-sm sm:text-base">
+                            {formatCurrency(selectedEnrollment.social_remaining_amount)}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-xs sm:text-sm text-gray-600">Status</label>
+                          <p className="font-medium text-sm sm:text-base">
+                            {selectedEnrollment.social_is_completed ? 'Fechou valor' : 'Pendente'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3" style={{ color: 'rgb(165, 44, 240)' }}>
                       Dados Pessoais

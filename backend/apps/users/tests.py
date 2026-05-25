@@ -9,7 +9,16 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.enrollments.email_service import render_email_template
-from apps.enrollments.models import EmailCampaign, EmailCampaignRecipient, EmailTemplate, Enrollment, Settings
+from apps.enrollments.models import (
+    Coupon,
+    EmailCampaign,
+    EmailCampaignRecipient,
+    EmailTemplate,
+    Enrollment,
+    Settings,
+    SocialQuotaContribution,
+)
+from apps.payments.models import Payment
 from apps.products.models import Batch, Product
 
 
@@ -253,8 +262,6 @@ class AdminDashboardStatsTests(APITestCase):
         )
 
     def test_dashboard_returns_members_breakdown_and_open_revenue(self):
-        from apps.payments.models import Payment
-
         Payment.objects.create(
             enrollment=self.member_enrollment,
             asaas_payment_id='pay-dashboard-confirmed',
@@ -289,6 +296,160 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['members']['unknown'], 1)
         self.assertEqual(response.data['revenue']['pending'], 190.0)
         self.assertEqual(response.data['revenue']['overdue'], 130.0)
+        self.assertIn('social_quota', response.data)
+
+
+class AdminSocialQuotaTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email='social-admin@example.com',
+            password='password123',
+            is_staff=True,
+        )
+        self.user = User.objects.create_user(
+            email='teen@example.com',
+            password='password123',
+            first_name='Teen',
+            last_name='User',
+        )
+
+        self.product = Product.objects.create(
+            name='ZION 2026',
+            description='Evento',
+            base_price=Decimal('580.00'),
+            max_installments=8,
+            is_active=True,
+        )
+
+        now = timezone.now()
+        self.batch = Batch.objects.create(
+            product=self.product,
+            name='Lote Social',
+            start_date=now - timedelta(days=1),
+            end_date=now + timedelta(days=10),
+            price=Decimal('580.00'),
+            pix_installment_price=Decimal('580.00'),
+            credit_card_price=Decimal('580.00'),
+            status='ACTIVE',
+        )
+
+        self.social_coupon = Coupon.objects.create(
+            code='COTASOCIAL2026',
+            discount_type='FIXED',
+            discount_value=Decimal('100.00'),
+            min_purchase=Decimal('0.00'),
+            valid_from=now - timedelta(days=1),
+            valid_until=now + timedelta(days=30),
+            active=True,
+        )
+
+        self.normal_coupon = Coupon.objects.create(
+            code='NORMAL2026',
+            discount_type='FIXED',
+            discount_value=Decimal('50.00'),
+            min_purchase=Decimal('0.00'),
+            valid_from=now - timedelta(days=1),
+            valid_until=now + timedelta(days=30),
+            active=True,
+        )
+
+        self.social_enrollment = Enrollment.objects.create(
+            user=self.user,
+            product=self.product,
+            batch=self.batch,
+            coupon=self.social_coupon,
+            form_data={'nome_completo': 'Teen Social'},
+            payment_method='PIX_CASH',
+            installments=1,
+            total_amount=Decimal('580.00'),
+            discount_amount=Decimal('100.00'),
+            final_amount=Decimal('480.00'),
+        )
+        self.normal_enrollment = Enrollment.objects.create(
+            user=self.user,
+            product=self.product,
+            batch=self.batch,
+            coupon=self.normal_coupon,
+            form_data={'nome_completo': 'Teen Normal'},
+            payment_method='PIX_CASH',
+            installments=1,
+            total_amount=Decimal('580.00'),
+            discount_amount=Decimal('50.00'),
+            final_amount=Decimal('530.00'),
+        )
+
+        Payment.objects.create(
+            enrollment=self.social_enrollment,
+            asaas_payment_id='pay-social-confirmed',
+            installment_number=1,
+            amount=Decimal('180.00'),
+            status='CONFIRMED',
+            due_date=timezone.localdate(),
+        )
+        self.contribution = SocialQuotaContribution.objects.create(
+            enrollment=self.social_enrollment,
+            date=timezone.localdate(),
+            amount=Decimal('120.00'),
+            notes='Primeiro valor',
+        )
+
+    def test_admin_social_quotas_list_returns_summary(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(reverse('users:admin-social-quotas-list'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['summary']['total'], 1)
+        self.assertEqual(response.data['summary']['completed'], 0)
+        self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
+        self.assertEqual(response.data['results'][0]['social_raised_amount'], '120.00')
+        self.assertEqual(response.data['results'][0]['social_paid_amount'], '180.00')
+
+    def test_admin_enrollments_filter_social_quota(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(
+            reverse('users:admin-enrollments-list'),
+            {'social_quota': 'true'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
+        self.assertTrue(response.data['results'][0]['is_social_quota'])
+
+    def test_admin_can_create_update_and_delete_social_quota_contribution(self):
+        self.client.force_authenticate(user=self.admin)
+
+        create_response = self.client.post(
+            reverse('users:admin-social-quota-contribution-create'),
+            {
+                'enrollment_id': self.social_enrollment.id,
+                'date': str(timezone.localdate()),
+                'amount': '90.00',
+                'notes': 'Segundo valor',
+            },
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        contribution_id = create_response.data['id']
+        update_response = self.client.patch(
+            reverse('users:admin-social-quota-contribution-detail', args=[contribution_id]),
+            {
+                'amount': '95.00',
+                'notes': 'Valor ajustado',
+            },
+            format='json',
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_response.data['amount'], '95.00')
+
+        delete_response = self.client.delete(
+            reverse('users:admin-social-quota-contribution-detail', args=[contribution_id]),
+        )
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
 
 
 class AdminEmailTests(APITestCase):

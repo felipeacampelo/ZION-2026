@@ -19,6 +19,7 @@ import AdminFormSettings from './pages/AdminFormSettings'
 import AdminBatchSettings from './pages/AdminBatchSettings'
 import AdminCouponSettings from './pages/AdminCouponSettings'
 import AdminEmailSettings from './pages/AdminEmailSettings'
+import AdminSocialQuota from './pages/AdminSocialQuota'
 
 function App() {
   return (
@@ -83,6 +84,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminEnrollments />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/social-quotas" 
+            element={
+              <AdminRoute>
+                <AdminSocialQuota />
               </AdminRoute>
             } 
           />

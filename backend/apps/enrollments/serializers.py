@@ -3,9 +3,21 @@ Enrollment serializers.
 """
 from decimal import Decimal
 from rest_framework import serializers
-from .models import DEFAULT_FORM_FIELDS_CONFIG, DEFAULT_RESPONSIBLE_CONTACT_FIELDS, Enrollment
-from .utils import find_duplicate_enrollment_by_cpf, normalize_digits
+from .models import (
+    DEFAULT_FORM_FIELDS_CONFIG,
+    DEFAULT_RESPONSIBLE_CONTACT_FIELDS,
+    Enrollment,
+    SocialQuotaContribution,
+)
+from .utils import build_social_quota_summary, find_duplicate_enrollment_by_cpf, normalize_digits
 from apps.products.serializers import ProductSerializer, BatchSerializer
+
+
+class SocialQuotaContributionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SocialQuotaContribution
+        fields = ['id', 'date', 'amount', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -21,6 +33,20 @@ class EnrollmentSerializer(serializers.ModelSerializer):
     )
     max_installments = serializers.SerializerMethodField()
     payments = serializers.SerializerMethodField()
+    social_quota_contributions = serializers.SerializerMethodField()
+    is_social_quota = serializers.SerializerMethodField()
+    social_coupon_code = serializers.SerializerMethodField()
+    social_goal_amount = serializers.SerializerMethodField()
+    social_paid_amount = serializers.SerializerMethodField()
+    social_raised_amount = serializers.SerializerMethodField()
+    social_total_progress = serializers.SerializerMethodField()
+    social_remaining_amount = serializers.SerializerMethodField()
+    social_is_completed = serializers.SerializerMethodField()
+
+    def _get_social_quota_summary(self, obj):
+        if not hasattr(obj, '_social_quota_summary_cache'):
+            obj._social_quota_summary_cache = build_social_quota_summary(obj)
+        return obj._social_quota_summary_cache
     
     def get_max_installments(self, obj):
         """Get max installments based on coupon and global settings."""
@@ -50,6 +76,36 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             } for p in payments]
         except Exception as e:
             return []
+
+    def get_social_quota_contributions(self, obj):
+        if not self._get_social_quota_summary(obj)['is_social_quota']:
+            return []
+        contributions = obj.social_quota_contributions.all().order_by('-date', '-created_at')
+        return SocialQuotaContributionSerializer(contributions, many=True).data
+
+    def get_is_social_quota(self, obj):
+        return self._get_social_quota_summary(obj)['is_social_quota']
+
+    def get_social_coupon_code(self, obj):
+        return self._get_social_quota_summary(obj)['social_coupon_code']
+
+    def get_social_goal_amount(self, obj):
+        return self._get_social_quota_summary(obj)['social_goal_amount']
+
+    def get_social_paid_amount(self, obj):
+        return self._get_social_quota_summary(obj)['social_paid_amount']
+
+    def get_social_raised_amount(self, obj):
+        return self._get_social_quota_summary(obj)['social_raised_amount']
+
+    def get_social_total_progress(self, obj):
+        return self._get_social_quota_summary(obj)['social_total_progress']
+
+    def get_social_remaining_amount(self, obj):
+        return self._get_social_quota_summary(obj)['social_remaining_amount']
+
+    def get_social_is_completed(self, obj):
+        return self._get_social_quota_summary(obj)['social_is_completed']
     
     class Meta:
         model = Enrollment
@@ -68,6 +124,15 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             'final_amount',
             'installment_value',
             'payments',
+            'social_quota_contributions',
+            'is_social_quota',
+            'social_coupon_code',
+            'social_goal_amount',
+            'social_paid_amount',
+            'social_raised_amount',
+            'social_total_progress',
+            'social_remaining_amount',
+            'social_is_completed',
             'created_at',
             'paid_at',
         ]

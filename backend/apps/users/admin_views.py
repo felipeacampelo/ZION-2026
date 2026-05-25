@@ -13,8 +13,15 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .permissions import IsAdminUser
-from apps.enrollments.models import Enrollment, Settings as AppSettings, Coupon, RESPONSIBLE_FIELD_TYPES
-from apps.enrollments.serializers import EnrollmentSerializer
+from apps.enrollments.models import (
+    Enrollment,
+    Settings as AppSettings,
+    Coupon,
+    RESPONSIBLE_FIELD_TYPES,
+    SocialQuotaContribution,
+)
+from apps.enrollments.serializers import EnrollmentSerializer, SocialQuotaContributionSerializer
+from apps.enrollments.utils import SOCIAL_QUOTA_COUPON_PREFIX, build_social_quota_summary
 from apps.payments.models import Payment
 from apps.products.models import Product, Batch
 from apps.products.serializers import ProductSerializer, BatchSerializer
@@ -244,6 +251,25 @@ class AdminCouponSerializer(serializers.ModelSerializer):
         return value
 
 
+class AdminSocialQuotaContributionWriteSerializer(serializers.ModelSerializer):
+    enrollment_id = serializers.PrimaryKeyRelatedField(
+        source='enrollment',
+        queryset=Enrollment.objects.select_related('coupon').all(),
+        write_only=True,
+    )
+
+    class Meta:
+        model = SocialQuotaContribution
+        fields = ['id', 'enrollment_id', 'date', 'amount', 'notes']
+        read_only_fields = ['id']
+
+    def validate_enrollment(self, enrollment):
+        coupon = getattr(enrollment, 'coupon', None)
+        if not coupon or not coupon.code.upper().startswith(SOCIAL_QUOTA_COUPON_PREFIX):
+            raise serializers.ValidationError('A inscrição selecionada não pertence à cota social.')
+        return enrollment
+
+
 def calculate_asaas_fee(payment_amount, payment_method, installments):
     """
     Calculate Asaas fee based on payment method and installments.
@@ -345,6 +371,56 @@ def build_overdue_enrollments():
     }
 
 
+def build_social_quota_enrollment_payload(enrollment):
+    serialized = EnrollmentSerializer(enrollment).data
+    contributions = SocialQuotaContributionSerializer(
+        enrollment.social_quota_contributions.all().order_by('-date', '-created_at'),
+        many=True,
+    ).data
+    summary = build_social_quota_summary(enrollment)
+
+    return {
+        **serialized,
+        'social_quota_contributions': contributions,
+        **summary,
+    }
+
+
+def build_social_quota_queryset():
+    return Enrollment.objects.select_related(
+        'product',
+        'batch',
+        'user',
+        'coupon',
+    ).prefetch_related(
+        'payments',
+        'social_quota_contributions',
+    ).filter(
+        coupon__code__istartswith=SOCIAL_QUOTA_COUPON_PREFIX,
+    ).order_by('-created_at')
+
+
+def build_social_quota_dashboard_summary(enrollments):
+    total = len(enrollments)
+    completed = 0
+    raised_total = Decimal('0.00')
+    remaining_total = Decimal('0.00')
+
+    for enrollment in enrollments:
+        summary = build_social_quota_summary(enrollment)
+        if summary['social_is_completed']:
+            completed += 1
+        raised_total += Decimal(summary['social_raised_amount'])
+        remaining_total += Decimal(summary['social_remaining_amount'])
+
+    return {
+        'total': total,
+        'completed': completed,
+        'raised_total': float(raised_total),
+        'remaining_total': float(remaining_total),
+    }
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def admin_dashboard_stats(request):
@@ -427,6 +503,9 @@ def admin_dashboard_stats(request):
             'paid': paid,
             'status': batch.status,
         })
+
+    social_quota_enrollments = list(build_social_quota_queryset())
+    social_quota_summary = build_social_quota_dashboard_summary(social_quota_enrollments)
     
     return Response({
         'enrollments': {
@@ -455,6 +534,7 @@ def admin_dashboard_stats(request):
         },
         'payment_methods': list(payment_methods),
         'batches': batches_stats,
+        'social_quota': social_quota_summary,
     })
 
 
@@ -472,13 +552,14 @@ def admin_enrollments_list(request):
     """List all enrollments with filters."""
     
     enrollments = Enrollment.objects.select_related(
-        'product', 'batch', 'user'
-    ).prefetch_related('payments').order_by('-created_at')
+        'product', 'batch', 'user', 'coupon'
+    ).prefetch_related('payments', 'social_quota_contributions').order_by('-created_at')
     
     # Filters
     status_filter = request.query_params.get('status')
     product_filter = request.query_params.get('product')
     payment_method_filter = request.query_params.get('payment_method')
+    social_quota_filter = request.query_params.get('social_quota')
     search = request.query_params.get('search')
     enrollment_ids = request.query_params.get('ids')
     
@@ -490,6 +571,11 @@ def admin_enrollments_list(request):
     
     if payment_method_filter:
         enrollments = enrollments.filter(payment_method=payment_method_filter)
+
+    if social_quota_filter == 'true':
+        enrollments = enrollments.filter(coupon__code__istartswith=SOCIAL_QUOTA_COUPON_PREFIX)
+    elif social_quota_filter == 'false':
+        enrollments = enrollments.exclude(coupon__code__istartswith=SOCIAL_QUOTA_COUPON_PREFIX)
 
     if enrollment_ids:
         parsed_ids = [
@@ -513,6 +599,71 @@ def admin_enrollments_list(request):
     page = paginator.paginate_queryset(enrollments, request)
     serializer = EnrollmentSerializer(page, many=True)
     return paginator.get_paginated_response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_social_quotas_list(request):
+    """List social quota enrollments with aggregated progress."""
+
+    search = request.query_params.get('search', '').strip()
+    enrollments = build_social_quota_queryset()
+
+    if search:
+        enrollments = enrollments.filter(
+            Q(user__first_name__icontains=search) |
+            Q(user__last_name__icontains=search) |
+            Q(user__email__icontains=search) |
+            Q(form_data__nome_completo__icontains=search) |
+            Q(form_data__email__icontains=search) |
+            Q(form_data__cpf__icontains=search)
+        )
+
+    enrollments = list(enrollments)
+    results = [build_social_quota_enrollment_payload(enrollment) for enrollment in enrollments]
+    dashboard = build_social_quota_dashboard_summary(enrollments)
+
+    return Response({
+        'count': len(results),
+        'summary': dashboard,
+        'results': results,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_social_quota_contribution_create(request):
+    """Create a social quota contribution entry."""
+
+    serializer = AdminSocialQuotaContributionWriteSerializer(data=request.data)
+    if serializer.is_valid():
+        contribution = serializer.save()
+        return Response(
+            SocialQuotaContributionSerializer(contribution).data,
+            status=status.HTTP_201_CREATED,
+        )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAdminUser])
+def admin_social_quota_contribution_detail(request, pk):
+    """Update or delete a social quota contribution entry."""
+
+    try:
+        contribution = SocialQuotaContribution.objects.select_related('enrollment', 'enrollment__coupon').get(pk=pk)
+    except SocialQuotaContribution.DoesNotExist:
+        return Response({'detail': 'Lançamento não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        contribution.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = AdminSocialQuotaContributionWriteSerializer(contribution, data=request.data, partial=True)
+    if serializer.is_valid():
+        contribution = serializer.save()
+        return Response(SocialQuotaContributionSerializer(contribution).data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PATCH'])
