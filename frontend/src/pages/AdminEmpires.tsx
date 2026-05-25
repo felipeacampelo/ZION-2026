@@ -15,9 +15,9 @@ const EMPIRE_META: Array<{
   label: string;
   accent: string;
 }> = [
-  { key: 'egito', label: 'Egito', accent: 'bg-amber-50 text-amber-700 border-amber-100' },
-  { key: 'persia', label: 'Pérsia', accent: 'bg-sky-50 text-sky-700 border-sky-100' },
-  { key: 'grecia', label: 'Grécia', accent: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+  { key: 'egito', label: 'Egito', accent: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+  { key: 'persia', label: 'Pérsia', accent: 'bg-purple-50 text-purple-700 border-purple-100' },
+  { key: 'grecia', label: 'Grécia', accent: 'bg-orange-50 text-orange-700 border-orange-100' },
   { key: 'roma', label: 'Roma', accent: 'bg-rose-50 text-rose-700 border-rose-100' },
   { key: 'none', label: 'Sem império', accent: 'bg-slate-100 text-slate-700 border-slate-200' },
 ];
@@ -75,47 +75,38 @@ export default function AdminEmpires() {
   };
 
   const renderParticipantCard = (item: EmpireBoardItem, allowAllocation: boolean) => (
-    <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-gray-950">{item.participant_name}</h3>
-          <p className="mt-1 break-all text-xs text-gray-500">{item.user_email}</p>
+          <h3 className="truncate text-[13px] font-semibold leading-tight text-gray-950">{item.participant_name}</h3>
         </div>
-        <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">
+        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
           #{item.id}
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-gray-600">
         <div>
           <p className="uppercase tracking-[0.08em] text-gray-500">Nascimento</p>
-          <p className="mt-1 font-medium text-gray-900">{formatBirthDate(item.birth_date)}</p>
+          <p className="mt-0.5 font-medium text-gray-900">{formatBirthDate(item.birth_date)}</p>
         </div>
         <div>
           <p className="uppercase tracking-[0.08em] text-gray-500">Idade</p>
-          <p className="mt-1 font-medium text-gray-900">{item.age ?? '-'}</p>
-        </div>
-        <div>
-          <p className="uppercase tracking-[0.08em] text-gray-500">Telefone</p>
-          <p className="mt-1 font-medium text-gray-900">{item.phone || '-'}</p>
-        </div>
-        <div>
-          <p className="uppercase tracking-[0.08em] text-gray-500">CPF</p>
-          <p className="mt-1 font-medium text-gray-900">{item.cpf || '-'}</p>
+          <p className="mt-0.5 font-medium text-gray-900">{item.age ?? '-'}</p>
         </div>
       </div>
 
       {allowAllocation && (
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-1.5">
           {EMPIRE_META.filter((empire) => empire.key !== 'none').map((empire) => (
             <button
               key={empire.key}
               type="button"
               disabled={savingId === item.id}
               onClick={() => void handleAllocate(item.id, empire.key as 'egito' | 'persia' | 'grecia' | 'roma')}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-60"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-60"
             >
-              {savingId === item.id ? 'Alocando...' : `Enviar para ${empire.label}`}
+              {savingId === item.id ? '...' : empire.label}
             </button>
           ))}
         </div>
@@ -148,31 +139,31 @@ export default function AdminEmpires() {
             Não foi possível carregar os impérios.
           </div>
         ) : (
-          <div className="grid gap-4 2xl:grid-cols-5 xl:grid-cols-3 md:grid-cols-2">
+          <div className="grid gap-3 2xl:grid-cols-5 xl:grid-cols-4 md:grid-cols-2">
             {EMPIRE_META.map((empire) => {
               const column = board[empire.key];
               return (
-                <section key={empire.key} className="rounded-[28px] border border-white/80 bg-white p-4 shadow-sm">
-                  <div className={`rounded-2xl border px-4 py-3 ${empire.accent}`}>
-                    <div className="flex items-center justify-between gap-3">
+                <section key={empire.key} className="rounded-[24px] border border-white/80 bg-white p-3 shadow-sm">
+                  <div className={`rounded-xl border px-3 py-2.5 ${empire.accent}`}>
+                    <div className="flex items-center justify-between gap-2">
                       <div>
-                        <h2 className="text-lg font-bold">{empire.label}</h2>
-                        <p className="mt-1 text-xs opacity-80">{column.count} integrantes</p>
+                        <h2 className="text-base font-bold">{empire.label}</h2>
+                        <p className="mt-0.5 text-[11px] opacity-80">{column.count} integrantes</p>
                       </div>
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/70">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/70">
                         {empire.key === 'none' ? (
-                          <ShieldAlert className="h-5 w-5" />
+                          <ShieldAlert className="h-4 w-4" />
                         ) : (
-                          <Users className="h-5 w-5" style={{ color: brandPurple }} />
+                          <Users className="h-4 w-4" style={{ color: brandPurple }} />
                         )}
                       </div>
                     </div>
-                    <p className="mt-3 text-sm font-semibold">Idade média: {formatAverageAge(column.average_age)}</p>
+                    <p className="mt-2 text-xs font-semibold">Idade média: {formatAverageAge(column.average_age)}</p>
                   </div>
 
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-3 space-y-2">
                     {column.items.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-gray-500">
+                      <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-gray-500">
                         Nenhum inscrito nesta coluna.
                       </div>
                     ) : (
