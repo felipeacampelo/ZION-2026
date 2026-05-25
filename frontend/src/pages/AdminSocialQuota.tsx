@@ -83,6 +83,13 @@ export default function AdminSocialQuota() {
   };
 
   const handleSelectEnrollment = (enrollment: Enrollment) => {
+    if (selectedEnrollment?.id === enrollment.id) {
+      setSelectedEnrollment(null);
+      resetContributionForm();
+      setError('');
+      return;
+    }
+
     setSelectedEnrollment(enrollment);
     resetContributionForm();
     setError('');
@@ -242,244 +249,245 @@ export default function AdminSocialQuota() {
                 </thead>
                 <tbody>
                   {enrollments.map((enrollment) => (
-                    <tr
-                      key={enrollment.id}
-                      className={`cursor-pointer border-b border-gray-100 transition-colors hover:bg-gray-50 ${
-                        selectedEnrollment?.id === enrollment.id ? 'bg-gold/10' : ''
-                      }`}
-                      onClick={() => handleSelectEnrollment(enrollment)}
-                    >
-                      <td className="px-2 py-2.5">
-                        <p className="text-[13px] font-semibold leading-tight text-gray-950">{enrollment.form_data?.nome_completo || '-'}</p>
-                        <p className="text-[11px] text-gray-500">#{enrollment.id}</p>
-                      </td>
-                      <td className="px-2 py-2.5 text-[13px] font-medium text-gray-900">
-                        {formatCurrency(enrollment.social_goal_amount)}
-                      </td>
-                      <td className="px-2 py-2.5 text-[13px] text-gray-700">
-                        {formatCurrency(enrollment.social_paid_amount)}
-                      </td>
-                      <td className="px-2 py-2.5 text-[13px] text-gray-700">
-                        {formatCurrency(enrollment.social_raised_amount)}
-                      </td>
-                      <td className="px-2 py-2.5 text-[13px] font-medium text-gray-950">
-                        {formatCurrency(enrollment.social_total_progress)}
-                      </td>
-                      <td className="px-2 py-2.5 text-[13px] text-gray-700">
-                        {formatCurrency(enrollment.social_remaining_amount)}
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                            enrollment.social_is_completed
-                              ? 'bg-green-50 text-green-700'
-                              : 'bg-amber-50 text-amber-700'
-                          }`}
-                        >
-                          {enrollment.social_is_completed ? 'Fechou valor' : 'Pendente'}
-                        </span>
-                      </td>
-                    </tr>
+                    <>
+                      <tr
+                        key={enrollment.id}
+                        className={`cursor-pointer border-b border-gray-100 transition-colors hover:bg-gray-50 ${
+                          selectedEnrollment?.id === enrollment.id ? 'bg-gold/10' : ''
+                        }`}
+                        onClick={() => handleSelectEnrollment(enrollment)}
+                      >
+                        <td className="px-2 py-2.5">
+                          <p className="text-[13px] font-semibold leading-tight text-gray-950">{enrollment.form_data?.nome_completo || '-'}</p>
+                          <p className="text-[11px] text-gray-500">#{enrollment.id}</p>
+                        </td>
+                        <td className="px-2 py-2.5 text-[13px] font-medium text-gray-900">
+                          {formatCurrency(enrollment.social_goal_amount)}
+                        </td>
+                        <td className="px-2 py-2.5 text-[13px] text-gray-700">
+                          {formatCurrency(enrollment.social_paid_amount)}
+                        </td>
+                        <td className="px-2 py-2.5 text-[13px] text-gray-700">
+                          {formatCurrency(enrollment.social_raised_amount)}
+                        </td>
+                        <td className="px-2 py-2.5 text-[13px] font-medium text-gray-950">
+                          {formatCurrency(enrollment.social_total_progress)}
+                        </td>
+                        <td className="px-2 py-2.5 text-[13px] text-gray-700">
+                          {formatCurrency(enrollment.social_remaining_amount)}
+                        </td>
+                        <td className="px-2 py-2.5">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              enrollment.social_is_completed
+                                ? 'bg-green-50 text-green-700'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            {enrollment.social_is_completed ? 'Fechou valor' : 'Pendente'}
+                          </span>
+                        </td>
+                      </tr>
+
+                      {selectedEnrollment?.id === enrollment.id && (
+                        <tr className="border-b border-gray-100 bg-slate-50/70">
+                          <td colSpan={7} className="px-3 py-3">
+                            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                              <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h3 className="text-lg font-bold text-gray-950">
+                                        {enrollment.form_data?.nome_completo || 'Participante'}
+                                      </h3>
+                                      <span
+                                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                          enrollment.social_is_completed
+                                            ? 'bg-green-50 text-green-700'
+                                            : 'bg-amber-50 text-amber-700'
+                                        }`}
+                                      >
+                                        {enrollment.social_is_completed ? 'Fechou valor' : 'Pendente'}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                      {enrollment.user_email || 'Sem email'}
+                                    </p>
+                                  </div>
+                                  <div className="grid gap-2 text-[11px] text-gray-600 sm:grid-cols-2 xl:grid-cols-4">
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                      <p className="uppercase tracking-[0.08em] text-gray-500">Inscrição</p>
+                                      <p className="mt-1 text-sm font-semibold text-gray-950">
+                                        {formatCurrency(enrollment.social_goal_amount)}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                      <p className="uppercase tracking-[0.08em] text-gray-500">Pago</p>
+                                      <p className="mt-1 text-sm font-semibold text-gray-950">
+                                        {formatCurrency(enrollment.social_paid_amount)}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                      <p className="uppercase tracking-[0.08em] text-gray-500">Arrecadado</p>
+                                      <p className="mt-1 text-sm font-semibold text-gray-950">
+                                        {formatCurrency(enrollment.social_raised_amount)}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                      <p className="uppercase tracking-[0.08em] text-gray-500">Faltante</p>
+                                      <p className="mt-1 text-sm font-semibold text-gray-950">
+                                        {formatCurrency(enrollment.social_remaining_amount)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.9fr)]">
+                                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                                    <div className="mb-3 flex items-center justify-between">
+                                      <div>
+                                        <h4 className="text-sm font-bold text-gray-950">Histórico de lançamentos</h4>
+                                        <p className="text-xs text-gray-500">Edite ou exclua qualquer valor já lançado.</p>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      {selectedContributions.length === 0 ? (
+                                        <div className="rounded-xl border border-dashed border-gray-200 px-4 py-5 text-center text-xs text-gray-500">
+                                          Nenhum lançamento cadastrado ainda.
+                                        </div>
+                                      ) : (
+                                        selectedContributions.map((contribution) => (
+                                          <div
+                                            key={contribution.id}
+                                            className="flex items-start justify-between gap-3 rounded-xl border border-white bg-white px-3 py-2.5"
+                                          >
+                                            <div className="min-w-0">
+                                              <p className="text-[11px] text-gray-500">
+                                                {new Date(`${contribution.date}T00:00:00`).toLocaleDateString('pt-BR')}
+                                              </p>
+                                              <p className="mt-0.5 text-sm font-bold text-gray-950">
+                                                {formatCurrency(contribution.amount)}
+                                              </p>
+                                              {contribution.notes && (
+                                                <p className="mt-1 text-xs text-gray-600">{contribution.notes}</p>
+                                              )}
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <button
+                                                type="button"
+                                                onClick={() => handleEditContribution(contribution)}
+                                                className="rounded-lg border border-gray-200 p-2 text-gray-600 transition-colors hover:bg-gray-50"
+                                                aria-label="Editar lançamento"
+                                              >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => void handleDeleteContribution(contribution.id)}
+                                                className="rounded-lg border border-red-200 p-2 text-red-600 transition-colors hover:bg-red-50"
+                                                aria-label="Excluir lançamento"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+                                    <div className="mb-3 flex items-center justify-between">
+                                      <div>
+                                        <h4 className="text-sm font-bold text-gray-950">
+                                          {contributionForm.id ? 'Editar lançamento' : 'Novo lançamento'}
+                                        </h4>
+                                        <p className="text-xs text-gray-500">Registre por data quanto esse adolescente arrecadou.</p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={resetContributionForm}
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-dark px-2.5 py-2 text-xs font-semibold text-white"
+                                      >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Novo
+                                      </button>
+                                    </div>
+
+                                    <form onSubmit={handleSaveContribution} className="grid gap-3 rounded-xl border border-white bg-white p-3">
+                                      <div className="grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                          <label className="mb-1.5 block text-xs font-medium text-gray-700">Data</label>
+                                          <input
+                                            type="date"
+                                            required
+                                            value={contributionForm.date}
+                                            onChange={(event) => setContributionForm((current) => ({ ...current, date: event.target.value }))}
+                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-dark focus:outline-none"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="mb-1.5 block text-xs font-medium text-gray-700">Valor</label>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            required
+                                            value={contributionForm.amount}
+                                            onChange={(event) => setContributionForm((current) => ({ ...current, amount: event.target.value }))}
+                                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-dark focus:outline-none"
+                                          />
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <label className="mb-1.5 block text-xs font-medium text-gray-700">Observações</label>
+                                        <textarea
+                                          rows={3}
+                                          value={contributionForm.notes}
+                                          onChange={(event) => setContributionForm((current) => ({ ...current, notes: event.target.value }))}
+                                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-dark focus:outline-none"
+                                        />
+                                      </div>
+                                      <div className="flex flex-wrap gap-2">
+                                        <button
+                                          type="submit"
+                                          disabled={saving}
+                                          className="rounded-lg bg-dark px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                                        >
+                                          {saving ? 'Salvando...' : contributionForm.id ? 'Atualizar lançamento' : 'Adicionar lançamento'}
+                                        </button>
+                                        {contributionForm.id && (
+                                          <button
+                                            type="button"
+                                            onClick={resetContributionForm}
+                                            className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700"
+                                          >
+                                            Cancelar edição
+                                          </button>
+                                        )}
+                                      </div>
+                                    </form>
+
+                                    {error && (
+                                      <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                        {error}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
         </section>
-
-        {selectedEnrollment ? (
-          <section className="rounded-[28px] border border-white/80 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-2xl font-bold text-gray-950">
-                    {selectedEnrollment.form_data?.nome_completo || 'Participante'}
-                  </h2>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      selectedEnrollment.social_is_completed
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-amber-50 text-amber-700'
-                    }`}
-                  >
-                    {selectedEnrollment.social_is_completed ? 'Fechou valor' : 'Pendente'}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  {selectedEnrollment.user_email || 'Sem email'} • {selectedEnrollment.product?.name || selectedEnrollment.product_name || 'Evento'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedEnrollment(null);
-                  resetContributionForm();
-                }}
-                className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700"
-              >
-                Fechar detalhe
-              </button>
-            </div>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">Inscrição</p>
-                <p className="mt-2 text-lg font-bold text-gray-950">{formatCurrency(selectedEnrollment.social_goal_amount)}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">Pago no sistema</p>
-                <p className="mt-2 text-lg font-bold text-gray-950">{formatCurrency(selectedEnrollment.social_paid_amount)}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">Arrecadado</p>
-                <p className="mt-2 text-lg font-bold text-gray-950">{formatCurrency(selectedEnrollment.social_raised_amount)}</p>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">Faltante</p>
-                <p className="mt-2 text-lg font-bold text-gray-950">{formatCurrency(selectedEnrollment.social_remaining_amount)}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
-              <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-950">Novo lançamento</h3>
-                    <p className="text-sm text-gray-500">Registre por data quanto esse adolescente arrecadou.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={resetContributionForm}
-                    className="inline-flex items-center gap-2 rounded-xl bg-dark px-3 py-2 text-sm font-semibold text-white"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Novo
-                  </button>
-                </div>
-
-                <form onSubmit={handleSaveContribution} className="grid gap-3 rounded-2xl border border-white bg-white p-4">
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Data</label>
-                      <input
-                        type="date"
-                        required
-                        value={contributionForm.date}
-                        onChange={(event) => setContributionForm((current) => ({ ...current, date: event.target.value }))}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-dark focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Valor</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required
-                        value={contributionForm.amount}
-                        onChange={(event) => setContributionForm((current) => ({ ...current, amount: event.target.value }))}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-dark focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">Observações</label>
-                    <textarea
-                      rows={3}
-                      value={contributionForm.notes}
-                      onChange={(event) => setContributionForm((current) => ({ ...current, notes: event.target.value }))}
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-dark focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="rounded-xl bg-dark px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                    >
-                      {saving ? 'Salvando...' : contributionForm.id ? 'Atualizar lançamento' : 'Adicionar lançamento'}
-                    </button>
-                    {contributionForm.id && (
-                      <button
-                        type="button"
-                        onClick={resetContributionForm}
-                        className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700"
-                      >
-                        Cancelar edição
-                      </button>
-                    )}
-                  </div>
-                </form>
-
-                {error && (
-                  <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {error}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-4">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-950">Histórico de lançamentos</h3>
-                  <p className="text-sm text-gray-500">Edite ou exclua qualquer linha já lançada.</p>
-                </div>
-
-                <div className="space-y-3">
-                  {selectedContributions.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-5 text-center text-sm text-gray-500">
-                      Nenhum lançamento cadastrado ainda.
-                    </div>
-                  ) : (
-                    selectedContributions.map((contribution) => (
-                      <div
-                        key={contribution.id}
-                        className="flex flex-col gap-3 rounded-2xl border border-white bg-white px-4 py-4 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm text-gray-500">
-                              {new Date(`${contribution.date}T00:00:00`).toLocaleDateString('pt-BR')}
-                            </p>
-                            <p className="mt-1 text-lg font-bold text-gray-950">
-                              {formatCurrency(contribution.amount)}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEditContribution(contribution)}
-                              className="rounded-xl border border-gray-200 p-2 text-gray-600 transition-colors hover:bg-gray-50"
-                              aria-label="Editar lançamento"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDeleteContribution(contribution.id)}
-                              className="rounded-xl border border-red-200 p-2 text-red-600 transition-colors hover:bg-red-50"
-                              aria-label="Excluir lançamento"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                        {contribution.notes && (
-                          <p className="text-sm text-gray-600">{contribution.notes}</p>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <section className="rounded-[28px] border border-dashed border-gray-200 bg-white p-10 text-center text-gray-500 shadow-sm">
-            <Wallet className="mx-auto mb-4 h-10 w-10 text-gray-300" />
-            <p className="font-medium text-gray-700">Selecione um adolescente na planilha</p>
-            <p className="mt-1 text-sm text-gray-500">Os lançamentos e a edição aparecem abaixo da tabela.</p>
-          </section>
-        )}
       </div>
     </AdminShell>
   );
