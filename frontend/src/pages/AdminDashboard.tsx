@@ -58,6 +58,7 @@ interface DashboardStats {
     persia: number;
     grecia: number;
     roma: number;
+    none: number;
   };
   payment_methods: Array<{
     payment_method: string;
@@ -149,6 +150,7 @@ const formatEmpireLabel = (empire: string) => {
   if (empire === 'persia') return 'Pérsia';
   if (empire === 'grecia') return 'Grécia';
   if (empire === 'roma') return 'Roma';
+  if (empire === 'none') return 'Sem império';
   return empire;
 };
 

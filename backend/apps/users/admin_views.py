@@ -492,6 +492,9 @@ def admin_dashboard_stats(request):
         'persia': Enrollment.objects.filter(form_data__imperio_zion='persia').count(),
         'grecia': Enrollment.objects.filter(form_data__imperio_zion='grecia').count(),
         'roma': Enrollment.objects.filter(form_data__imperio_zion='roma').count(),
+        'none': Enrollment.objects.filter(
+            Q(form_data__imperio_zion__isnull=True) | Q(form_data__imperio_zion='')
+        ).count(),
     }
     
     # Enrollments by batch
@@ -587,7 +590,12 @@ def admin_enrollments_list(request):
         enrollments = enrollments.exclude(coupon__code__istartswith=SOCIAL_QUOTA_COUPON_PREFIX)
 
     if empire_filter:
-        enrollments = enrollments.filter(form_data__imperio_zion=empire_filter)
+        if empire_filter == 'none':
+            enrollments = enrollments.filter(
+                Q(form_data__imperio_zion__isnull=True) | Q(form_data__imperio_zion='')
+            )
+        else:
+            enrollments = enrollments.filter(form_data__imperio_zion=empire_filter)
 
     if enrollment_ids:
         parsed_ids = [

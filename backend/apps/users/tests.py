@@ -253,7 +253,7 @@ class AdminDashboardStatsTests(APITestCase):
             user=self.unknown_user,
             product=self.product,
             batch=self.batch,
-            form_data={'imperio_zion': 'roma'},
+            form_data={},
             payment_method='CREDIT_CARD',
             installments=1,
             total_amount=Decimal('130.00'),
@@ -297,7 +297,8 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['empires']['egito'], 1)
         self.assertEqual(response.data['empires']['persia'], 1)
         self.assertEqual(response.data['empires']['grecia'], 0)
-        self.assertEqual(response.data['empires']['roma'], 1)
+        self.assertEqual(response.data['empires']['roma'], 0)
+        self.assertEqual(response.data['empires']['none'], 1)
         self.assertEqual(response.data['revenue']['pending'], 190.0)
         self.assertEqual(response.data['revenue']['overdue'], 130.0)
         self.assertIn('social_quota', response.data)
@@ -381,6 +382,22 @@ class AdminSocialQuotaTests(APITestCase):
             discount_amount=Decimal('50.00'),
             final_amount=Decimal('530.00'),
         )
+        self.no_empire_enrollment = Enrollment.objects.create(
+            user=User.objects.create_user(
+                email='teen-no-empire@example.com',
+                password='password123',
+                first_name='Teen',
+                last_name='NoEmpire',
+            ),
+            product=self.product,
+            batch=self.batch,
+            form_data={'nome_completo': 'Teen No Empire'},
+            payment_method='PIX_CASH',
+            installments=1,
+            total_amount=Decimal('580.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('580.00'),
+        )
 
         Payment.objects.create(
             enrollment=self.social_enrollment,
@@ -434,6 +451,18 @@ class AdminSocialQuotaTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], 1)
         self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
+
+    def test_admin_enrollments_filter_without_empire(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(
+            reverse('users:admin-enrollments-list'),
+            {'empire': 'none'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.no_empire_enrollment.id)
         self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
         self.assertTrue(response.data['results'][0]['is_social_quota'])
 
