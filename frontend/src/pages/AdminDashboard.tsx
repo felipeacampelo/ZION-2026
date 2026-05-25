@@ -367,7 +367,7 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <p className="mt-5 text-3xl font-bold text-gray-950">{stats.social_quota.total}</p>
-                <p className="mt-1 text-sm text-gray-600">adolescentes acompanhados</p>
+                <p className="mt-1 text-sm text-gray-600">na cota social</p>
                 <div className="mt-5 flex gap-2 text-xs font-semibold">
                   <span className="rounded-full bg-green-50 px-2.5 py-1 text-green-700">
                     {stats.social_quota.completed} fecharam valor
@@ -424,7 +424,7 @@ export default function AdminDashboard() {
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
                       Histórico no ZION
                     </p>
-                    <h2 className="mt-2 text-xl font-bold text-gray-950">Primeira vez x veteranos</h2>
+                    <h2 className="mt-2 text-xl font-bold text-gray-950">Primeira vez no ZION?</h2>
                   </div>
                   <div
                     className="flex h-11 w-11 items-center justify-center rounded-2xl"
