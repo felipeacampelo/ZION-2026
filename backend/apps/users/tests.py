@@ -231,7 +231,7 @@ class AdminDashboardStatsTests(APITestCase):
             user=self.member_user,
             product=self.product,
             batch=self.batch,
-            form_data={'membro_batista_capital': 'sim', 'imperio_zion': 'egito', 'ja_participou_zion': 'nao'},
+            form_data={'membro_batista_capital': 'sim', 'imperio_zion': 'egito', 'ja_participou_zion': 'nao', 'data_nascimento': '2010-01-01'},
             payment_method='PIX_CASH',
             installments=1,
             total_amount=Decimal('100.00'),
@@ -242,7 +242,7 @@ class AdminDashboardStatsTests(APITestCase):
             user=self.non_member_user,
             product=self.product,
             batch=self.batch,
-            form_data={'membro_batista_capital': 'nao', 'imperio_zion': 'persia', 'ja_participou_zion': 'sim'},
+            form_data={'membro_batista_capital': 'nao', 'imperio_zion': 'persia', 'ja_participou_zion': 'sim', 'data_nascimento': '2011-02-02'},
             payment_method='PIX_INSTALLMENT',
             installments=2,
             total_amount=Decimal('120.00'),
@@ -297,6 +297,10 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['zion_history']['first_time'], 1)
         self.assertEqual(response.data['zion_history']['returning'], 1)
         self.assertEqual(response.data['zion_history']['unknown'], 1)
+        self.assertEqual(response.data['birth_years'][0]['year'], '2010')
+        self.assertEqual(response.data['birth_years'][0]['count'], 1)
+        self.assertEqual(response.data['birth_years'][1]['year'], '2011')
+        self.assertEqual(response.data['birth_years'][1]['count'], 1)
         self.assertEqual(response.data['empires']['egito'], 1)
         self.assertEqual(response.data['empires']['persia'], 1)
         self.assertEqual(response.data['empires']['grecia'], 0)

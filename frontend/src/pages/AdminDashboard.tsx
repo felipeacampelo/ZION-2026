@@ -58,6 +58,10 @@ interface DashboardStats {
     returning: number;
     unknown: number;
   };
+  birth_years: Array<{
+    year: string;
+    count: number;
+  }>;
   empires: {
     egito: number;
     persia: number;
@@ -456,6 +460,48 @@ export default function AdminDashboard() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className={`${sectionCardClass} p-5 lg:p-6`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                      Ano de nascimento
+                    </p>
+                    <h2 className="mt-2 text-xl font-bold text-gray-950">Quantos inscritos nasceram por ano</h2>
+                  </div>
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: brandPurpleSoft }}
+                  >
+                    <Users className="h-5 w-5" style={{ color: brandPurple }} />
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {stats.birth_years.length === 0 ? (
+                    <p className="text-sm text-gray-500">Nenhuma data de nascimento informada.</p>
+                  ) : (
+                    stats.birth_years.map((item) => {
+                      const totalBirthYears = stats.birth_years.reduce((sum, current) => sum + current.count, 0);
+                      const width = totalBirthYears > 0 ? (item.count / totalBirthYears) * 100 : 0;
+                      return (
+                        <div key={item.year}>
+                          <div className="mb-2 flex items-center justify-between text-sm">
+                            <span className="text-gray-600">{item.year}</span>
+                            <span className="font-semibold text-gray-950">{item.count}</span>
+                          </div>
+                          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="h-full rounded-full"
+                              style={{ width: `${width}%`, backgroundColor: brandPurple }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 

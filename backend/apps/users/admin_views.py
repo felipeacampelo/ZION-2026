@@ -495,6 +495,19 @@ def admin_dashboard_stats(request):
         ).count(),
     }
 
+    birth_year_counts = {}
+    for enrollment in Enrollment.objects.only('form_data'):
+        birth_date = (enrollment.form_data or {}).get('data_nascimento', '')
+        if isinstance(birth_date, str) and len(birth_date) >= 4:
+            year = birth_date[:4]
+            if year.isdigit():
+                birth_year_counts[year] = birth_year_counts.get(year, 0) + 1
+
+    ordered_birth_year_counts = [
+        {'year': year, 'count': count}
+        for year, count in sorted(birth_year_counts.items())
+    ]
+
     empire_counts = {
         'egito': Enrollment.objects.filter(form_data__imperio_zion='egito').count(),
         'persia': Enrollment.objects.filter(form_data__imperio_zion='persia').count(),
@@ -551,6 +564,7 @@ def admin_dashboard_stats(request):
             'unknown': no_answer_count,
         },
         'zion_history': zion_history_counts,
+        'birth_years': ordered_birth_year_counts,
         'empires': empire_counts,
         'payment_methods': list(payment_methods),
         'batches': batches_stats,
