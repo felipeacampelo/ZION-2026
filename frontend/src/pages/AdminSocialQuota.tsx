@@ -230,14 +230,14 @@ export default function AdminSocialQuota() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px]">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">
-                    <th className="px-2.5 py-2.5">Participante</th>
-                    <th className="px-2.5 py-2.5">Inscrição</th>
-                    <th className="px-2.5 py-2.5">Pago no sistema</th>
-                    <th className="px-2.5 py-2.5">Arrecadado</th>
-                    <th className="px-2.5 py-2.5">Progresso</th>
-                    <th className="px-2.5 py-2.5">Faltante</th>
-                    <th className="px-2.5 py-2.5">Status</th>
+                  <tr className="border-b border-gray-100 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-500">
+                    <th className="px-2 py-2">Participante</th>
+                    <th className="px-2 py-2">Inscrição</th>
+                    <th className="px-2 py-2">Pago no sistema</th>
+                    <th className="px-2 py-2">Arrecadado</th>
+                    <th className="px-2 py-2">Progresso</th>
+                    <th className="px-2 py-2">Faltante</th>
+                    <th className="px-2 py-2">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -249,28 +249,28 @@ export default function AdminSocialQuota() {
                       }`}
                       onClick={() => handleSelectEnrollment(enrollment)}
                     >
-                      <td className="px-2.5 py-3">
-                        <p className="text-sm font-semibold leading-tight text-gray-950">{enrollment.form_data?.nome_completo || '-'}</p>
+                      <td className="px-2 py-2.5">
+                        <p className="text-[13px] font-semibold leading-tight text-gray-950">{enrollment.form_data?.nome_completo || '-'}</p>
                         <p className="text-[11px] text-gray-500">#{enrollment.id}</p>
                       </td>
-                      <td className="px-2.5 py-3 text-sm font-medium text-gray-900">
+                      <td className="px-2 py-2.5 text-[13px] font-medium text-gray-900">
                         {formatCurrency(enrollment.social_goal_amount)}
                       </td>
-                      <td className="px-2.5 py-3 text-sm text-gray-700">
+                      <td className="px-2 py-2.5 text-[13px] text-gray-700">
                         {formatCurrency(enrollment.social_paid_amount)}
                       </td>
-                      <td className="px-2.5 py-3 text-sm text-gray-700">
+                      <td className="px-2 py-2.5 text-[13px] text-gray-700">
                         {formatCurrency(enrollment.social_raised_amount)}
                       </td>
-                      <td className="px-2.5 py-3 text-sm font-medium text-gray-950">
+                      <td className="px-2 py-2.5 text-[13px] font-medium text-gray-950">
                         {formatCurrency(enrollment.social_total_progress)}
                       </td>
-                      <td className="px-2.5 py-3 text-sm text-gray-700">
+                      <td className="px-2 py-2.5 text-[13px] text-gray-700">
                         {formatCurrency(enrollment.social_remaining_amount)}
                       </td>
-                      <td className="px-2.5 py-3">
+                      <td className="px-2 py-2.5">
                         <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             enrollment.social_is_completed
                               ? 'bg-green-50 text-green-700'
                               : 'bg-amber-50 text-amber-700'
