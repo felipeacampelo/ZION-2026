@@ -139,73 +139,44 @@ export default function AdminEmpires() {
             Não foi possível carregar os impérios.
           </div>
         ) : (
-          <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-            {(() => {
-              const unassignedMeta = EMPIRE_META.find((empire) => empire.key === 'none')!;
-              const unassignedColumn = board.none;
-              const assignedEmpires = EMPIRE_META.filter((empire) => empire.key !== 'none');
+          <div className="overflow-x-auto pb-2">
+            <div className="grid min-w-[1120px] gap-3 xl:grid-cols-5">
+              {[EMPIRE_META.find((empire) => empire.key === 'none')!, ...EMPIRE_META.filter((empire) => empire.key !== 'none')].map((empire) => {
+                const column = board[empire.key];
+                const isUnassigned = empire.key === 'none';
 
-              return (
-                <>
-                  <section className="rounded-[24px] border border-white/80 bg-white p-3 shadow-sm xl:sticky xl:top-6 xl:self-start">
-                    <div className={`rounded-xl border px-3 py-2.5 ${unassignedMeta.accent}`}>
+                return (
+                  <section key={empire.key} className="rounded-[22px] border border-white/80 bg-white p-2.5 shadow-sm">
+                    <div className={`rounded-xl border px-2.5 py-2 ${empire.accent}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <h2 className="text-base font-bold">{unassignedMeta.label}</h2>
-                          <p className="mt-0.5 text-[11px] opacity-80">{unassignedColumn.count} integrantes</p>
+                          <h2 className="text-sm font-bold">{empire.label}</h2>
+                          <p className="mt-0.5 text-[10px] opacity-80">{column.count} integrantes</p>
                         </div>
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/70">
-                          <ShieldAlert className="h-4 w-4" />
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/70">
+                          {isUnassigned ? (
+                            <ShieldAlert className="h-4 w-4" />
+                          ) : (
+                            <Users className="h-4 w-4" style={{ color: brandPurple }} />
+                          )}
                         </div>
                       </div>
-                      <p className="mt-2 text-xs font-semibold">Idade média: {formatAverageAge(unassignedColumn.average_age)}</p>
+                      <p className="mt-1.5 text-[11px] font-semibold">Idade média: {formatAverageAge(column.average_age)}</p>
                     </div>
 
-                    <div className="mt-3 space-y-2">
-                      {unassignedColumn.items.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-gray-500">
-                          Nenhum inscrito sem império.
+                    <div className="mt-2.5 space-y-2">
+                      {column.items.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-xs text-gray-500">
+                          {isUnassigned ? 'Nenhum inscrito sem império.' : 'Nenhum inscrito nesta coluna.'}
                         </div>
                       ) : (
-                        unassignedColumn.items.map((item) => renderParticipantCard(item, true))
+                        column.items.map((item) => renderParticipantCard(item, isUnassigned))
                       )}
                     </div>
                   </section>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {assignedEmpires.map((empire) => {
-                      const column = board[empire.key];
-                      return (
-                        <section key={empire.key} className="rounded-[24px] border border-white/80 bg-white p-3 shadow-sm">
-                          <div className={`rounded-xl border px-3 py-2.5 ${empire.accent}`}>
-                            <div className="flex items-center justify-between gap-2">
-                              <div>
-                                <h2 className="text-base font-bold">{empire.label}</h2>
-                                <p className="mt-0.5 text-[11px] opacity-80">{column.count} integrantes</p>
-                              </div>
-                              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/70">
-                                <Users className="h-4 w-4" style={{ color: brandPurple }} />
-                              </div>
-                            </div>
-                            <p className="mt-2 text-xs font-semibold">Idade média: {formatAverageAge(column.average_age)}</p>
-                          </div>
-
-                          <div className="mt-3 space-y-2">
-                            {column.items.length === 0 ? (
-                              <div className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-gray-500">
-                                Nenhum inscrito nesta coluna.
-                              </div>
-                            ) : (
-                              column.items.map((item) => renderParticipantCard(item, false))
-                            )}
-                          </div>
-                        </section>
-                      );
-                    })}
-                  </div>
-                </>
-              );
-            })()}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
