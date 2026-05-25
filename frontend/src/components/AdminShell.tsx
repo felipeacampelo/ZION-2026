@@ -3,6 +3,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   CalendarDays,
   FileText,
@@ -36,6 +38,7 @@ const NAV_ITEMS = [
 
 export default function AdminShell({ children }: AdminShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const sidebarRef = useRef<HTMLElement>(null);
@@ -113,15 +116,26 @@ export default function AdminShell({ children }: AdminShellProps) {
       <div className="flex min-h-screen">
         <aside
           ref={sidebarRef}
-          className={`fixed inset-y-0 left-0 z-50 w-[272px] transform border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-50 transform border-r border-gray-200 bg-white transition-all duration-300 ease-in-out lg:static lg:translate-x-0 ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
+          } ${desktopCollapsed ? 'w-[88px]' : 'w-[272px]'}`}
         >
           <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-5">
-              <span className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-900">
-                Administrativo
-              </span>
+            <div
+              className={`flex items-center border-b border-gray-100 py-5 ${
+                desktopCollapsed ? 'justify-center px-3 lg:justify-between' : 'justify-between px-5'
+              }`}
+            >
+              {!desktopCollapsed && (
+                <span className="text-sm font-semibold uppercase tracking-[0.18em] text-gray-900">
+                  Administrativo
+                </span>
+              )}
+              {desktopCollapsed && (
+                <span className="hidden text-sm font-semibold uppercase tracking-[0.18em] text-gray-900 lg:block">
+                  Adm
+                </span>
+              )}
               <button
                 onClick={() => setMobileOpen(false)}
                 className="rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 lg:hidden"
@@ -129,15 +143,30 @@ export default function AdminShell({ children }: AdminShellProps) {
               >
                 <X className="h-5 w-5" />
               </button>
+              <button
+                onClick={() => setDesktopCollapsed((value) => !value)}
+                className="hidden rounded-xl p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:flex"
+                aria-label={desktopCollapsed ? 'Expandir menu' : 'Recolher menu'}
+                title={desktopCollapsed ? 'Expandir menu' : 'Recolher menu'}
+              >
+                {desktopCollapsed ? (
+                  <ChevronRight className="h-5 w-5" />
+                ) : (
+                  <ChevronLeft className="h-5 w-5" />
+                )}
+              </button>
             </div>
 
-            <div className="border-b border-gray-100 px-4 py-4">
+            <div className={`border-b border-gray-100 py-4 ${desktopCollapsed ? 'px-3' : 'px-4'}`}>
               <button
                 onClick={() => navigate('/')}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 ${
+                  desktopCollapsed ? 'justify-center' : 'gap-3'
+                }`}
+                title="Voltar para o site"
               >
                 <ArrowLeft className="h-[18px] w-[18px] flex-shrink-0" />
-                Voltar para o site
+                {!desktopCollapsed && <span>Voltar para o site</span>}
               </button>
             </div>
 
@@ -148,36 +177,47 @@ export default function AdminShell({ children }: AdminShellProps) {
                   to={to}
                   end={end}
                   onClick={handleNavClick}
+                  title={desktopCollapsed ? label : undefined}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                    `flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-dark text-white shadow-sm'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`
+                    } ${desktopCollapsed ? 'justify-center' : 'gap-3'}`
                   }
                 >
                   <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                  <span>{label}</span>
+                  {!desktopCollapsed && <span>{label}</span>}
                 </NavLink>
               ))}
             </nav>
 
-            <div className="border-t border-gray-100 px-4 py-4">
-              <div className="mb-3 flex items-center gap-3 rounded-xl px-2 py-1">
+            <div className={`border-t border-gray-100 py-4 ${desktopCollapsed ? 'px-3' : 'px-4'}`}>
+              <div
+                className={`mb-3 flex items-center rounded-xl px-2 py-1 ${
+                  desktopCollapsed ? 'justify-center' : 'gap-3'
+                }`}
+                title={desktopCollapsed ? userName : undefined}
+              >
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold/15">
                   <User className="h-5 w-5 text-dark" />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
-                  {user && <p className="truncate text-xs text-gray-500">{user.email}</p>}
-                </div>
+                {!desktopCollapsed && (
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
+                    {user && <p className="truncate text-xs text-gray-500">{user.email}</p>}
+                  </div>
+                )}
               </div>
               <button
                 onClick={handleLogout}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+                className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 ${
+                  desktopCollapsed ? 'justify-center' : 'gap-3'
+                }`}
+                title="Sair"
               >
                 <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
-                Sair
+                {!desktopCollapsed && <span>Sair</span>}
               </button>
             </div>
           </div>
