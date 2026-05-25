@@ -487,6 +487,14 @@ def admin_dashboard_stats(request):
     non_members_count = Enrollment.objects.filter(form_data__membro_batista_capital='nao').count()
     no_answer_count = total_enrollments - members_count - non_members_count
 
+    zion_history_counts = {
+        'first_time': Enrollment.objects.filter(form_data__ja_participou_zion='nao').count(),
+        'returning': Enrollment.objects.filter(form_data__ja_participou_zion='sim').count(),
+        'unknown': Enrollment.objects.exclude(
+            form_data__ja_participou_zion__in=['sim', 'nao']
+        ).count(),
+    }
+
     empire_counts = {
         'egito': Enrollment.objects.filter(form_data__imperio_zion='egito').count(),
         'persia': Enrollment.objects.filter(form_data__imperio_zion='persia').count(),
@@ -542,6 +550,7 @@ def admin_dashboard_stats(request):
             'no': non_members_count,
             'unknown': no_answer_count,
         },
+        'zion_history': zion_history_counts,
         'empires': empire_counts,
         'payment_methods': list(payment_methods),
         'batches': batches_stats,
