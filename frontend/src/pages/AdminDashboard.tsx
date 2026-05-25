@@ -150,7 +150,7 @@ const formatEmpireLabel = (empire: string) => {
   if (empire === 'persia') return 'Pérsia';
   if (empire === 'grecia') return 'Grécia';
   if (empire === 'roma') return 'Roma';
-  if (empire === 'none') return 'Sem império';
+  if (empire === 'none') return 'Sem Império';
   return empire;
 };
 
