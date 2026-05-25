@@ -352,6 +352,7 @@ export const getAdminEnrollments = (params?: {
   search?: string;
   payment_method?: string;
   social_quota?: string;
+  empire?: string;
   ids?: number[];
   page?: number;
   page_size?: number;

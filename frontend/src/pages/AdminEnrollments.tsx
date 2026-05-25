@@ -110,6 +110,7 @@ export default function AdminEnrollments() {
   const [statusFilter, setStatusFilter] = useState('');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('');
   const [socialQuotaFilter, setSocialQuotaFilter] = useState('');
+  const [empireFilter, setEmpireFilter] = useState('');
   const [selectedEnrollment, setSelectedEnrollment] = useState<any>(null);
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -122,6 +123,7 @@ export default function AdminEnrollments() {
     status: statusFilter || undefined,
     payment_method: paymentMethodFilter || undefined,
     social_quota: socialQuotaFilter || undefined,
+    empire: empireFilter || undefined,
     page,
     page_size: ENROLLMENTS_PAGE_SIZE,
   });
@@ -211,7 +213,7 @@ export default function AdminEnrollments() {
     }, 300);
 
     return clearSearchDebounce;
-  }, [searchTerm, statusFilter, paymentMethodFilter, socialQuotaFilter]);
+  }, [searchTerm, statusFilter, paymentMethodFilter, socialQuotaFilter, empireFilter]);
 
   const visibleEnrollments = [...enrollments].sort((a, b) => {
     const comparison = compareEnrollmentValues(a, b, sortKey);
@@ -400,9 +402,22 @@ export default function AdminEnrollments() {
                   disabled={isBusy}
                   className="flex-1 sm:flex-none px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white"
                 >
-                  <option value="">Cota social</option>
+                  <option value="">Todos</option>
                   <option value="true">Só cota social</option>
                   <option value="false">Sem cota social</option>
+                </select>
+
+                <select
+                  value={empireFilter}
+                  onChange={(e) => setEmpireFilter(e.target.value)}
+                  disabled={isBusy}
+                  className="flex-1 sm:flex-none px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white"
+                >
+                  <option value="">Império</option>
+                  <option value="egito">Egito</option>
+                  <option value="persia">Pérsia</option>
+                  <option value="grecia">Grécia</option>
+                  <option value="roma">Roma</option>
                 </select>
 
                 <button
@@ -820,15 +835,6 @@ export default function AdminEnrollments() {
                       </div>
                     </div>
                   </div>
-
-                  {selectedEnrollment.form_data?.observacoes && (
-                    <div>
-                      <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-3" style={{ color: 'rgb(165, 44, 240)' }}>
-                        Observações
-                      </h3>
-                      <p className="text-sm sm:text-base text-gray-700">{selectedEnrollment.form_data.observacoes}</p>
-                    </div>
-                  )}
 
                   {selectedEnrollment.payment_method === 'PIX_INSTALLMENT' && selectedEnrollment.payments && selectedEnrollment.payments.length > 0 && (
                     <div>

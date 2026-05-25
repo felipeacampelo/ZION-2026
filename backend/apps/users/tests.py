@@ -231,7 +231,7 @@ class AdminDashboardStatsTests(APITestCase):
             user=self.member_user,
             product=self.product,
             batch=self.batch,
-            form_data={'membro_batista_capital': 'sim'},
+            form_data={'membro_batista_capital': 'sim', 'imperio_zion': 'egito'},
             payment_method='PIX_CASH',
             installments=1,
             total_amount=Decimal('100.00'),
@@ -242,7 +242,7 @@ class AdminDashboardStatsTests(APITestCase):
             user=self.non_member_user,
             product=self.product,
             batch=self.batch,
-            form_data={'membro_batista_capital': 'nao'},
+            form_data={'membro_batista_capital': 'nao', 'imperio_zion': 'persia'},
             payment_method='PIX_INSTALLMENT',
             installments=2,
             total_amount=Decimal('120.00'),
@@ -253,7 +253,7 @@ class AdminDashboardStatsTests(APITestCase):
             user=self.unknown_user,
             product=self.product,
             batch=self.batch,
-            form_data={},
+            form_data={'imperio_zion': 'roma'},
             payment_method='CREDIT_CARD',
             installments=1,
             total_amount=Decimal('130.00'),
@@ -294,6 +294,10 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['members']['yes'], 1)
         self.assertEqual(response.data['members']['no'], 1)
         self.assertEqual(response.data['members']['unknown'], 1)
+        self.assertEqual(response.data['empires']['egito'], 1)
+        self.assertEqual(response.data['empires']['persia'], 1)
+        self.assertEqual(response.data['empires']['grecia'], 0)
+        self.assertEqual(response.data['empires']['roma'], 1)
         self.assertEqual(response.data['revenue']['pending'], 190.0)
         self.assertEqual(response.data['revenue']['overdue'], 130.0)
         self.assertIn('social_quota', response.data)
@@ -358,7 +362,7 @@ class AdminSocialQuotaTests(APITestCase):
             product=self.product,
             batch=self.batch,
             coupon=self.social_coupon,
-            form_data={'nome_completo': 'Teen Social'},
+            form_data={'nome_completo': 'Teen Social', 'imperio_zion': 'egito'},
             payment_method='PIX_CASH',
             installments=1,
             total_amount=Decimal('580.00'),
@@ -370,7 +374,7 @@ class AdminSocialQuotaTests(APITestCase):
             product=self.product,
             batch=self.batch,
             coupon=self.normal_coupon,
-            form_data={'nome_completo': 'Teen Normal'},
+            form_data={'nome_completo': 'Teen Normal', 'imperio_zion': 'roma'},
             payment_method='PIX_CASH',
             installments=1,
             total_amount=Decimal('580.00'),
@@ -418,6 +422,18 @@ class AdminSocialQuotaTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], 1)
+
+    def test_admin_enrollments_filter_empire(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(
+            reverse('users:admin-enrollments-list'),
+            {'empire': 'egito'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
         self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
         self.assertTrue(response.data['results'][0]['is_social_quota'])
 

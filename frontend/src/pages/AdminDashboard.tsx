@@ -53,6 +53,12 @@ interface DashboardStats {
     no: number;
     unknown: number;
   };
+  empires: {
+    egito: number;
+    persia: number;
+    grecia: number;
+    roma: number;
+  };
   payment_methods: Array<{
     payment_method: string;
     count: number;
@@ -136,6 +142,14 @@ const getEnrollmentStatusLabel = (status?: string) => {
   if (status === 'PAID') return 'Pago';
   if (status === 'PENDING_PAYMENT') return 'Pendente';
   return status || '-';
+};
+
+const formatEmpireLabel = (empire: string) => {
+  if (empire === 'egito') return 'Egito';
+  if (empire === 'persia') return 'Pérsia';
+  if (empire === 'grecia') return 'Grécia';
+  if (empire === 'roma') return 'Roma';
+  return empire;
 };
 
 const sectionCardClass =
@@ -389,6 +403,44 @@ export default function AdminDashboard() {
                           <div
                             className="h-full rounded-full"
                             style={{ width: `${width}%`, backgroundColor: item.color }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className={`${sectionCardClass} p-5 lg:p-6`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                      Impérios
+                    </p>
+                    <h2 className="mt-2 text-xl font-bold text-gray-950">Inscritos por império</h2>
+                  </div>
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: brandPurpleSoft }}
+                  >
+                    <Layers3 className="h-5 w-5" style={{ color: brandPurple }} />
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {Object.entries(stats.empires).map(([empire, value]) => {
+                    const totalEmpires = Object.values(stats.empires).reduce((sum, current) => sum + current, 0);
+                    const width = totalEmpires > 0 ? (value / totalEmpires) * 100 : 0;
+                    return (
+                      <div key={empire}>
+                        <div className="mb-2 flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{formatEmpireLabel(empire)}</span>
+                          <span className="font-semibold text-gray-950">{value}</span>
+                        </div>
+                        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${width}%`, backgroundColor: brandPurple }}
                           />
                         </div>
                       </div>

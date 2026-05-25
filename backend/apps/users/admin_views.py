@@ -486,6 +486,13 @@ def admin_dashboard_stats(request):
     members_count = Enrollment.objects.filter(form_data__membro_batista_capital='sim').count()
     non_members_count = Enrollment.objects.filter(form_data__membro_batista_capital='nao').count()
     no_answer_count = total_enrollments - members_count - non_members_count
+
+    empire_counts = {
+        'egito': Enrollment.objects.filter(form_data__imperio_zion='egito').count(),
+        'persia': Enrollment.objects.filter(form_data__imperio_zion='persia').count(),
+        'grecia': Enrollment.objects.filter(form_data__imperio_zion='grecia').count(),
+        'roma': Enrollment.objects.filter(form_data__imperio_zion='roma').count(),
+    }
     
     # Enrollments by batch
     batches_stats = []
@@ -532,6 +539,7 @@ def admin_dashboard_stats(request):
             'no': non_members_count,
             'unknown': no_answer_count,
         },
+        'empires': empire_counts,
         'payment_methods': list(payment_methods),
         'batches': batches_stats,
         'social_quota': social_quota_summary,
@@ -560,6 +568,7 @@ def admin_enrollments_list(request):
     product_filter = request.query_params.get('product')
     payment_method_filter = request.query_params.get('payment_method')
     social_quota_filter = request.query_params.get('social_quota')
+    empire_filter = request.query_params.get('empire')
     search = request.query_params.get('search')
     enrollment_ids = request.query_params.get('ids')
     
@@ -576,6 +585,9 @@ def admin_enrollments_list(request):
         enrollments = enrollments.filter(coupon__code__istartswith=SOCIAL_QUOTA_COUPON_PREFIX)
     elif social_quota_filter == 'false':
         enrollments = enrollments.exclude(coupon__code__istartswith=SOCIAL_QUOTA_COUPON_PREFIX)
+
+    if empire_filter:
+        enrollments = enrollments.filter(form_data__imperio_zion=empire_filter)
 
     if enrollment_ids:
         parsed_ids = [
