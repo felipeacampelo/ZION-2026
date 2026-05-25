@@ -61,7 +61,7 @@ def build_social_quota_summary(enrollment: Enrollment) -> dict:
         (Decimal(str(contribution.amount)) for contribution in contributions),
         Decimal('0.00'),
     )
-    goal_amount = Decimal(str(enrollment.final_amount or '0.00'))
+    goal_amount = Decimal(str(enrollment.total_amount or enrollment.final_amount or '0.00'))
     total_progress = paid_amount + raised_amount
     remaining_amount = max(goal_amount - total_progress, Decimal('0.00'))
 

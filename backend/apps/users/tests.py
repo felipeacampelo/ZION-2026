@@ -403,8 +403,10 @@ class AdminSocialQuotaTests(APITestCase):
         self.assertEqual(response.data['summary']['total'], 1)
         self.assertEqual(response.data['summary']['completed'], 0)
         self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
+        self.assertEqual(response.data['results'][0]['social_goal_amount'], '580.00')
         self.assertEqual(response.data['results'][0]['social_raised_amount'], '120.00')
         self.assertEqual(response.data['results'][0]['social_paid_amount'], '180.00')
+        self.assertEqual(response.data['results'][0]['social_remaining_amount'], '280.00')
 
     def test_admin_enrollments_filter_social_quota(self):
         self.client.force_authenticate(user=self.admin)
