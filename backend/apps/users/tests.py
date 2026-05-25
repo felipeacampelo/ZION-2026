@@ -470,6 +470,105 @@ class AdminSocialQuotaTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], 1)
         self.assertEqual(response.data['results'][0]['id'], self.no_empire_enrollment.id)
+
+
+class AdminEmpiresBoardTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email='empires-admin@example.com',
+            password='password123',
+            is_staff=True,
+        )
+        self.product = Product.objects.create(
+            name='ZION 2026',
+            description='Evento',
+            base_price=Decimal('580.00'),
+            max_installments=8,
+            is_active=True,
+        )
+        now = timezone.now()
+        self.batch = Batch.objects.create(
+            product=self.product,
+            name='Lote Impérios',
+            start_date=now - timedelta(days=1),
+            end_date=now + timedelta(days=10),
+            price=Decimal('580.00'),
+            pix_installment_price=Decimal('580.00'),
+            credit_card_price=Decimal('580.00'),
+            status='ACTIVE',
+        )
+
+        self.user_egito = User.objects.create_user(email='egito@example.com', password='password123')
+        self.user_none = User.objects.create_user(email='none@example.com', password='password123')
+
+        self.egito_enrollment = Enrollment.objects.create(
+            user=self.user_egito,
+            product=self.product,
+            batch=self.batch,
+            form_data={
+                'nome_completo': 'Teen Egito',
+                'imperio_zion': 'egito',
+                'data_nascimento': '2010-01-01',
+                'telefone': '111',
+                'cpf': '123',
+            },
+            total_amount=Decimal('580.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('580.00'),
+        )
+        self.none_enrollment = Enrollment.objects.create(
+            user=self.user_none,
+            product=self.product,
+            batch=self.batch,
+            form_data={
+                'nome_completo': 'Teen Sem Imperio',
+                'data_nascimento': '2011-05-05',
+                'telefone': '222',
+                'cpf': '456',
+            },
+            total_amount=Decimal('580.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('580.00'),
+        )
+
+    def test_empires_board_groups_enrollments_and_average_age(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(reverse('users:admin-empires-board'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['egito']['count'], 1)
+        self.assertEqual(response.data['none']['count'], 1)
+        self.assertEqual(response.data['egito']['items'][0]['id'], self.egito_enrollment.id)
+        self.assertEqual(response.data['none']['items'][0]['id'], self.none_enrollment.id)
+        self.assertIsNotNone(response.data['egito']['average_age'])
+        self.assertIsNotNone(response.data['none']['average_age'])
+
+    def test_empires_allocate_updates_only_unassigned_enrollment(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            reverse('users:admin-empires-allocate'),
+            {'enrollment_id': self.none_enrollment.id, 'target_empire': 'roma'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.none_enrollment.refresh_from_db()
+        self.assertEqual(self.none_enrollment.form_data['imperio_zion'], 'roma')
+        self.assertEqual(response.data['board']['none']['count'], 0)
+        self.assertEqual(response.data['board']['roma']['count'], 1)
+
+    def test_empires_allocate_rejects_already_assigned_enrollment(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            reverse('users:admin-empires-allocate'),
+            {'enrollment_id': self.egito_enrollment.id, 'target_empire': 'roma'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
         self.assertTrue(response.data['results'][0]['is_social_quota'])
 

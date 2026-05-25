@@ -3,6 +3,7 @@ Admin views for managing system data.
 """
 from collections import OrderedDict
 from decimal import Decimal
+from statistics import mean
 
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
@@ -10,7 +11,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from .permissions import IsAdminUser
 from apps.enrollments.models import (
@@ -270,6 +271,27 @@ class AdminSocialQuotaContributionWriteSerializer(serializers.ModelSerializer):
         return enrollment
 
 
+class AdminEmpireAllocationSerializer(serializers.Serializer):
+    enrollment_id = serializers.PrimaryKeyRelatedField(
+        source='enrollment',
+        queryset=Enrollment.objects.select_related('user', 'product', 'batch').all(),
+    )
+    target_empire = serializers.ChoiceField(choices=['egito', 'persia', 'grecia', 'roma'])
+
+    def validate(self, attrs):
+        enrollment = attrs['enrollment']
+        form_data = enrollment.form_data or {}
+        current_empire = str(form_data.get('imperio_zion') or '').strip().lower()
+        if current_empire:
+            raise serializers.ValidationError({
+                'enrollment_id': 'Apenas inscritos sem império podem ser alocados por esta tela.'
+            })
+        return attrs
+
+
+EMPIRE_KEYS = ['egito', 'persia', 'grecia', 'roma', 'none']
+
+
 def calculate_asaas_fee(payment_amount, payment_method, installments):
     """
     Calculate Asaas fee based on payment method and installments.
@@ -419,6 +441,57 @@ def build_social_quota_dashboard_summary(enrollments):
         'raised_total': float(raised_total),
         'remaining_total': float(remaining_total),
     }
+
+
+def calculate_age_from_birth_date(birth_date_value):
+    if not isinstance(birth_date_value, str) or not birth_date_value:
+        return None
+
+    try:
+        birth_date = datetime.strptime(birth_date_value, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+    today = timezone.localdate()
+    age = today.year - birth_date.year - (
+        (today.month, today.day) < (birth_date.month, birth_date.day)
+    )
+    return age if age >= 0 else None
+
+
+def build_empire_item_payload(enrollment):
+    form_data = enrollment.form_data or {}
+    return {
+        'id': enrollment.id,
+        'participant_name': form_data.get('nome_completo') or enrollment.participant_name or '-',
+        'user_email': enrollment.user.email,
+        'phone': form_data.get('telefone') or '',
+        'cpf': form_data.get('cpf') or '',
+        'birth_date': form_data.get('data_nascimento') or '',
+        'age': calculate_age_from_birth_date(form_data.get('data_nascimento')),
+    }
+
+
+def build_empire_board_response():
+    grouped = {key: [] for key in EMPIRE_KEYS}
+    enrollments = Enrollment.objects.select_related('user').order_by('created_at')
+
+    for enrollment in enrollments:
+        form_data = enrollment.form_data or {}
+        empire = str(form_data.get('imperio_zion') or '').strip().lower()
+        key = empire if empire in {'egito', 'persia', 'grecia', 'roma'} else 'none'
+        grouped[key].append(build_empire_item_payload(enrollment))
+
+    response = {}
+    for key in EMPIRE_KEYS:
+        ages = [item['age'] for item in grouped[key] if item['age'] is not None]
+        response[key] = {
+            'count': len(grouped[key]),
+            'average_age': round(mean(ages), 1) if ages else None,
+            'items': grouped[key],
+        }
+
+    return response
 
 
 @api_view(['GET'])
@@ -706,6 +779,32 @@ def admin_social_quota_contribution_detail(request, pk):
     if serializer.is_valid():
         contribution = serializer.save()
         return Response(SocialQuotaContributionSerializer(contribution).data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_empires_board(request):
+    return Response(build_empire_board_response())
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_empires_allocate(request):
+    serializer = AdminEmpireAllocationSerializer(data=request.data)
+    if serializer.is_valid():
+        enrollment = serializer.validated_data['enrollment']
+        target_empire = serializer.validated_data['target_empire']
+
+        form_data = dict(enrollment.form_data or {})
+        form_data['imperio_zion'] = target_empire
+        enrollment.form_data = form_data
+        enrollment.save()
+
+        return Response({
+            'detail': 'Inscrito alocado com sucesso.',
+            'board': build_empire_board_response(),
+        })
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

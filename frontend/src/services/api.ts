@@ -145,6 +145,30 @@ export interface SocialQuotaListResponse {
   results: Enrollment[];
 }
 
+export interface EmpireBoardItem {
+  id: number;
+  participant_name: string;
+  user_email: string;
+  phone: string;
+  cpf: string;
+  birth_date: string;
+  age: number | null;
+}
+
+export interface EmpireBoardColumn {
+  count: number;
+  average_age: number | null;
+  items: EmpireBoardItem[];
+}
+
+export interface EmpireBoardResponse {
+  egito: EmpireBoardColumn;
+  persia: EmpireBoardColumn;
+  grecia: EmpireBoardColumn;
+  roma: EmpireBoardColumn;
+  none: EmpireBoardColumn;
+}
+
 export interface Payment {
   id: number;
   enrollment: any;
@@ -374,6 +398,12 @@ export const getAdminOverdueEnrollments = () =>
 
 export const getAdminSocialQuotas = (params?: { search?: string }) =>
   api.get<SocialQuotaListResponse>('/users/admin/social-quotas/', { params });
+
+export const getAdminEmpiresBoard = () =>
+  api.get<EmpireBoardResponse>('/users/admin/empires/');
+
+export const allocateAdminEmpire = (data: { enrollment_id: number; target_empire: 'egito' | 'persia' | 'grecia' | 'roma' }) =>
+  api.post<{ detail: string; board: EmpireBoardResponse }>('/users/admin/empires/allocate/', data);
 
 export const createAdminSocialQuotaContribution = (data: {
   enrollment_id: number;

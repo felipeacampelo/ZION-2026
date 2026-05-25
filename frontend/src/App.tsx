@@ -13,6 +13,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminEnrollments from './pages/AdminEnrollments'
+import AdminEmpires from './pages/AdminEmpires'
 import AdminEventSettings from './pages/AdminEventSettings'
 import AdminPaymentSettings from './pages/AdminPaymentSettings'
 import AdminFormSettings from './pages/AdminFormSettings'
@@ -84,6 +85,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminEnrollments />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/empires" 
+            element={
+              <AdminRoute>
+                <AdminEmpires />
               </AdminRoute>
             } 
           />
