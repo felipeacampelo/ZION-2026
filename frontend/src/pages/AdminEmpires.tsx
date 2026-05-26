@@ -240,25 +240,31 @@ export default function AdminEmpires() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-gray-600">Ordenação dos integrantes</p>
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+              Controles
+            </p>
+            <p className="mt-1 text-sm text-gray-700">Ordene os integrantes e exporte a distribuição atual.</p>
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <span className="font-medium">Idade</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Idade</span>
               <select
                 value={ageSort}
                 onChange={(event) => setAgeSort(event.target.value as 'older_first' | 'younger_first')}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
+                className="min-w-[200px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
               >
                 <option value="older_first">Mais velhos primeiro</option>
                 <option value="younger_first">Mais novos primeiro</option>
               </select>
-            </label>
+            </div>
             <button
               type="button"
               onClick={exportCsv}
               disabled={exportingCsv || !board}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: brandPurple }}
             >
               {exportingCsv ? 'Exportando...' : 'Exportar CSV'}
             </button>
