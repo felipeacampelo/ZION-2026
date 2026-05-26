@@ -39,6 +39,7 @@ export default function AdminEmpires() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [ageSort, setAgeSort] = useState<'older_first' | 'younger_first'>('older_first');
 
   const loadBoard = async () => {
     try {
@@ -74,11 +75,25 @@ export default function AdminEmpires() {
     }
   };
 
+  const sortItemsByAge = (items: EmpireBoardItem[]) =>
+    [...items].sort((a, b) => {
+      const ageA = a.age ?? (ageSort === 'older_first' ? -1 : Number.MAX_SAFE_INTEGER);
+      const ageB = b.age ?? (ageSort === 'older_first' ? -1 : Number.MAX_SAFE_INTEGER);
+
+      if (ageA === ageB) {
+        return a.participant_name.localeCompare(b.participant_name, 'pt-BR');
+      }
+
+      return ageSort === 'older_first' ? ageB - ageA : ageA - ageB;
+    });
+
   const renderParticipantCard = (item: EmpireBoardItem, allowAllocation: boolean) => (
     <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate text-[13px] font-semibold leading-tight text-gray-950">{item.participant_name}</h3>
+          <h3 className="truncate text-[13px] font-sans font-semibold leading-tight tracking-normal text-gray-950">
+            {item.participant_name}
+          </h3>
         </div>
         <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
           #{item.id}
@@ -122,6 +137,21 @@ export default function AdminEmpires() {
           <p className="mt-1 text-sm text-gray-600">
             Organize os inscritos por império e aloque quem ainda está sem império.
           </p>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-gray-600">Ordenação dos integrantes</p>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <span className="font-medium">Idade</span>
+            <select
+              value={ageSort}
+              onChange={(event) => setAgeSort(event.target.value as 'older_first' | 'younger_first')}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
+            >
+              <option value="older_first">Mais velhos primeiro</option>
+              <option value="younger_first">Mais novos primeiro</option>
+            </select>
+          </label>
         </div>
 
         {error && (
@@ -170,7 +200,7 @@ export default function AdminEmpires() {
                           {isUnassigned ? 'Nenhum inscrito sem império.' : 'Nenhum inscrito nesta coluna.'}
                         </div>
                       ) : (
-                        column.items.map((item) => renderParticipantCard(item, isUnassigned))
+                        sortItemsByAge(column.items).map((item) => renderParticipantCard(item, isUnassigned))
                       )}
                     </div>
                   </section>
@@ -209,7 +239,7 @@ export default function AdminEmpires() {
                             {isUnassigned ? 'Nenhum inscrito sem império.' : 'Nenhum inscrito nesta coluna.'}
                           </div>
                         ) : (
-                          column.items.map((item) => renderParticipantCard(item, isUnassigned))
+                          sortItemsByAge(column.items).map((item) => renderParticipantCard(item, isUnassigned))
                         )}
                       </div>
                     </section>
