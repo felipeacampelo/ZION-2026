@@ -152,7 +152,6 @@ export default function AdminEmpires() {
         .flatMap((empire) =>
           sortItemsByAge(board[empire.key].items).map((item) => [
             empire.label,
-            item.id,
             item.participant_name,
             formatBirthDate(item.birth_date),
             item.age ?? '',
@@ -160,7 +159,7 @@ export default function AdminEmpires() {
         );
 
       const csvContent = [
-        ['Império', 'ID', 'Nome', 'Nascimento', 'Idade'].map(escapeCsvCell).join(','),
+        ['Império', 'Nome', 'Nascimento', 'Idade'].map(escapeCsvCell).join(','),
         ...rows.map((row) => row.map(escapeCsvCell).join(',')),
       ].join('\n');
 
@@ -183,8 +182,12 @@ export default function AdminEmpires() {
     return (
       <article
         key={item.id}
+        onClick={!isUnassigned ? () => toggleAssignedSelection(item.id) : undefined}
         className={`rounded-xl border p-2.5 shadow-sm xl:rounded-lg xl:px-2 xl:py-1.5 ${empireMeta.cellAccent} ${
-          isSelected ? 'border-[rgb(165,44,240)] ring-2 ring-[rgba(165,44,240,0.14)]' : 'border-slate-200'
+          isSelected
+            ? 'border-amber-300 bg-amber-50 ring-2 ring-amber-200'
+            : 'border-slate-200'
+        } ${!isUnassigned ? 'cursor-pointer transition-colors hover:border-amber-200 hover:bg-amber-50/70' : ''
         }`}
       >
         <div className="flex items-start justify-between gap-2 xl:items-center">
@@ -222,24 +225,7 @@ export default function AdminEmpires() {
               </button>
             ))}
           </div>
-        ) : (
-          <div className="mt-3 flex items-center gap-2 xl:mt-2">
-            <input
-              id={`empire-select-${item.id}`}
-              type="checkbox"
-              checked={isSelected}
-              onChange={() => toggleAssignedSelection(item.id)}
-              disabled={bulkReturning}
-              className="h-4 w-4 rounded border-slate-300 text-[rgb(165,44,240)] focus:ring-[rgba(165,44,240,0.2)]"
-            />
-            <label
-              htmlFor={`empire-select-${item.id}`}
-              className="text-[11px] font-medium text-gray-700 xl:text-[10px]"
-            >
-              Selecionar para voltar
-            </label>
-          </div>
-        )}
+        ) : null}
       </article>
     );
   };
