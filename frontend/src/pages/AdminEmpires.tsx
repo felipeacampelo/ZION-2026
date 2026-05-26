@@ -22,6 +22,9 @@ const EMPIRE_META: Array<{
   { key: 'none', label: 'Sem império', accent: 'bg-slate-100 text-slate-700 border-slate-200' },
 ];
 
+type EmpireKey = keyof EmpireBoardResponse;
+type AssignableEmpire = 'egito' | 'persia' | 'grecia' | 'roma' | 'none';
+
 const formatAverageAge = (value: number | null) => {
   if (value === null || Number.isNaN(value)) return '-';
   return `${value.toFixed(1)} anos`;
@@ -57,7 +60,7 @@ export default function AdminEmpires() {
     void loadBoard();
   }, []);
 
-  const handleAllocate = async (enrollmentId: number, targetEmpire: 'egito' | 'persia' | 'grecia' | 'roma') => {
+  const handleAllocate = async (enrollmentId: number, targetEmpire: AssignableEmpire) => {
     setSavingId(enrollmentId);
     setError('');
 
@@ -87,47 +90,64 @@ export default function AdminEmpires() {
       return ageSort === 'older_first' ? ageB - ageA : ageA - ageB;
     });
 
-  const renderParticipantCard = (item: EmpireBoardItem, allowAllocation: boolean) => (
-    <article key={item.id} className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="truncate text-[13px] font-sans font-semibold leading-tight tracking-normal text-gray-950">
-            {item.participant_name}
-          </h3>
-        </div>
-        <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
-          #{item.id}
-        </span>
-      </div>
+  const renderParticipantCard = (item: EmpireBoardItem, empireKey: EmpireKey) => {
+    const isUnassigned = empireKey === 'none';
 
-      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-gray-600">
-        <div>
-          <p className="uppercase tracking-[0.08em] text-gray-500">Nascimento</p>
-          <p className="mt-0.5 font-medium text-gray-900">{formatBirthDate(item.birth_date)}</p>
+    return (
+      <article
+        key={item.id}
+        className="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm xl:rounded-lg xl:px-2 xl:py-1.5"
+      >
+        <div className="flex items-start justify-between gap-2 xl:items-center">
+          <div className="min-w-0 xl:flex-1">
+            <h3 className="truncate text-[13px] font-sans font-semibold leading-tight tracking-normal text-gray-950">
+              {item.participant_name}
+            </h3>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-gray-600 xl:mt-1 xl:flex xl:items-center xl:gap-3">
+              <div className="xl:min-w-0">
+                <p className="uppercase tracking-[0.08em] text-gray-500 xl:hidden">Nascimento</p>
+                <p className="mt-0.5 font-medium text-gray-900 xl:mt-0">{formatBirthDate(item.birth_date)}</p>
+              </div>
+              <div className="xl:min-w-0">
+                <p className="uppercase tracking-[0.08em] text-gray-500 xl:hidden">Idade</p>
+                <p className="mt-0.5 font-medium text-gray-900 xl:mt-0">{item.age ?? '-'}</p>
+              </div>
+            </div>
+          </div>
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 xl:shrink-0">
+            #{item.id}
+          </span>
         </div>
-        <div>
-          <p className="uppercase tracking-[0.08em] text-gray-500">Idade</p>
-          <p className="mt-0.5 font-medium text-gray-900">{item.age ?? '-'}</p>
-        </div>
-      </div>
 
-      {allowAllocation && (
-        <div className="mt-3 grid grid-cols-2 gap-1.5">
-          {EMPIRE_META.filter((empire) => empire.key !== 'none').map((empire) => (
+        {isUnassigned ? (
+          <div className="mt-3 grid grid-cols-2 gap-1.5 xl:mt-2 xl:grid-cols-4 xl:gap-1">
+            {EMPIRE_META.filter((empire) => empire.key !== 'none').map((empire) => (
+              <button
+                key={empire.key}
+                type="button"
+                disabled={savingId === item.id}
+                onClick={() => void handleAllocate(item.id, empire.key as AssignableEmpire)}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-60 xl:px-1.5 xl:py-1 xl:text-[10px]"
+              >
+                {savingId === item.id ? '...' : empire.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 xl:mt-2">
             <button
-              key={empire.key}
               type="button"
               disabled={savingId === item.id}
-              onClick={() => void handleAllocate(item.id, empire.key as 'egito' | 'persia' | 'grecia' | 'roma')}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-60"
+              onClick={() => void handleAllocate(item.id, 'none')}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-60 xl:px-1.5 xl:py-1 xl:text-[10px]"
             >
-              {savingId === item.id ? '...' : empire.label}
+              {savingId === item.id ? '...' : 'Voltar para Sem império'}
             </button>
-          ))}
-        </div>
-      )}
-    </article>
-  );
+          </div>
+        )}
+      </article>
+    );
+  };
 
   return (
     <AdminShell>
@@ -200,7 +220,7 @@ export default function AdminEmpires() {
                           {isUnassigned ? 'Nenhum inscrito sem império.' : 'Nenhum inscrito nesta coluna.'}
                         </div>
                       ) : (
-                        sortItemsByAge(column.items).map((item) => renderParticipantCard(item, isUnassigned))
+                        sortItemsByAge(column.items).map((item) => renderParticipantCard(item, empire.key))
                       )}
                     </div>
                   </section>
@@ -239,7 +259,7 @@ export default function AdminEmpires() {
                             {isUnassigned ? 'Nenhum inscrito sem império.' : 'Nenhum inscrito nesta coluna.'}
                           </div>
                         ) : (
-                          sortItemsByAge(column.items).map((item) => renderParticipantCard(item, isUnassigned))
+                          sortItemsByAge(column.items).map((item) => renderParticipantCard(item, empire.key))
                         )}
                       </div>
                     </section>

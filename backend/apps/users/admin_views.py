@@ -276,17 +276,7 @@ class AdminEmpireAllocationSerializer(serializers.Serializer):
         source='enrollment',
         queryset=Enrollment.objects.select_related('user', 'product', 'batch').all(),
     )
-    target_empire = serializers.ChoiceField(choices=['egito', 'persia', 'grecia', 'roma'])
-
-    def validate(self, attrs):
-        enrollment = attrs['enrollment']
-        form_data = enrollment.form_data or {}
-        current_empire = str(form_data.get('imperio_zion') or '').strip().lower()
-        if current_empire:
-            raise serializers.ValidationError({
-                'enrollment_id': 'Apenas inscritos sem império podem ser alocados por esta tela.'
-            })
-        return attrs
+    target_empire = serializers.ChoiceField(choices=['egito', 'persia', 'grecia', 'roma', 'none'])
 
 
 EMPIRE_KEYS = ['egito', 'persia', 'grecia', 'roma', 'none']
@@ -797,7 +787,10 @@ def admin_empires_allocate(request):
         target_empire = serializer.validated_data['target_empire']
 
         form_data = dict(enrollment.form_data or {})
-        form_data['imperio_zion'] = target_empire
+        if target_empire == 'none':
+            form_data.pop('imperio_zion', None)
+        else:
+            form_data['imperio_zion'] = target_empire
         enrollment.form_data = form_data
         enrollment.save()
 

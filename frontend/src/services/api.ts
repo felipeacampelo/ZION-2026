@@ -402,7 +402,7 @@ export const getAdminSocialQuotas = (params?: { search?: string }) =>
 export const getAdminEmpiresBoard = () =>
   api.get<EmpireBoardResponse>('/users/admin/empires/');
 
-export const allocateAdminEmpire = (data: { enrollment_id: number; target_empire: 'egito' | 'persia' | 'grecia' | 'roma' }) =>
+export const allocateAdminEmpire = (data: { enrollment_id: number; target_empire: 'egito' | 'persia' | 'grecia' | 'roma' | 'none' }) =>
   api.post<{ detail: string; board: EmpireBoardResponse }>('/users/admin/empires/allocate/', data);
 
 export const createAdminSocialQuotaContribution = (data: {

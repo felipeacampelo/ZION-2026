@@ -544,7 +544,7 @@ class AdminEmpiresBoardTests(APITestCase):
         self.assertIsNotNone(response.data['egito']['average_age'])
         self.assertIsNotNone(response.data['none']['average_age'])
 
-    def test_empires_allocate_updates_only_unassigned_enrollment(self):
+    def test_empires_allocate_updates_unassigned_enrollment(self):
         self.client.force_authenticate(user=self.admin)
 
         response = self.client.post(
@@ -559,18 +559,20 @@ class AdminEmpiresBoardTests(APITestCase):
         self.assertEqual(response.data['board']['none']['count'], 0)
         self.assertEqual(response.data['board']['roma']['count'], 1)
 
-    def test_empires_allocate_rejects_already_assigned_enrollment(self):
+    def test_empires_allocate_can_move_assigned_enrollment_back_to_none(self):
         self.client.force_authenticate(user=self.admin)
 
         response = self.client.post(
             reverse('users:admin-empires-allocate'),
-            {'enrollment_id': self.egito_enrollment.id, 'target_empire': 'roma'},
+            {'enrollment_id': self.egito_enrollment.id, 'target_empire': 'none'},
             format='json',
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
-        self.assertTrue(response.data['results'][0]['is_social_quota'])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.egito_enrollment.refresh_from_db()
+        self.assertNotIn('imperio_zion', self.egito_enrollment.form_data)
+        self.assertEqual(response.data['board']['egito']['count'], 0)
+        self.assertEqual(response.data['board']['none']['count'], 2)
 
     def test_admin_can_create_update_and_delete_social_quota_contribution(self):
         self.client.force_authenticate(user=self.admin)
