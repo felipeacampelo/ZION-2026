@@ -200,12 +200,6 @@ export default function Enrollment() {
     }
 
     try {
-      console.log('Creating enrollment with data:', {
-        product_id: selectedProduct.id,
-        batch_id: selectedProduct.active_batch.id,
-        has_coupon: couponApplied
-      });
-
       const response = await createEnrollment({
         product_id: selectedProduct.id,
         batch_id: selectedProduct.active_batch.id,
@@ -215,9 +209,6 @@ export default function Enrollment() {
         },
         coupon_code: couponApplied ? couponCode : undefined,
       });
-
-      console.log('Enrollment created successfully:', response);
-      console.log('Response data:', response.data);
       
       // Verificar se temos o ID da inscrição
       if (!response.data || !response.data.id) {
@@ -228,7 +219,6 @@ export default function Enrollment() {
       }
 
       const enrollmentId = response.data.id;
-      console.log('Navigating to payment page with enrollment ID:', enrollmentId);
       
       // Redirecionar para página de pagamento
       navigate(`/payment/${enrollmentId}`);

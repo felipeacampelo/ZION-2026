@@ -5,7 +5,6 @@ import { getEnrollment, createPayment, getSettings, type Enrollment, type Paymen
 import ProgressSteps from '../components/ProgressSteps';
 
 export default function PaymentPage() {
-  console.log('PaymentPage component loaded');
   const navigate = useNavigate();
   const { enrollmentId } = useParams<{ enrollmentId: string }>();
   const [searchParams] = useSearchParams();
@@ -13,12 +12,8 @@ export default function PaymentPage() {
   
   const paymentIdFromUrl = searchParams.get('paymentId');
   
-  console.log('enrollmentId:', enrollmentId);
-  console.log('paymentId from URL:', paymentIdFromUrl);
-  
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
-  const [paymentLoaded, setPaymentLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -151,8 +146,6 @@ export default function PaymentPage() {
               // Find payment by ID from URL
               selectedPayment = response.data.payments.find((p: any) => p.id === Number(paymentIdFromUrl)) || response.data.payments[0];
             }
-            
-            console.log('Selected payment (FINAL):', selectedPayment);
             setPayment(selectedPayment);
           }
         } catch (err) {
@@ -180,12 +173,10 @@ export default function PaymentPage() {
         const updatedPayment = response.data.payments?.find((p: any) => p.id === payment.id);
         
         if (updatedPayment) {
-          console.log('Polling - Updated payment:', updatedPayment);
           // Update payment to get latest status
           setPayment(updatedPayment);
           
           if (updatedPayment.status === 'CONFIRMED' || updatedPayment.status === 'RECEIVED') {
-            console.log('Payment confirmed! Stopping polling.');
             clearInterval(pollInterval);
           }
         }
@@ -196,19 +187,6 @@ export default function PaymentPage() {
 
     return () => clearInterval(pollInterval);
   }, [payment?.id, enrollmentId]);
-
-  const loadEnrollment = async () => {
-    try {
-      const response = await getEnrollment(Number(enrollmentId));
-      setEnrollment(response.data);
-      // If payment is already confirmed, don't reset it
-      if (payment && (payment.status === 'CONFIRMED' || payment.status === 'RECEIVED')) {
-        return;
-      }
-    } catch (err) {
-      setError('Erro ao carregar inscrição');
-    }
-  };
 
   const handleCreatePayment = async () => {
     if (!enrollmentId) return;
@@ -224,7 +202,6 @@ export default function PaymentPage() {
       });
 
       setPayment(response.data);
-      setPaymentLoaded(true);
 
       if (paymentMethod === 'CREDIT_CARD') {
         if (!response.data.payment_url) {
