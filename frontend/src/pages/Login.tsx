@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { login as apiLogin } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/GoogleLoginButton';

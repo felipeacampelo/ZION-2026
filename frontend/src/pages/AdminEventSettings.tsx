@@ -21,7 +21,6 @@ export default function AdminEventSettings() {
     'inline-flex items-center gap-2 rounded-lg bg-dark px-5 py-3 font-medium text-white transition-colors hover:bg-dark-700 disabled:cursor-not-allowed disabled:opacity-60';
   const activeTabClass = 'bg-gold/20 text-dark';
 
-  const [products, setProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<'home' | 'event'>('home');
   const [eventProductId, setEventProductId] = useState<number | null>(null);
   const [formData, setFormData] = useState<EventSettingsForm>({
@@ -65,8 +64,6 @@ export default function AdminEventSettings() {
   const loadProducts = async (preserveSelection = false) => {
     const response = await getAdminProducts();
     const loadedProducts = response.data as Product[];
-    setProducts(loadedProducts);
-
     if (loadedProducts.length === 0) {
       setEventProductId(null);
       setProductForm(mapProductToForm(null));
@@ -95,7 +92,7 @@ export default function AdminEventSettings() {
           home_location_text: settingsResponse.data.home_location_text || '',
           home_location_subtext: settingsResponse.data.home_location_subtext || '',
         });
-      } catch (err) {
+      } catch {
         setError('Erro ao carregar configurações do evento.');
       } finally {
         setLoading(false);
@@ -120,7 +117,7 @@ export default function AdminEventSettings() {
         home_location_subtext: response.data.home_location_subtext || '',
       });
       setSuccess('Configurações do evento salvas com sucesso.');
-    } catch (err) {
+    } catch {
       setError('Erro ao salvar configurações do evento.');
     } finally {
       setSaving(false);

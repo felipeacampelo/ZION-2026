@@ -66,7 +66,7 @@ export default function AdminFormSettings() {
           max_birth_year: response.data.max_birth_year ?? null,
         });
         setPendingChanges(false);
-      } catch (err) {
+      } catch {
         setError('Erro ao carregar opções do formulário.');
       } finally {
         setLoading(false);
@@ -92,7 +92,7 @@ export default function AdminFormSettings() {
       });
       setSuccess('Opções do formulário salvas com sucesso.');
       setPendingChanges(false);
-    } catch (err) {
+    } catch {
       setError('Erro ao salvar opções do formulário.');
     } finally {
       setSaving(false);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, Mail, Lock, User, Phone, FileText, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, Phone, FileText, AlertCircle } from 'lucide-react';
 import { register as apiRegister } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleLoginButton from '../components/GoogleLoginButton';

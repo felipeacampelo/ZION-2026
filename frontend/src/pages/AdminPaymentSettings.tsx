@@ -54,7 +54,7 @@ export default function AdminPaymentSettings() {
           enable_pix_installment: response.data.enable_pix_installment,
           enable_credit_card: response.data.enable_credit_card,
         });
-      } catch (err) {
+      } catch {
         setError('Erro ao carregar opções de pagamento.');
       } finally {
         setLoading(false);

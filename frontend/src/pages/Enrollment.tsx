@@ -23,7 +23,6 @@ const fixedResponsibleFields = [
 export default function Enrollment() {
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
-  const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -108,7 +107,6 @@ export default function Enrollment() {
     try {
       const response = await getProducts();
       const productsList = response.data.results || [];
-      setProducts(productsList);
       if (productsList.length > 0) {
         // Buscar detalhes do primeiro produto para ter o active_batch
         const detailResponse = await getProduct(productsList[0].id);
