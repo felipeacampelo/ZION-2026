@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldAlert, Users, X } from 'lucide-react';
+import { ArrowDownToLine, ShieldAlert, SlidersHorizontal, Users, X } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import {
   allocateAdminEmpire,
@@ -8,8 +8,7 @@ import {
   type EmpireBoardResponse,
 } from '../services/api';
 
-const brandPurple = 'rgb(165, 44, 240)';
-
+const brandInk = 'rgb(18, 24, 23)';
 type EmpireKey = Exclude<keyof EmpireBoardResponse, 'summary'>;
 type AssignableEmpire = 'egito' | 'persia' | 'grecia' | 'roma' | 'none';
 type GenderFilter = 'all' | 'male' | 'female';
@@ -23,11 +22,11 @@ const EMPIRE_META: Array<{
   accent: string;
   cellAccent: string;
 }> = [
-  { key: 'egito', label: 'Egito', accent: 'bg-emerald-50 text-emerald-700 border-emerald-100', cellAccent: 'bg-emerald-50/80 border-emerald-200' },
-  { key: 'persia', label: 'Pérsia', accent: 'bg-purple-50 text-purple-700 border-purple-100', cellAccent: 'bg-purple-50/80 border-purple-200' },
-  { key: 'grecia', label: 'Grécia', accent: 'bg-orange-50 text-orange-700 border-orange-100', cellAccent: 'bg-orange-50/80 border-orange-200' },
-  { key: 'roma', label: 'Roma', accent: 'bg-rose-50 text-rose-700 border-rose-100', cellAccent: 'bg-rose-50/80 border-rose-200' },
-  { key: 'none', label: 'Sem império', accent: 'bg-slate-100 text-slate-700 border-slate-200', cellAccent: 'bg-slate-50 border-slate-200' },
+  { key: 'egito', label: 'Egito', accent: 'bg-emerald-50 text-emerald-800 border-emerald-200', cellAccent: 'bg-emerald-50/80 border-emerald-200' },
+  { key: 'persia', label: 'Pérsia', accent: 'bg-amber-50 text-amber-800 border-amber-200', cellAccent: 'bg-amber-50/80 border-amber-200' },
+  { key: 'grecia', label: 'Grécia', accent: 'bg-sky-50 text-sky-800 border-sky-200', cellAccent: 'bg-sky-50/80 border-sky-200' },
+  { key: 'roma', label: 'Roma', accent: 'bg-rose-50 text-rose-800 border-rose-200', cellAccent: 'bg-rose-50/80 border-rose-200' },
+  { key: 'none', label: 'Sem império', accent: 'bg-stone-100 text-stone-800 border-stone-300', cellAccent: 'bg-stone-50 border-stone-200' },
 ];
 
 const formatAverageAge = (value: number | null) => {
@@ -50,7 +49,11 @@ const escapeCsvCell = (value: unknown) => {
   return text;
 };
 
-const summaryCardClass = 'rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm';
+const shellCardClass = 'rounded-[30px] border border-[#e7decd] bg-[#fffdf8] shadow-[0_18px_50px_rgba(15,23,42,0.06)]';
+const summaryCardClass = 'rounded-[24px] border border-[#ece4d7] bg-white/95 px-4 py-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)]';
+const statPillClass = 'inline-flex items-center rounded-full border border-white/80 bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-700 shadow-sm';
+const inputClass =
+  'min-w-[148px] rounded-2xl border border-[#ddd1bc] bg-white px-3 py-2.5 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[#bfa14a] focus:ring-2 focus:ring-[rgba(191,161,74,0.16)]';
 const csvColumnOptions: Array<{ key: CsvColumnKey; label: string }> = [
   { key: 'empire', label: 'Império' },
   { key: 'participant_name', label: 'Nome' },
@@ -64,11 +67,11 @@ const csvColumnOptions: Array<{ key: CsvColumnKey; label: string }> = [
 ];
 
 const renderColumnStats = (column: EmpireBoardResponse[EmpireKey]) => (
-  <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-700">
-    <p>Homens: <span className="font-semibold text-gray-950">{column.summary.male_count}</span></p>
-    <p>Mulheres: <span className="font-semibold text-gray-950">{column.summary.female_count}</span></p>
-    <p>16+: <span className="font-semibold text-gray-950">{column.summary.age_16_plus_count}</span></p>
-    <p>SUB16: <span className="font-semibold text-gray-950">{column.summary.sub16_count}</span></p>
+  <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+    <span className={statPillClass}>H {column.summary.male_count}</span>
+    <span className={statPillClass}>M {column.summary.female_count}</span>
+    <span className={statPillClass}>16+ {column.summary.age_16_plus_count}</span>
+    <span className={statPillClass}>SUB16 {column.summary.sub16_count}</span>
   </div>
 );
 
@@ -320,145 +323,215 @@ export default function AdminEmpires() {
     const isUnassigned = empireKey === 'none';
     const isSelected = selectedAssignedIds.includes(item.id);
     const empireMeta = EMPIRE_META.find((empire) => empire.key === empireKey)!;
+    const genderLabel = formatGender(item.gender);
 
     return (
       <article
         key={item.id}
         onClick={!isUnassigned ? () => toggleAssignedSelection(item.id) : undefined}
-        className={`rounded-xl border p-2.5 shadow-sm xl:rounded-lg xl:px-2 xl:py-1.5 ${empireMeta.cellAccent} ${
+        className={`rounded-[20px] border p-3 shadow-sm transition-all ${empireMeta.cellAccent} ${
           isSelected
             ? 'border-amber-300 bg-amber-50 ring-2 ring-amber-200'
-            : 'border-slate-200'
-        } ${!isUnassigned ? 'cursor-pointer transition-colors hover:border-amber-200 hover:bg-amber-50/70' : ''
+            : 'border-white/80'
+        } ${!isUnassigned ? 'cursor-pointer hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-50/70' : ''
         }`}
       >
-        <div className="flex items-start justify-between gap-2 xl:items-center">
-          <div className="min-w-0 xl:flex-1">
-            <h3 className="truncate text-[13px] font-sans font-semibold leading-tight tracking-normal text-gray-950">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate font-sans text-[13px] font-semibold leading-tight text-gray-950">
               {item.participant_name}
             </h3>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-gray-600 xl:mt-1 xl:flex xl:items-center xl:gap-3">
-              <div className="xl:min-w-0">
-                <p className="uppercase tracking-[0.08em] text-gray-500 xl:hidden">Nascimento</p>
-                <p className="mt-0.5 font-medium text-gray-900 xl:mt-0">{formatBirthDate(item.birth_date)}</p>
-              </div>
-              <div className="xl:min-w-0">
-                <p className="uppercase tracking-[0.08em] text-gray-500 xl:hidden">Idade</p>
-                <p className="mt-0.5 font-medium text-gray-900 xl:mt-0">{item.age ?? '-'}</p>
-              </div>
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
+              <span className={statPillClass}>{formatBirthDate(item.birth_date)}</span>
+              <span className={statPillClass}>{item.age ?? '-'} anos</span>
+              {genderLabel ? <span className={statPillClass}>{genderLabel}</span> : null}
             </div>
           </div>
-          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 xl:shrink-0">
+          <span className="rounded-full border border-white/80 bg-white/85 px-2 py-1 text-[10px] font-semibold text-slate-600">
             #{item.id}
           </span>
         </div>
 
         {isUnassigned ? (
-          <div className="mt-3 grid grid-cols-2 gap-1.5 xl:mt-2 xl:grid-cols-4 xl:gap-1">
+          <div className="mt-3 grid grid-cols-2 gap-1.5">
             {EMPIRE_META.filter((empire) => empire.key !== 'none').map((empire) => (
               <button
                 key={empire.key}
                 type="button"
                 disabled={savingId === item.id}
                 onClick={() => void handleAllocate(item.id, empire.key as AssignableEmpire)}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-slate-100 disabled:opacity-60 xl:px-1.5 xl:py-1 xl:text-[10px]"
+                className="rounded-xl border border-[#ddd1bc] bg-white px-2.5 py-2 text-[11px] font-semibold text-gray-700 transition-colors hover:bg-[#faf4e7] disabled:opacity-60"
               >
                 {savingId === item.id ? '...' : empire.label}
               </button>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <div className="mt-3 flex items-center justify-between text-[10px] font-medium text-gray-500">
+            <span>{empireMeta.label}</span>
+            {!isUnassigned && isSelected ? <span className="text-amber-700">Selecionado</span> : null}
+          </div>
+        )}
       </article>
     );
   };
 
+  const assignedEmpireMeta = EMPIRE_META.filter((empire) => empire.key !== 'none');
+  const activeFilterCount = [genderFilter, ageGroupFilter, yearFilter].filter((value) => value !== 'all').length;
+
   return (
     <AdminShell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-950">Impérios</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Organize os inscritos por império e aloque quem ainda está sem império.
-          </p>
-        </div>
+        <section
+          className={`${shellCardClass} overflow-hidden p-5 lg:p-6`}
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(191,161,74,0.14) 0%, rgba(255,253,248,0.98) 36%, rgba(244,240,230,0.96) 100%)',
+          }}
+        >
+          <div className="grid gap-5 xl:grid-cols-[1.25fr,0.95fr] xl:items-end">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-600">
+                Leitura operacional
+              </div>
+              <h1 className="mt-3 text-[2rem] font-bold tracking-tight text-gray-950 lg:text-[2.5rem]">
+                Impérios
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600 lg:text-[15px]">
+                Organize rapidamente quem ainda precisa de destino, filtre o perfil do grupo e
+                leia a distribuição sem se perder em excesso de cards.
+              </p>
 
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
-              Controles
-            </p>
-            <p className="mt-1 text-sm text-gray-700">Ordene os integrantes e exporte a distribuição atual.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className={statPillClass}>
+                  {filteredSummary?.total ?? 0} participantes visíveis
+                </span>
+                <span className={statPillClass}>
+                  {filteredBoard?.none.count ?? 0} aguardando império
+                </span>
+                <span className={statPillClass}>
+                  {activeFilterCount === 0 ? 'Sem filtros ativos' : `${activeFilterCount} filtros ativos`}
+                </span>
+                <span className={statPillClass}>
+                  Ordem: {ageSort === 'older_first' ? 'mais velhos primeiro' : 'mais novos primeiro'}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <div className="rounded-[24px] border border-white/80 bg-white/92 px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+                  Alerta principal
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-950">{filteredBoard?.none.count ?? 0}</p>
+                <p className="mt-1 text-sm text-gray-600">inscritos ainda sem império definido</p>
+              </div>
+              <div className="rounded-[24px] border border-white/80 bg-white/92 px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+                  16+ vs SUB16
+                </p>
+                <p className="mt-2 text-lg font-bold text-gray-950">
+                  {filteredSummary?.age_16_plus_count ?? 0} / {filteredSummary?.sub16_count ?? 0}
+                </p>
+                <p className="mt-1 text-sm text-gray-600">equilíbrio entre as duas faixas</p>
+              </div>
+              <div className="rounded-[24px] border border-white/80 bg-white/92 px-4 py-4 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+                  Seleção atual
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-950">{selectedAssignedIds.length}</p>
+                <p className="mt-1 text-sm text-gray-600">prontos para voltar a Sem império</p>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Sexo</span>
-              <select
-                value={genderFilter}
-                onChange={(event) => setGenderFilter(event.target.value as GenderFilter)}
-                className="min-w-[160px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
+        </section>
+
+        <section className={`${shellCardClass} p-4 lg:p-5`}>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#f5efe1] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-600">
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  Controles da visão
+                </div>
+                <p className="mt-2 text-sm text-gray-600">
+                  Ajuste o recorte da página e exporte exatamente o que estiver visível.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExportModal(true)}
+                disabled={exportingCsv || !board}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                style={{ backgroundColor: brandInk }}
               >
-                <option value="all">Todos</option>
-                <option value="male">Homens</option>
-                <option value="female">Mulheres</option>
-              </select>
+                <ArrowDownToLine className="h-4 w-4" />
+                {exportingCsv ? 'Exportando...' : 'Exportar CSV'}
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Faixa</span>
-              <select
-                value={ageGroupFilter}
-                onChange={(event) => setAgeGroupFilter(event.target.value as AgeGroupFilter)}
-                className="min-w-[160px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
-              >
-                <option value="all">Todas</option>
-                <option value="16_plus">16+</option>
-                <option value="sub16">SUB16</option>
-              </select>
+
+            <div className="grid gap-3 lg:grid-cols-4">
+              <label className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Sexo</span>
+                <select
+                  value={genderFilter}
+                  onChange={(event) => setGenderFilter(event.target.value as GenderFilter)}
+                  className={inputClass}
+                >
+                  <option value="all">Todos</option>
+                  <option value="male">Homens</option>
+                  <option value="female">Mulheres</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Faixa</span>
+                <select
+                  value={ageGroupFilter}
+                  onChange={(event) => setAgeGroupFilter(event.target.value as AgeGroupFilter)}
+                  className={inputClass}
+                >
+                  <option value="all">Todas</option>
+                  <option value="16_plus">16+</option>
+                  <option value="sub16">SUB16</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Ano</span>
+                <select
+                  value={yearFilter}
+                  onChange={(event) => setYearFilter(event.target.value as YearFilter)}
+                  className={inputClass}
+                >
+                  <option value="all">Todos</option>
+                  <option value="2008">2008</option>
+                  <option value="2009">2009</option>
+                  <option value="2010">2010</option>
+                  <option value="2011">2011</option>
+                  <option value="2012">2012</option>
+                  <option value="2013">2013</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Ordenação</span>
+                <select
+                  value={ageSort}
+                  onChange={(event) => setAgeSort(event.target.value as 'older_first' | 'younger_first')}
+                  className={inputClass}
+                >
+                  <option value="older_first">Mais velhos primeiro</option>
+                  <option value="younger_first">Mais novos primeiro</option>
+                </select>
+              </label>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Ano</span>
-              <select
-                value={yearFilter}
-                onChange={(event) => setYearFilter(event.target.value as YearFilter)}
-                className="min-w-[140px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
-              >
-                <option value="all">Todos</option>
-                <option value="2008">2008</option>
-                <option value="2009">2009</option>
-                <option value="2010">2010</option>
-                <option value="2011">2011</option>
-                <option value="2012">2012</option>
-                <option value="2013">2013</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Idade</span>
-              <select
-                value={ageSort}
-                onChange={(event) => setAgeSort(event.target.value as 'older_first' | 'younger_first')}
-                className="min-w-[200px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
-              >
-                <option value="older_first">Mais velhos primeiro</option>
-                <option value="younger_first">Mais novos primeiro</option>
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowExportModal(true)}
-              disabled={exportingCsv || !board}
-              className="rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
-              style={{ backgroundColor: brandPurple }}
-            >
-              {exportingCsv ? 'Exportando...' : 'Exportar CSV'}
-            </button>
           </div>
-        </div>
+        </section>
 
         {showExportModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
-            <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="w-full max-w-xl rounded-[32px] border border-[#ece4d7] bg-[#fffdf8] p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-950">Exportar CSV</h2>
+                  <h2 className="font-sans text-xl font-bold text-gray-950">Exportar CSV</h2>
                   <p className="mt-1 text-sm text-gray-600">
                     Escolha quais colunas devem aparecer na planilha.
                   </p>
@@ -482,7 +555,7 @@ export default function AdminEmpires() {
                       className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition-colors ${
                         checked
                           ? 'border-amber-300 bg-amber-50 text-gray-900'
-                          : 'border-slate-200 bg-white text-gray-700'
+                          : 'border-[#ece4d7] bg-white text-gray-700'
                       }`}
                     >
                       <input
@@ -510,7 +583,7 @@ export default function AdminEmpires() {
                   onClick={exportCsv}
                   disabled={exportingCsv || selectedCsvColumns.length === 0}
                   className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
-                  style={{ backgroundColor: brandPurple }}
+                  style={{ backgroundColor: brandInk }}
                 >
                   {exportingCsv ? 'Exportando...' : 'Baixar CSV'}
                 </button>
@@ -520,7 +593,7 @@ export default function AdminEmpires() {
         )}
 
         {selectedAssignedIds.length > 0 && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-[rgba(165,44,240,0.12)] bg-[rgba(165,44,240,0.05)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-[24px] border border-amber-200 bg-amber-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-medium text-gray-800">
               {selectedAssignedIds.length} {selectedAssignedIds.length === 1 ? 'integrante selecionado' : 'integrantes selecionados'}
             </p>
@@ -538,7 +611,7 @@ export default function AdminEmpires() {
                 onClick={() => void handleReturnSelectedToNone()}
                 disabled={bulkReturning}
                 className="rounded-xl px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                style={{ backgroundColor: brandPurple }}
+                style={{ backgroundColor: brandInk }}
               >
                 {bulkReturning ? 'Movendo...' : 'Voltar selecionados para Sem império'}
               </button>
@@ -553,11 +626,11 @@ export default function AdminEmpires() {
         )}
 
         {loading ? (
-          <div className="rounded-[28px] border border-white/80 bg-white p-12 text-center text-gray-500 shadow-sm">
+          <div className={`${shellCardClass} p-12 text-center text-gray-500`}>
             Carregando impérios...
           </div>
         ) : !board || !filteredBoard || !filteredSummary ? (
-          <div className="rounded-[28px] border border-white/80 bg-white p-12 text-center text-gray-500 shadow-sm">
+          <div className={`${shellCardClass} p-12 text-center text-gray-500`}>
             Não foi possível carregar os impérios.
           </div>
         ) : (
@@ -565,117 +638,116 @@ export default function AdminEmpires() {
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <section className={summaryCardClass}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Participantes</p>
-                <h2 className="mt-2 text-2xl font-bold text-gray-950">{filteredSummary.total}</h2>
-                <div className="mt-3 space-y-1 text-sm text-gray-700">
-                  <p>Homens: <span className="font-semibold text-gray-950">{filteredSummary.male_count}</span></p>
-                  <p>Mulheres: <span className="font-semibold text-gray-950">{filteredSummary.female_count}</span></p>
+                <h2 className="mt-2 font-sans text-3xl font-bold text-gray-950">{filteredSummary.total}</h2>
+                <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                  <span className={statPillClass}>Homens {filteredSummary.male_count}</span>
+                  <span className={statPillClass}>Mulheres {filteredSummary.female_count}</span>
                   {filteredSummary.unknown_gender_count > 0 ? (
-                    <p>Não informado: <span className="font-semibold text-gray-950">{filteredSummary.unknown_gender_count}</span></p>
+                    <span className={statPillClass}>Não informado {filteredSummary.unknown_gender_count}</span>
                   ) : null}
                 </div>
               </section>
 
               <section className={summaryCardClass}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">16+</p>
-                <h2 className="mt-2 text-2xl font-bold text-gray-950">{filteredSummary.age_16_plus_count}</h2>
-                <p className="mt-3 text-sm text-gray-700">
-                  2008: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2008']}</span>{' · '}
-                  2009: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2009']}</span>{' · '}
-                  2010: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2010']}</span>
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Faixa 16+</p>
+                <h2 className="mt-2 font-sans text-3xl font-bold text-gray-950">{filteredSummary.age_16_plus_count}</h2>
+                <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                  <span className={statPillClass}>2008 {filteredSummary.birth_year_groups['2008']}</span>
+                  <span className={statPillClass}>2009 {filteredSummary.birth_year_groups['2009']}</span>
+                  <span className={statPillClass}>2010 {filteredSummary.birth_year_groups['2010']}</span>
+                </div>
               </section>
 
               <section className={summaryCardClass}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">SUB16</p>
-                <h2 className="mt-2 text-2xl font-bold text-gray-950">{filteredSummary.sub16_count}</h2>
-                <p className="mt-3 text-sm text-gray-700">
-                  2011: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2011']}</span>{' · '}
-                  2012: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2012']}</span>{' · '}
-                  2013: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2013']}</span>
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Faixa SUB16</p>
+                <h2 className="mt-2 font-sans text-3xl font-bold text-gray-950">{filteredSummary.sub16_count}</h2>
+                <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                  <span className={statPillClass}>2011 {filteredSummary.birth_year_groups['2011']}</span>
+                  <span className={statPillClass}>2012 {filteredSummary.birth_year_groups['2012']}</span>
+                  <span className={statPillClass}>2013 {filteredSummary.birth_year_groups['2013']}</span>
+                </div>
               </section>
 
               <section className={summaryCardClass}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Distribuição</p>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
-                  <p>Sem império: <span className="font-semibold text-gray-950">{filteredBoard.none.count}</span></p>
-                  <p>Egito: <span className="font-semibold text-gray-950">{filteredBoard.egito.count}</span></p>
-                  <p>Pérsia: <span className="font-semibold text-gray-950">{filteredBoard.persia.count}</span></p>
-                  <p>Grécia: <span className="font-semibold text-gray-950">{filteredBoard.grecia.count}</span></p>
-                  <p>Roma: <span className="font-semibold text-gray-950">{filteredBoard.roma.count}</span></p>
+                  <p>Sem império <span className="font-semibold text-gray-950">{filteredBoard.none.count}</span></p>
+                  <p>Egito <span className="font-semibold text-gray-950">{filteredBoard.egito.count}</span></p>
+                  <p>Pérsia <span className="font-semibold text-gray-950">{filteredBoard.persia.count}</span></p>
+                  <p>Grécia <span className="font-semibold text-gray-950">{filteredBoard.grecia.count}</span></p>
+                  <p>Roma <span className="font-semibold text-gray-950">{filteredBoard.roma.count}</span></p>
                 </div>
               </section>
             </div>
 
-            <div className="space-y-3 xl:hidden">
-              {[EMPIRE_META.find((empire) => empire.key === 'none')!, ...EMPIRE_META.filter((empire) => empire.key !== 'none')].map((empire) => {
-                const column = filteredBoard[empire.key];
-                const isUnassigned = empire.key === 'none';
+            <section className={`${shellCardClass} p-4 lg:p-5`}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-700">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Fila prioritária
+                  </div>
+                  <h2 className="mt-2 font-sans text-2xl font-bold text-gray-950">Sem império</h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Trate primeiro quem ainda está sem destino definido.
+                  </p>
+                </div>
+                <div>
+                  <div className="flex flex-wrap gap-2 text-[11px]">
+                    <span className={statPillClass}>{filteredBoard.none.count} participantes</span>
+                    <span className={statPillClass}>Idade média {formatAverageAge(filteredBoard.none.average_age)}</span>
+                  </div>
+                  {renderColumnStats(filteredBoard.none)}
+                </div>
+              </div>
 
-                return (
-                  <section key={empire.key} className="rounded-[22px] border border-white/80 bg-white p-2.5 shadow-sm">
-                    <div className={`rounded-xl border px-2.5 py-2 ${empire.accent}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <h2 className="text-sm font-bold">{empire.label}</h2>
-                          <p className="mt-0.5 text-[10px] opacity-80">{column.count} integrantes</p>
-                        </div>
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/70">
-                          {isUnassigned ? (
-                            <ShieldAlert className="h-4 w-4" />
-                          ) : (
-                            <Users className="h-4 w-4" style={{ color: brandPurple }} />
-                          )}
-                        </div>
-                      </div>
-                      <p className="mt-1.5 text-[11px] font-semibold">Idade média: {formatAverageAge(column.average_age)}</p>
-                      {renderColumnStats(column)}
-                    </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                {filteredBoard.none.items.length === 0 ? (
+                  <div className="rounded-[24px] border border-dashed border-stone-300 bg-stone-50 px-4 py-8 text-center text-sm text-gray-500 md:col-span-2 2xl:col-span-3">
+                    Nenhum inscrito sem império no recorte atual.
+                  </div>
+                ) : (
+                  sortItemsByAge(filteredBoard.none.items).map((item) => renderParticipantCard(item, 'none'))
+                )}
+              </div>
+            </section>
 
-                    <div className="mt-2.5 space-y-2">
-                      {column.items.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-xs text-gray-500">
-                          {isUnassigned ? 'Nenhum inscrito sem império.' : 'Nenhum inscrito nesta coluna.'}
-                        </div>
-                      ) : (
-                        sortItemsByAge(column.items).map((item) => renderParticipantCard(item, empire.key))
-                      )}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
+            <section className={`${shellCardClass} p-4 lg:p-5`}>
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#f5efe1] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-600">
+                    Distribuição final
+                  </div>
+                  <h2 className="mt-2 font-sans text-2xl font-bold text-gray-950">Impérios organizados</h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Colunas mais limpas para leitura e seleção dos já alocados.
+                  </p>
+                </div>
+              </div>
 
-            <div className="hidden overflow-x-auto pb-2 xl:block">
-              <div className="grid min-w-[1120px] gap-3 xl:grid-cols-5">
-                {[EMPIRE_META.find((empire) => empire.key === 'none')!, ...EMPIRE_META.filter((empire) => empire.key !== 'none')].map((empire) => {
+              <div className="mt-4 grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+                {assignedEmpireMeta.map((empire) => {
                   const column = filteredBoard[empire.key];
-                  const isUnassigned = empire.key === 'none';
 
                   return (
-                    <section key={empire.key} className="rounded-[22px] border border-white/80 bg-white p-2.5 shadow-sm">
-                      <div className={`rounded-xl border px-2.5 py-2 ${empire.accent}`}>
-                        <div className="flex items-center justify-between gap-2">
+                    <section key={empire.key} className="rounded-[26px] border border-[#ece4d7] bg-white/92 p-3 shadow-sm">
+                      <div className={`rounded-[20px] border px-3 py-3 ${empire.accent}`}>
+                        <div className="flex items-center justify-between gap-3">
                           <div>
-                            <h2 className="text-sm font-bold">{empire.label}</h2>
-                            <p className="mt-0.5 text-[10px] opacity-80">{column.count} integrantes</p>
+                            <h2 className="font-sans text-base font-bold">{empire.label}</h2>
+                            <p className="mt-1 text-[11px] opacity-80">{column.count} integrantes</p>
                           </div>
-                          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/70">
-                            {isUnassigned ? (
-                              <ShieldAlert className="h-4 w-4" />
-                            ) : (
-                              <Users className="h-4 w-4" style={{ color: brandPurple }} />
-                            )}
+                          <div className="rounded-full border border-white/80 bg-white/80 px-3 py-1 text-[11px] font-semibold text-gray-700">
+                            {formatAverageAge(column.average_age)}
                           </div>
                         </div>
-                        <p className="mt-1.5 text-[11px] font-semibold">Idade média: {formatAverageAge(column.average_age)}</p>
                         {renderColumnStats(column)}
                       </div>
 
-                      <div className="mt-2.5 space-y-2">
+                      <div className="mt-3 max-h-[34rem] space-y-2 overflow-y-auto pr-1">
                         {column.items.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-slate-200 px-3 py-5 text-center text-xs text-gray-500">
-                            {isUnassigned ? 'Nenhum inscrito sem império.' : 'Nenhum inscrito nesta coluna.'}
+                          <div className="rounded-[20px] border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-gray-500">
+                            Nenhum inscrito nesta coluna.
                           </div>
                         ) : (
                           sortItemsByAge(column.items).map((item) => renderParticipantCard(item, empire.key))
@@ -685,7 +757,7 @@ export default function AdminEmpires() {
                   );
                 })}
               </div>
-            </div>
+            </section>
           </>
         )}
       </div>
