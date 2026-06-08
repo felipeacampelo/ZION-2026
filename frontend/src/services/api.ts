@@ -158,6 +158,7 @@ export interface EmpireBoardItem {
 export interface EmpireBoardColumn {
   count: number;
   average_age: number | null;
+  summary: EmpireBoardSummary;
   items: EmpireBoardItem[];
 }
 

@@ -48,6 +48,15 @@ const escapeCsvCell = (value: unknown) => {
 
 const summaryCardClass = 'rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm';
 
+const renderColumnStats = (column: EmpireBoardResponse[EmpireKey]) => (
+  <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-700">
+    <p>Homens: <span className="font-semibold text-gray-950">{column.summary.male_count}</span></p>
+    <p>Mulheres: <span className="font-semibold text-gray-950">{column.summary.female_count}</span></p>
+    <p>16+: <span className="font-semibold text-gray-950">{column.summary.age_16_plus_count}</span></p>
+    <p>SUB16: <span className="font-semibold text-gray-950">{column.summary.sub16_count}</span></p>
+  </div>
+);
+
 export default function AdminEmpires() {
   const [board, setBoard] = useState<EmpireBoardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -383,6 +392,7 @@ export default function AdminEmpires() {
                         </div>
                       </div>
                       <p className="mt-1.5 text-[11px] font-semibold">Idade média: {formatAverageAge(column.average_age)}</p>
+                      {renderColumnStats(column)}
                     </div>
 
                     <div className="mt-2.5 space-y-2">
@@ -422,6 +432,7 @@ export default function AdminEmpires() {
                           </div>
                         </div>
                         <p className="mt-1.5 text-[11px] font-semibold">Idade média: {formatAverageAge(column.average_age)}</p>
+                        {renderColumnStats(column)}
                       </div>
 
                       <div className="mt-2.5 space-y-2">
