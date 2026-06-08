@@ -378,6 +378,10 @@ export default function AdminEmpires() {
 
   const assignedEmpireMeta = EMPIRE_META.filter((empire) => empire.key !== 'none');
   const activeFilterCount = [genderFilter, ageGroupFilter, yearFilter].filter((value) => value !== 'all').length;
+  const boardMeta = [
+    { key: 'none' as EmpireKey, label: 'Sem império', accent: EMPIRE_META.find((empire) => empire.key === 'none')!.accent },
+    ...assignedEmpireMeta,
+  ];
 
   return (
     <AdminShell>
@@ -385,45 +389,26 @@ export default function AdminEmpires() {
         <section
           className={`${shellCardClass} overflow-hidden p-4 lg:p-4.5`}
         >
-          <div className="grid gap-4 xl:grid-cols-[1.6fr,1fr] xl:items-center">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <h1 className="text-[1.85rem] font-bold tracking-tight text-gray-950 lg:text-[2.15rem]">
                 Impérios
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-gray-600">
-                Visão compacta para alocar rápido, filtrar melhor e comparar os impérios sem excesso de scroll.
+                Alocação por império com leitura compacta, filtros e comparação direta entre colunas.
               </p>
 
               <div className="mt-3 flex flex-wrap gap-1.5">
+                <span className={statPillClass}>{filteredSummary?.total ?? 0} visíveis</span>
+                <span className={statPillClass}>{filteredBoard?.none.count ?? 0} sem império</span>
+                <span className={statPillClass}>H {filteredSummary?.male_count ?? 0}</span>
+                <span className={statPillClass}>M {filteredSummary?.female_count ?? 0}</span>
+                <span className={statPillClass}>16+ {filteredSummary?.age_16_plus_count ?? 0}</span>
+                <span className={statPillClass}>SUB16 {filteredSummary?.sub16_count ?? 0}</span>
+                <span className={statPillClass}>{selectedAssignedIds.length} selecionados</span>
                 <span className={statPillClass}>
-                  {filteredSummary?.total ?? 0} participantes visíveis
+                  {activeFilterCount === 0 ? 'Sem filtros' : `${activeFilterCount} filtros`}
                 </span>
-                <span className={statPillClass}>
-                  {filteredBoard?.none.count ?? 0} aguardando império
-                </span>
-                <span className={statPillClass}>
-                  {activeFilterCount === 0 ? 'Sem filtros ativos' : `${activeFilterCount} filtros ativos`}
-                </span>
-                <span className={statPillClass}>
-                  Ordem: {ageSort === 'older_first' ? 'mais velhos primeiro' : 'mais novos primeiro'}
-                </span>
-              </div>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-3">
-              <div className="rounded-[18px] border border-white/80 bg-white/92 px-3 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Sem império</p>
-                <p className="mt-1 text-2xl font-bold text-gray-950">{filteredBoard?.none.count ?? 0}</p>
-              </div>
-              <div className="rounded-[18px] border border-white/80 bg-white/92 px-3 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">16+ / SUB16</p>
-                <p className="mt-1 text-lg font-bold text-gray-950">
-                  {filteredSummary?.age_16_plus_count ?? 0} / {filteredSummary?.sub16_count ?? 0}
-                </p>
-              </div>
-              <div className="rounded-[18px] border border-white/80 bg-white/92 px-3 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">Selecionados</p>
-                <p className="mt-1 text-2xl font-bold text-gray-950">{selectedAssignedIds.length}</p>
               </div>
             </div>
           </div>
@@ -448,7 +433,7 @@ export default function AdminEmpires() {
               </button>
             </div>
 
-            <div className="grid gap-2 lg:grid-cols-4">
+            <div className="grid gap-2 lg:grid-cols-[1fr_1fr_1fr_1.15fr]">
               <label className="space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Sexo</span>
                 <select
@@ -613,67 +598,9 @@ export default function AdminEmpires() {
           </div>
         ) : (
           <>
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-              <section className={summaryCardClass}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Participantes</p>
-                <h2 className="mt-1.5 font-sans text-2xl font-bold text-gray-950">{filteredSummary.total}</h2>
-                <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
-                  <span className={statPillClass}>Homens {filteredSummary.male_count}</span>
-                  <span className={statPillClass}>Mulheres {filteredSummary.female_count}</span>
-                  {filteredSummary.unknown_gender_count > 0 ? (
-                    <span className={statPillClass}>Não informado {filteredSummary.unknown_gender_count}</span>
-                  ) : null}
-                </div>
-              </section>
-
-              <section className={summaryCardClass}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Faixa 16+</p>
-                <h2 className="mt-1.5 font-sans text-2xl font-bold text-gray-950">{filteredSummary.age_16_plus_count}</h2>
-                <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
-                  <span className={statPillClass}>2008 {filteredSummary.birth_year_groups['2008']}</span>
-                  <span className={statPillClass}>2009 {filteredSummary.birth_year_groups['2009']}</span>
-                  <span className={statPillClass}>2010 {filteredSummary.birth_year_groups['2010']}</span>
-                </div>
-              </section>
-
-              <section className={summaryCardClass}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Faixa SUB16</p>
-                <h2 className="mt-1.5 font-sans text-2xl font-bold text-gray-950">{filteredSummary.sub16_count}</h2>
-                <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
-                  <span className={statPillClass}>2011 {filteredSummary.birth_year_groups['2011']}</span>
-                  <span className={statPillClass}>2012 {filteredSummary.birth_year_groups['2012']}</span>
-                  <span className={statPillClass}>2013 {filteredSummary.birth_year_groups['2013']}</span>
-                </div>
-              </section>
-
-              <section className={summaryCardClass}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Distribuição</p>
-                <div className="mt-2 grid grid-cols-2 gap-1.5 text-sm text-gray-700">
-                  <p>Sem império <span className="font-semibold text-gray-950">{filteredBoard.none.count}</span></p>
-                  <p>Egito <span className="font-semibold text-gray-950">{filteredBoard.egito.count}</span></p>
-                  <p>Pérsia <span className="font-semibold text-gray-950">{filteredBoard.persia.count}</span></p>
-                  <p>Grécia <span className="font-semibold text-gray-950">{filteredBoard.grecia.count}</span></p>
-                  <p>Roma <span className="font-semibold text-gray-950">{filteredBoard.roma.count}</span></p>
-                </div>
-              </section>
-            </div>
-
             <section className={`${shellCardClass} p-3.5 lg:p-4`}>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-700">
-                    <ShieldAlert className="h-3.5 w-3.5" />
-                    Sem império primeiro
-                  </span>
-                  <span className={statPillClass}>{filteredBoard.none.count}</span>
-                </div>
-              </div>
-
               <div className="space-y-3 xl:hidden">
-                {[
-                  { key: 'none' as EmpireKey, label: 'Sem império', accent: EMPIRE_META.find((e) => e.key === 'none')!.accent },
-                  ...assignedEmpireMeta,
-                ].map((empire) => {
+                {boardMeta.map((empire) => {
                   const column = filteredBoard[empire.key];
                   const isUnassigned = empire.key === 'none';
 
@@ -689,7 +616,12 @@ export default function AdminEmpires() {
                             {formatAverageAge(column.average_age)}
                           </div>
                         </div>
-                        {renderColumnStats(column)}
+                        <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium">
+                          <span>H {column.summary.male_count}</span>
+                          <span>M {column.summary.female_count}</span>
+                          <span>16+ {column.summary.age_16_plus_count}</span>
+                          <span>SUB16 {column.summary.sub16_count}</span>
+                        </div>
                       </div>
 
                       <div className="mt-2.5 space-y-2">
@@ -708,10 +640,7 @@ export default function AdminEmpires() {
 
               <div className="hidden overflow-x-auto pb-1 xl:block">
                 <div className="grid min-w-[1340px] gap-3 xl:grid-cols-5">
-                  {[
-                    { key: 'none' as EmpireKey, label: 'Sem império', accent: EMPIRE_META.find((e) => e.key === 'none')!.accent },
-                    ...assignedEmpireMeta,
-                  ].map((empire) => {
+                  {boardMeta.map((empire) => {
                     const column = filteredBoard[empire.key];
                     const isUnassigned = empire.key === 'none';
 
@@ -727,7 +656,12 @@ export default function AdminEmpires() {
                               {formatAverageAge(column.average_age)}
                             </div>
                           </div>
-                          {renderColumnStats(column)}
+                          <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] font-medium">
+                            <span>H {column.summary.male_count}</span>
+                            <span>M {column.summary.female_count}</span>
+                            <span>16+ {column.summary.age_16_plus_count}</span>
+                            <span>SUB16 {column.summary.sub16_count}</span>
+                          </div>
                         </div>
 
                         <div className="mt-2.5 max-h-[30rem] space-y-2 overflow-y-auto pr-1">
