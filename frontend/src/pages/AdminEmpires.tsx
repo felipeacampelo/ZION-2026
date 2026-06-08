@@ -10,8 +10,11 @@ import {
 
 const brandPurple = 'rgb(165, 44, 240)';
 
+type EmpireKey = Exclude<keyof EmpireBoardResponse, 'summary'>;
+type AssignableEmpire = 'egito' | 'persia' | 'grecia' | 'roma' | 'none';
+
 const EMPIRE_META: Array<{
-  key: keyof EmpireBoardResponse;
+  key: EmpireKey;
   label: string;
   accent: string;
   cellAccent: string;
@@ -22,9 +25,6 @@ const EMPIRE_META: Array<{
   { key: 'roma', label: 'Roma', accent: 'bg-rose-50 text-rose-700 border-rose-100', cellAccent: 'bg-rose-50/80 border-rose-200' },
   { key: 'none', label: 'Sem império', accent: 'bg-slate-100 text-slate-700 border-slate-200', cellAccent: 'bg-slate-50 border-slate-200' },
 ];
-
-type EmpireKey = keyof EmpireBoardResponse;
-type AssignableEmpire = 'egito' | 'persia' | 'grecia' | 'roma' | 'none';
 
 const formatAverageAge = (value: number | null) => {
   if (value === null || Number.isNaN(value)) return '-';
@@ -45,6 +45,8 @@ const escapeCsvCell = (value: unknown) => {
   }
   return text;
 };
+
+const summaryCardClass = 'rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm';
 
 export default function AdminEmpires() {
   const [board, setBoard] = useState<EmpireBoardResponse | null>(null);
@@ -314,6 +316,51 @@ export default function AdminEmpires() {
           </div>
         ) : (
           <>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <section className={summaryCardClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Participantes</p>
+                <h2 className="mt-2 text-2xl font-bold text-gray-950">{board.summary.total}</h2>
+                <div className="mt-3 space-y-1 text-sm text-gray-700">
+                  <p>Homens: <span className="font-semibold text-gray-950">{board.summary.male_count}</span></p>
+                  <p>Mulheres: <span className="font-semibold text-gray-950">{board.summary.female_count}</span></p>
+                  {board.summary.unknown_gender_count > 0 ? (
+                    <p>Não informado: <span className="font-semibold text-gray-950">{board.summary.unknown_gender_count}</span></p>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className={summaryCardClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">16+</p>
+                <h2 className="mt-2 text-2xl font-bold text-gray-950">{board.summary.age_16_plus_count}</h2>
+                <p className="mt-3 text-sm text-gray-700">
+                  2008: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2008']}</span>{' · '}
+                  2009: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2009']}</span>{' · '}
+                  2010: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2010']}</span>
+                </p>
+              </section>
+
+              <section className={summaryCardClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">SUB16</p>
+                <h2 className="mt-2 text-2xl font-bold text-gray-950">{board.summary.sub16_count}</h2>
+                <p className="mt-3 text-sm text-gray-700">
+                  2011: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2011']}</span>{' · '}
+                  2012: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2012']}</span>{' · '}
+                  2013: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2013']}</span>
+                </p>
+              </section>
+
+              <section className={summaryCardClass}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Distribuição</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
+                  <p>Sem império: <span className="font-semibold text-gray-950">{board.none.count}</span></p>
+                  <p>Egito: <span className="font-semibold text-gray-950">{board.egito.count}</span></p>
+                  <p>Pérsia: <span className="font-semibold text-gray-950">{board.persia.count}</span></p>
+                  <p>Grécia: <span className="font-semibold text-gray-950">{board.grecia.count}</span></p>
+                  <p>Roma: <span className="font-semibold text-gray-950">{board.roma.count}</span></p>
+                </div>
+              </section>
+            </div>
+
             <div className="space-y-3 xl:hidden">
               {[EMPIRE_META.find((empire) => empire.key === 'none')!, ...EMPIRE_META.filter((empire) => empire.key !== 'none')].map((empire) => {
                 const column = board[empire.key];

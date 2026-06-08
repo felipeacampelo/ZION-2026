@@ -462,15 +462,79 @@ def build_empire_item_payload(enrollment):
     }
 
 
+def extract_birth_year(birth_date_value):
+    if not isinstance(birth_date_value, str) or len(birth_date_value) < 4:
+        return None
+
+    year = birth_date_value[:4]
+    return int(year) if year.isdigit() else None
+
+
+def normalize_gender(form_data):
+    if not isinstance(form_data, dict):
+        return None
+
+    raw_value = (
+        form_data.get('sexo')
+        or form_data.get('genero')
+        or form_data.get('sexo_biologico')
+        or form_data.get('sexo_participante')
+        or ''
+    )
+    value = str(raw_value).strip().lower()
+
+    if value in {'masculino', 'masc', 'm', 'homem'}:
+        return 'male'
+    if value in {'feminino', 'fem', 'f', 'mulher'}:
+        return 'female'
+    return None
+
+
 def build_empire_board_response():
     grouped = {key: [] for key in EMPIRE_KEYS}
     enrollments = Enrollment.objects.select_related('user').order_by('created_at')
+    summary = {
+        'total': 0,
+        'male_count': 0,
+        'female_count': 0,
+        'unknown_gender_count': 0,
+        'age_16_plus_count': 0,
+        'sub16_count': 0,
+        'birth_year_groups': {
+            '2008': 0,
+            '2009': 0,
+            '2010': 0,
+            '2011': 0,
+            '2012': 0,
+            '2013': 0,
+        },
+    }
 
     for enrollment in enrollments:
         form_data = enrollment.form_data or {}
         empire = str(form_data.get('imperio_zion') or '').strip().lower()
         key = empire if empire in {'egito', 'persia', 'grecia', 'roma'} else 'none'
         grouped[key].append(build_empire_item_payload(enrollment))
+
+        summary['total'] += 1
+
+        gender = normalize_gender(form_data)
+        if gender == 'male':
+            summary['male_count'] += 1
+        elif gender == 'female':
+            summary['female_count'] += 1
+        else:
+            summary['unknown_gender_count'] += 1
+
+        birth_year = extract_birth_year(form_data.get('data_nascimento'))
+        if birth_year in {2008, 2009, 2010}:
+            summary['age_16_plus_count'] += 1
+        elif birth_year in {2011, 2012, 2013}:
+            summary['sub16_count'] += 1
+
+        birth_year_key = str(birth_year) if birth_year is not None else None
+        if birth_year_key in summary['birth_year_groups']:
+            summary['birth_year_groups'][birth_year_key] += 1
 
     response = {}
     for key in EMPIRE_KEYS:
@@ -481,6 +545,7 @@ def build_empire_board_response():
             'items': grouped[key],
         }
 
+    response['summary'] = summary
     return response
 
 

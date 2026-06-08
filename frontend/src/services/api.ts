@@ -161,12 +161,30 @@ export interface EmpireBoardColumn {
   items: EmpireBoardItem[];
 }
 
+export interface EmpireBoardSummary {
+  total: number;
+  male_count: number;
+  female_count: number;
+  unknown_gender_count: number;
+  age_16_plus_count: number;
+  sub16_count: number;
+  birth_year_groups: {
+    '2008': number;
+    '2009': number;
+    '2010': number;
+    '2011': number;
+    '2012': number;
+    '2013': number;
+  };
+}
+
 export interface EmpireBoardResponse {
   egito: EmpireBoardColumn;
   persia: EmpireBoardColumn;
   grecia: EmpireBoardColumn;
   roma: EmpireBoardColumn;
   none: EmpireBoardColumn;
+  summary: EmpireBoardSummary;
 }
 
 export interface Payment {

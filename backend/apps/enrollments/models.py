@@ -14,6 +14,7 @@ DEFAULT_FORM_FIELDS_CONFIG = {
     'email': {'enabled': True, 'required': True, 'label': 'Email'},
     'telefone': {'enabled': True, 'required': True, 'label': 'Telefone'},
     'data_nascimento': {'enabled': True, 'required': True, 'label': 'Data de Nascimento'},
+    'sexo': {'enabled': True, 'required': True, 'label': 'Sexo'},
     'cpf': {'enabled': True, 'required': True, 'label': 'CPF'},
     'rg': {'enabled': True, 'required': True, 'label': 'RG'},
     'cep': {'enabled': True, 'required': True, 'label': 'CEP'},
