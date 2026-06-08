@@ -49,8 +49,8 @@ const escapeCsvCell = (value: unknown) => {
   return text;
 };
 
-const shellCardClass = 'rounded-[24px] border border-[#e7decd] bg-[#fffdf8] shadow-[0_14px_36px_rgba(15,23,42,0.05)]';
-const summaryCardClass = 'rounded-[18px] border border-[#ece4d7] bg-white/95 px-3 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.04)]';
+const shellCardClass = 'rounded-[24px] border border-white/80 bg-white shadow-[0_14px_36px_rgba(15,23,42,0.05)]';
+const summaryCardClass = 'rounded-[18px] border border-slate-200 bg-white px-3 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.04)]';
 const statPillClass = 'inline-flex items-center rounded-full border border-white/80 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-700 shadow-sm';
 const inputClass =
   'min-w-[148px] rounded-2xl border border-[#ddd1bc] bg-white px-3 py-2.5 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[#bfa14a] focus:ring-2 focus:ring-[rgba(191,161,74,0.16)]';
@@ -384,10 +384,6 @@ export default function AdminEmpires() {
       <div className="space-y-4">
         <section
           className={`${shellCardClass} overflow-hidden p-4 lg:p-4.5`}
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(191,161,74,0.14) 0%, rgba(255,253,248,0.98) 36%, rgba(244,240,230,0.96) 100%)',
-          }}
         >
           <div className="grid gap-4 xl:grid-cols-[1.6fr,1fr] xl:items-center">
             <div>
@@ -510,7 +506,7 @@ export default function AdminEmpires() {
 
         {showExportModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
-            <div className="w-full max-w-xl rounded-[32px] border border-[#ece4d7] bg-[#fffdf8] p-6 shadow-2xl">
+            <div className="w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-6 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-sans text-xl font-bold text-gray-950">Exportar CSV</h2>
@@ -537,7 +533,7 @@ export default function AdminEmpires() {
                       className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition-colors ${
                         checked
                           ? 'border-amber-300 bg-amber-50 text-gray-900'
-                          : 'border-[#ece4d7] bg-white text-gray-700'
+                          : 'border-slate-200 bg-white text-gray-700'
                       }`}
                     >
                       <input
@@ -682,7 +678,7 @@ export default function AdminEmpires() {
                   const isUnassigned = empire.key === 'none';
 
                   return (
-                    <section key={empire.key} className="rounded-[18px] border border-[#ece4d7] bg-white/92 p-2.5 shadow-sm">
+                    <section key={empire.key} className="rounded-[18px] border border-slate-200 bg-white p-2.5 shadow-sm">
                       <div className={`rounded-[14px] border px-2.5 py-2 ${empire.accent}`}>
                         <div className="flex items-center justify-between gap-3">
                           <div>
@@ -720,7 +716,7 @@ export default function AdminEmpires() {
                     const isUnassigned = empire.key === 'none';
 
                     return (
-                      <section key={empire.key} className="rounded-[18px] border border-[#ece4d7] bg-white/92 p-2.5 shadow-sm">
+                      <section key={empire.key} className="rounded-[18px] border border-slate-200 bg-white p-2.5 shadow-sm">
                         <div className={`rounded-[14px] border px-2.5 py-2 ${empire.accent}`}>
                           <div className="flex items-center justify-between gap-2">
                             <div>
