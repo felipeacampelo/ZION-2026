@@ -12,6 +12,9 @@ const brandPurple = 'rgb(165, 44, 240)';
 
 type EmpireKey = Exclude<keyof EmpireBoardResponse, 'summary'>;
 type AssignableEmpire = 'egito' | 'persia' | 'grecia' | 'roma' | 'none';
+type GenderFilter = 'all' | 'male' | 'female';
+type AgeGroupFilter = 'all' | '16_plus' | 'sub16';
+type YearFilter = 'all' | '2008' | '2009' | '2010' | '2011' | '2012' | '2013';
 
 const EMPIRE_META: Array<{
   key: EmpireKey;
@@ -57,6 +60,46 @@ const renderColumnStats = (column: EmpireBoardResponse[EmpireKey]) => (
   </div>
 );
 
+const extractBirthYear = (value: string) => {
+  if (!value || value.length < 4) return null;
+  const year = value.slice(0, 4);
+  return /^\d{4}$/.test(year) ? year : null;
+};
+
+const buildSummaryFromItems = (items: EmpireBoardItem[]) => {
+  const summary: EmpireBoardResponse['summary'] = {
+    total: items.length,
+    male_count: 0,
+    female_count: 0,
+    unknown_gender_count: 0,
+    age_16_plus_count: 0,
+    sub16_count: 0,
+    birth_year_groups: {
+      '2008': 0,
+      '2009': 0,
+      '2010': 0,
+      '2011': 0,
+      '2012': 0,
+      '2013': 0,
+    },
+  };
+
+  items.forEach((item) => {
+    if (item.gender === 'male') summary.male_count += 1;
+    else if (item.gender === 'female') summary.female_count += 1;
+    else summary.unknown_gender_count += 1;
+
+    const year = extractBirthYear(item.birth_date);
+    if (year && year in summary.birth_year_groups) {
+      summary.birth_year_groups[year as keyof typeof summary.birth_year_groups] += 1;
+    }
+    if (year === '2008' || year === '2009' || year === '2010') summary.age_16_plus_count += 1;
+    if (year === '2011' || year === '2012' || year === '2013') summary.sub16_count += 1;
+  });
+
+  return summary;
+};
+
 export default function AdminEmpires() {
   const [board, setBoard] = useState<EmpireBoardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,6 +109,9 @@ export default function AdminEmpires() {
   const [error, setError] = useState('');
   const [ageSort, setAgeSort] = useState<'older_first' | 'younger_first'>('older_first');
   const [selectedAssignedIds, setSelectedAssignedIds] = useState<number[]>([]);
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>('all');
+  const [ageGroupFilter, setAgeGroupFilter] = useState<AgeGroupFilter>('all');
+  const [yearFilter, setYearFilter] = useState<YearFilter>('all');
 
   const loadBoard = async () => {
     try {
@@ -154,14 +200,51 @@ export default function AdminEmpires() {
       return ageSort === 'older_first' ? ageB - ageA : ageA - ageB;
     });
 
+  const applyFilters = (items: EmpireBoardItem[]) =>
+    items.filter((item) => {
+      if (genderFilter !== 'all' && item.gender !== genderFilter) return false;
+
+      const year = extractBirthYear(item.birth_date);
+
+      if (yearFilter !== 'all' && year !== yearFilter) return false;
+
+      if (ageGroupFilter === '16_plus' && !['2008', '2009', '2010'].includes(year || '')) return false;
+      if (ageGroupFilter === 'sub16' && !['2011', '2012', '2013'].includes(year || '')) return false;
+
+      return true;
+    });
+
+  const filteredBoard = board
+    ? Object.fromEntries(
+        EMPIRE_META.map((empire) => {
+          const originalColumn = board[empire.key];
+          const items = applyFilters(originalColumn.items);
+          const ages = items.map((item) => item.age).filter((age): age is number => age !== null && !Number.isNaN(age));
+          return [
+            empire.key,
+            {
+              count: items.length,
+              average_age: ages.length > 0 ? Number((ages.reduce((sum, age) => sum + age, 0) / ages.length).toFixed(1)) : null,
+              summary: buildSummaryFromItems(items),
+              items,
+            },
+          ];
+        })
+      ) as Record<EmpireKey, EmpireBoardResponse[EmpireKey]>
+    : null;
+
+  const filteredSummary = filteredBoard
+    ? buildSummaryFromItems(EMPIRE_META.flatMap((empire) => filteredBoard[empire.key].items))
+    : null;
+
   const exportCsv = () => {
-    if (!board) return;
+    if (!filteredBoard) return;
 
     setExportingCsv(true);
     try {
       const rows = [EMPIRE_META.find((empire) => empire.key === 'none')!, ...EMPIRE_META.filter((empire) => empire.key !== 'none')]
         .flatMap((empire) =>
-          sortItemsByAge(board[empire.key].items).map((item) => [
+          sortItemsByAge(filteredBoard[empire.key].items).map((item) => [
             empire.label,
             item.participant_name,
             formatBirthDate(item.birth_date),
@@ -260,6 +343,46 @@ export default function AdminEmpires() {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Sexo</span>
+              <select
+                value={genderFilter}
+                onChange={(event) => setGenderFilter(event.target.value as GenderFilter)}
+                className="min-w-[160px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
+              >
+                <option value="all">Todos</option>
+                <option value="male">Homens</option>
+                <option value="female">Mulheres</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Faixa</span>
+              <select
+                value={ageGroupFilter}
+                onChange={(event) => setAgeGroupFilter(event.target.value as AgeGroupFilter)}
+                className="min-w-[160px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
+              >
+                <option value="all">Todas</option>
+                <option value="16_plus">16+</option>
+                <option value="sub16">SUB16</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Ano</span>
+              <select
+                value={yearFilter}
+                onChange={(event) => setYearFilter(event.target.value as YearFilter)}
+                className="min-w-[140px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm outline-none transition focus:border-[rgb(165,44,240)] focus:ring-2 focus:ring-[rgba(165,44,240,0.12)]"
+              >
+                <option value="all">Todos</option>
+                <option value="2008">2008</option>
+                <option value="2009">2009</option>
+                <option value="2010">2010</option>
+                <option value="2011">2011</option>
+                <option value="2012">2012</option>
+                <option value="2013">2013</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-gray-700">Idade</span>
               <select
                 value={ageSort}
@@ -319,7 +442,7 @@ export default function AdminEmpires() {
           <div className="rounded-[28px] border border-white/80 bg-white p-12 text-center text-gray-500 shadow-sm">
             Carregando impérios...
           </div>
-        ) : !board ? (
+        ) : !board || !filteredBoard || !filteredSummary ? (
           <div className="rounded-[28px] border border-white/80 bg-white p-12 text-center text-gray-500 shadow-sm">
             Não foi possível carregar os impérios.
           </div>
@@ -328,51 +451,51 @@ export default function AdminEmpires() {
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <section className={summaryCardClass}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Participantes</p>
-                <h2 className="mt-2 text-2xl font-bold text-gray-950">{board.summary.total}</h2>
+                <h2 className="mt-2 text-2xl font-bold text-gray-950">{filteredSummary.total}</h2>
                 <div className="mt-3 space-y-1 text-sm text-gray-700">
-                  <p>Homens: <span className="font-semibold text-gray-950">{board.summary.male_count}</span></p>
-                  <p>Mulheres: <span className="font-semibold text-gray-950">{board.summary.female_count}</span></p>
-                  {board.summary.unknown_gender_count > 0 ? (
-                    <p>Não informado: <span className="font-semibold text-gray-950">{board.summary.unknown_gender_count}</span></p>
+                  <p>Homens: <span className="font-semibold text-gray-950">{filteredSummary.male_count}</span></p>
+                  <p>Mulheres: <span className="font-semibold text-gray-950">{filteredSummary.female_count}</span></p>
+                  {filteredSummary.unknown_gender_count > 0 ? (
+                    <p>Não informado: <span className="font-semibold text-gray-950">{filteredSummary.unknown_gender_count}</span></p>
                   ) : null}
                 </div>
               </section>
 
               <section className={summaryCardClass}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">16+</p>
-                <h2 className="mt-2 text-2xl font-bold text-gray-950">{board.summary.age_16_plus_count}</h2>
+                <h2 className="mt-2 text-2xl font-bold text-gray-950">{filteredSummary.age_16_plus_count}</h2>
                 <p className="mt-3 text-sm text-gray-700">
-                  2008: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2008']}</span>{' · '}
-                  2009: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2009']}</span>{' · '}
-                  2010: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2010']}</span>
+                  2008: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2008']}</span>{' · '}
+                  2009: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2009']}</span>{' · '}
+                  2010: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2010']}</span>
                 </p>
               </section>
 
               <section className={summaryCardClass}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">SUB16</p>
-                <h2 className="mt-2 text-2xl font-bold text-gray-950">{board.summary.sub16_count}</h2>
+                <h2 className="mt-2 text-2xl font-bold text-gray-950">{filteredSummary.sub16_count}</h2>
                 <p className="mt-3 text-sm text-gray-700">
-                  2011: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2011']}</span>{' · '}
-                  2012: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2012']}</span>{' · '}
-                  2013: <span className="font-semibold text-gray-950">{board.summary.birth_year_groups['2013']}</span>
+                  2011: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2011']}</span>{' · '}
+                  2012: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2012']}</span>{' · '}
+                  2013: <span className="font-semibold text-gray-950">{filteredSummary.birth_year_groups['2013']}</span>
                 </p>
               </section>
 
               <section className={summaryCardClass}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Distribuição</p>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
-                  <p>Sem império: <span className="font-semibold text-gray-950">{board.none.count}</span></p>
-                  <p>Egito: <span className="font-semibold text-gray-950">{board.egito.count}</span></p>
-                  <p>Pérsia: <span className="font-semibold text-gray-950">{board.persia.count}</span></p>
-                  <p>Grécia: <span className="font-semibold text-gray-950">{board.grecia.count}</span></p>
-                  <p>Roma: <span className="font-semibold text-gray-950">{board.roma.count}</span></p>
+                  <p>Sem império: <span className="font-semibold text-gray-950">{filteredBoard.none.count}</span></p>
+                  <p>Egito: <span className="font-semibold text-gray-950">{filteredBoard.egito.count}</span></p>
+                  <p>Pérsia: <span className="font-semibold text-gray-950">{filteredBoard.persia.count}</span></p>
+                  <p>Grécia: <span className="font-semibold text-gray-950">{filteredBoard.grecia.count}</span></p>
+                  <p>Roma: <span className="font-semibold text-gray-950">{filteredBoard.roma.count}</span></p>
                 </div>
               </section>
             </div>
 
             <div className="space-y-3 xl:hidden">
               {[EMPIRE_META.find((empire) => empire.key === 'none')!, ...EMPIRE_META.filter((empire) => empire.key !== 'none')].map((empire) => {
-                const column = board[empire.key];
+                const column = filteredBoard[empire.key];
                 const isUnassigned = empire.key === 'none';
 
                 return (
@@ -412,7 +535,7 @@ export default function AdminEmpires() {
             <div className="hidden overflow-x-auto pb-2 xl:block">
               <div className="grid min-w-[1120px] gap-3 xl:grid-cols-5">
                 {[EMPIRE_META.find((empire) => empire.key === 'none')!, ...EMPIRE_META.filter((empire) => empire.key !== 'none')].map((empire) => {
-                  const column = board[empire.key];
+                  const column = filteredBoard[empire.key];
                   const isUnassigned = empire.key === 'none';
 
                   return (

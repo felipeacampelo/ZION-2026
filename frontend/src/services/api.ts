@@ -153,6 +153,7 @@ export interface EmpireBoardItem {
   cpf: string;
   birth_date: string;
   age: number | null;
+  gender?: 'male' | 'female' | null;
 }
 
 export interface EmpireBoardColumn {

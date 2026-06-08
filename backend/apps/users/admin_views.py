@@ -451,6 +451,7 @@ def calculate_age_from_birth_date(birth_date_value):
 
 def build_empire_item_payload(enrollment):
     form_data = enrollment.form_data or {}
+    gender = normalize_gender(form_data)
     return {
         'id': enrollment.id,
         'participant_name': form_data.get('nome_completo') or enrollment.participant_name or '-',
@@ -459,6 +460,7 @@ def build_empire_item_payload(enrollment):
         'cpf': form_data.get('cpf') or '',
         'birth_date': form_data.get('data_nascimento') or '',
         'age': calculate_age_from_birth_date(form_data.get('data_nascimento')),
+        'gender': gender,
     }
 
 
