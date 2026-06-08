@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldAlert, Users } from 'lucide-react';
+import { ShieldAlert, Users, X } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import {
   allocateAdminEmpire,
@@ -15,6 +15,7 @@ type AssignableEmpire = 'egito' | 'persia' | 'grecia' | 'roma' | 'none';
 type GenderFilter = 'all' | 'male' | 'female';
 type AgeGroupFilter = 'all' | '16_plus' | 'sub16';
 type YearFilter = 'all' | '2008' | '2009' | '2010' | '2011' | '2012' | '2013';
+type CsvColumnKey = 'empire' | 'participant_name' | 'birth_date' | 'age' | 'gender' | 'user_email' | 'phone' | 'cpf' | 'id';
 
 const EMPIRE_META: Array<{
   key: EmpireKey;
@@ -50,6 +51,17 @@ const escapeCsvCell = (value: unknown) => {
 };
 
 const summaryCardClass = 'rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm';
+const csvColumnOptions: Array<{ key: CsvColumnKey; label: string }> = [
+  { key: 'empire', label: 'Império' },
+  { key: 'participant_name', label: 'Nome' },
+  { key: 'birth_date', label: 'Nascimento' },
+  { key: 'age', label: 'Idade' },
+  { key: 'gender', label: 'Sexo' },
+  { key: 'user_email', label: 'Email' },
+  { key: 'phone', label: 'Telefone' },
+  { key: 'cpf', label: 'CPF' },
+  { key: 'id', label: 'ID da inscrição' },
+];
 
 const renderColumnStats = (column: EmpireBoardResponse[EmpireKey]) => (
   <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-700">
@@ -112,6 +124,14 @@ export default function AdminEmpires() {
   const [genderFilter, setGenderFilter] = useState<GenderFilter>('all');
   const [ageGroupFilter, setAgeGroupFilter] = useState<AgeGroupFilter>('all');
   const [yearFilter, setYearFilter] = useState<YearFilter>('all');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedCsvColumns, setSelectedCsvColumns] = useState<CsvColumnKey[]>([
+    'empire',
+    'participant_name',
+    'birth_date',
+    'age',
+    'gender',
+  ]);
 
   const loadBoard = async () => {
     try {
@@ -237,23 +257,50 @@ export default function AdminEmpires() {
     ? buildSummaryFromItems(EMPIRE_META.flatMap((empire) => filteredBoard[empire.key].items))
     : null;
 
+  const toggleCsvColumn = (columnKey: CsvColumnKey) => {
+    setSelectedCsvColumns((current) => {
+      if (current.includes(columnKey)) {
+        if (current.length === 1) return current;
+        return current.filter((key) => key !== columnKey);
+      }
+      return [...current, columnKey];
+    });
+  };
+
+  const formatGender = (value?: 'male' | 'female' | null) => {
+    if (value === 'male') return 'Homem';
+    if (value === 'female') return 'Mulher';
+    return '';
+  };
+
   const exportCsv = () => {
-    if (!filteredBoard) return;
+    if (!filteredBoard || selectedCsvColumns.length === 0) return;
 
     setExportingCsv(true);
     try {
       const rows = [EMPIRE_META.find((empire) => empire.key === 'none')!, ...EMPIRE_META.filter((empire) => empire.key !== 'none')]
         .flatMap((empire) =>
           sortItemsByAge(filteredBoard[empire.key].items).map((item) => [
-            empire.label,
-            item.participant_name,
-            formatBirthDate(item.birth_date),
-            item.age ?? '',
+            ...selectedCsvColumns.map((columnKey) => {
+              if (columnKey === 'empire') return empire.label;
+              if (columnKey === 'participant_name') return item.participant_name;
+              if (columnKey === 'birth_date') return formatBirthDate(item.birth_date);
+              if (columnKey === 'age') return item.age ?? '';
+              if (columnKey === 'gender') return formatGender(item.gender);
+              if (columnKey === 'user_email') return item.user_email;
+              if (columnKey === 'phone') return item.phone;
+              if (columnKey === 'cpf') return item.cpf;
+              if (columnKey === 'id') return item.id;
+              return '';
+            }),
           ])
         );
 
       const csvContent = [
-        ['Império', 'Nome', 'Nascimento', 'Idade'].map(escapeCsvCell).join(','),
+        selectedCsvColumns
+          .map((columnKey) => csvColumnOptions.find((option) => option.key === columnKey)?.label || columnKey)
+          .map(escapeCsvCell)
+          .join(','),
         ...rows.map((row) => row.map(escapeCsvCell).join(',')),
       ].join('\n');
 
@@ -263,6 +310,7 @@ export default function AdminEmpires() {
       link.download = `imperios_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
       URL.revokeObjectURL(link.href);
+      setShowExportModal(false);
     } finally {
       setExportingCsv(false);
     }
@@ -395,7 +443,7 @@ export default function AdminEmpires() {
             </div>
             <button
               type="button"
-              onClick={exportCsv}
+              onClick={() => setShowExportModal(true)}
               disabled={exportingCsv || !board}
               className="rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: brandPurple }}
@@ -404,6 +452,72 @@ export default function AdminEmpires() {
             </button>
           </div>
         </div>
+
+        {showExportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+            <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-950">Exportar CSV</h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Escolha quais colunas devem aparecer na planilha.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(false)}
+                  className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800"
+                  aria-label="Fechar modal de exportação"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {csvColumnOptions.map((option) => {
+                  const checked = selectedCsvColumns.includes(option.key);
+                  return (
+                    <label
+                      key={option.key}
+                      className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition-colors ${
+                        checked
+                          ? 'border-amber-300 bg-amber-50 text-gray-900'
+                          : 'border-slate-200 bg-white text-gray-700'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleCsvColumn(option.key)}
+                        className="h-4 w-4"
+                      />
+                      <span className="font-medium">{option.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowExportModal(false)}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={exportCsv}
+                  disabled={exportingCsv || selectedCsvColumns.length === 0}
+                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+                  style={{ backgroundColor: brandPurple }}
+                >
+                  {exportingCsv ? 'Exportando...' : 'Baixar CSV'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {selectedAssignedIds.length > 0 && (
           <div className="flex flex-col gap-3 rounded-2xl border border-[rgba(165,44,240,0.12)] bg-[rgba(165,44,240,0.05)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
