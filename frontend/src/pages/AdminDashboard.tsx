@@ -353,7 +353,9 @@ export default function AdminDashboard() {
                     }}
                   />
                 </div>
-                <p className="mt-2 text-xs text-gray-500">{stats.enrollments.pending} inscrições ainda pendentes</p>
+                <p className="mt-2 text-xs text-gray-500">
+                  {stats.enrollments.total > 0 ? `${confirmedRate}% das inscrições já foram efetivadas` : 'Nenhuma inscrição cadastrada ainda'}
+                </p>
               </article>
 
               <article
