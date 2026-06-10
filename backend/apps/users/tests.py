@@ -286,11 +286,60 @@ class AdminDashboardStatsTests(APITestCase):
             status='OVERDUE',
             due_date=timezone.now().date(),
         )
+        cancelled_user = User.objects.create_user(
+            email='cancelled-effective@example.com',
+            password='password123',
+        )
+        cancelled_enrollment = Enrollment.objects.create(
+            user=cancelled_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'nome_completo': 'Cancelled User'},
+            payment_method='PIX_CASH',
+            status='CANCELLED',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+        Payment.objects.create(
+            enrollment=cancelled_enrollment,
+            asaas_payment_id='pay-dashboard-cancelled',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='RECEIVED',
+            due_date=timezone.now().date(),
+        )
+        expired_user = User.objects.create_user(
+            email='expired-effective@example.com',
+            password='password123',
+        )
+        expired_enrollment = Enrollment.objects.create(
+            user=expired_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'nome_completo': 'Expired User'},
+            payment_method='CREDIT_CARD',
+            status='EXPIRED',
+            installments=1,
+            total_amount=Decimal('130.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('130.00'),
+        )
+        Payment.objects.create(
+            enrollment=expired_enrollment,
+            asaas_payment_id='pay-dashboard-expired',
+            installment_number=1,
+            amount=Decimal('130.00'),
+            status='CONFIRMED',
+            due_date=timezone.now().date(),
+        )
 
         self.client.force_authenticate(user=self.admin)
         response = self.client.get(reverse('users:admin-dashboard'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['enrollments']['effective'], 1)
         self.assertEqual(response.data['members']['yes'], 1)
         self.assertEqual(response.data['members']['no'], 1)
         self.assertEqual(response.data['members']['unknown'], 1)

@@ -566,11 +566,23 @@ def build_empire_board_response():
 @permission_classes([IsAdminUser])
 def admin_dashboard_stats(request):
     """Get dashboard statistics for admin."""
-    
+    from django.db.models import Exists, OuterRef
+
     # Enrollment stats
     total_enrollments = Enrollment.objects.count()
     pending_enrollments = Enrollment.objects.filter(status='PENDING_PAYMENT').count()
     confirmed_enrollments = Enrollment.objects.filter(status='PAID').count()
+    paid_payments_for_enrollment = Payment.objects.filter(
+        enrollment_id=OuterRef('pk'),
+        status__in=['CONFIRMED', 'RECEIVED'],
+    )
+    effective_enrollments = Enrollment.objects.annotate(
+        has_effective_payment=Exists(paid_payments_for_enrollment),
+    ).exclude(
+        status__in=['CANCELLED', 'EXPIRED'],
+    ).filter(
+        has_effective_payment=True,
+    ).count()
     
     # Payment stats
     total_payments = Payment.objects.count()
@@ -684,6 +696,7 @@ def admin_dashboard_stats(request):
             'total': total_enrollments,
             'pending': pending_enrollments,
             'confirmed': confirmed_enrollments,
+            'effective': effective_enrollments,
             'recent': recent_enrollments,
         },
         'payments': {

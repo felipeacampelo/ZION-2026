@@ -33,6 +33,7 @@ interface DashboardStats {
     total: number;
     pending: number;
     confirmed: number;
+    effective: number;
     recent: number;
   };
   payments: {
@@ -207,7 +208,7 @@ export default function AdminDashboard() {
     : 0;
   const confirmedRate =
     stats && stats.enrollments.total > 0
-      ? Math.round((stats.enrollments.confirmed / stats.enrollments.total) * 100)
+      ? Math.round((stats.enrollments.effective / stats.enrollments.total) * 100)
       : 0;
 
   if (loading) {
@@ -338,21 +339,21 @@ export default function AdminDashboard() {
                     <CheckCircle className="h-6 w-6 text-lime-700" />
                   </div>
                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                    +{stats.payments.recent} semana
+                    +{stats.enrollments.recent} semana
                   </span>
                 </div>
-                <p className="mt-5 text-3xl font-bold text-gray-950">{stats.payments.confirmed}</p>
-                <p className="mt-1 text-sm text-gray-600">Pagamentos confirmados</p>
+                <p className="mt-5 text-3xl font-bold text-gray-950">{stats.enrollments.effective}</p>
+                <p className="mt-1 text-sm text-gray-600">Inscrições efetivadas</p>
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: `${stats.payments.total > 0 ? (stats.payments.confirmed / stats.payments.total) * 100 : 0}%`,
+                      width: `${stats.enrollments.total > 0 ? (stats.enrollments.effective / stats.enrollments.total) * 100 : 0}%`,
                       backgroundColor: brandPurple,
                     }}
                   />
                 </div>
-                <p className="mt-2 text-xs text-gray-500">{stats.payments.pending} pagamentos ainda pendentes</p>
+                <p className="mt-2 text-xs text-gray-500">{stats.enrollments.pending} inscrições ainda pendentes</p>
               </article>
 
               <article
