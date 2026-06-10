@@ -373,12 +373,12 @@ export default function AdminEnrollments() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-nowrap sm:items-center sm:gap-4 lg:grid lg:grid-cols-5 lg:gap-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:gap-3">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   disabled={isBusy}
-                  className="min-w-0 w-full sm:w-auto sm:min-w-[140px] px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11 lg:min-w-[150px]"
+                  className="min-w-0 w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11"
                 >
                   <option value="">Status</option>
                   <option value="PENDING_PAYMENT">Pendente</option>
@@ -390,7 +390,7 @@ export default function AdminEnrollments() {
                   value={paymentMethodFilter}
                   onChange={(e) => setPaymentMethodFilter(e.target.value)}
                   disabled={isBusy}
-                  className="min-w-0 w-full sm:w-auto sm:min-w-[140px] px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11 lg:min-w-[150px]"
+                  className="min-w-0 w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11"
                 >
                   <option value="">Forma</option>
                   <option value="PIX_CASH">PIX</option>
@@ -402,7 +402,7 @@ export default function AdminEnrollments() {
                   value={paymentStateFilter}
                   onChange={(e) => setPaymentStateFilter(e.target.value)}
                   disabled={isBusy}
-                  className="min-w-0 w-full sm:w-auto sm:min-w-[180px] px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11 lg:min-w-[210px]"
+                  className="min-w-0 w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11"
                 >
                   <option value="">Pagamento</option>
                   <option value="NO_PAYMENT_YET">Sem pagamento efetivado</option>
@@ -412,7 +412,7 @@ export default function AdminEnrollments() {
                   value={socialQuotaFilter}
                   onChange={(e) => setSocialQuotaFilter(e.target.value)}
                   disabled={isBusy}
-                  className="min-w-0 w-full sm:w-auto sm:min-w-[160px] px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11 lg:min-w-[170px]"
+                  className="min-w-0 w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11"
                 >
                   <option value="">Todos</option>
                   <option value="true">Só cota social</option>
@@ -423,7 +423,7 @@ export default function AdminEnrollments() {
                   value={empireFilter}
                   onChange={(e) => setEmpireFilter(e.target.value)}
                   disabled={isBusy}
-                  className="min-w-0 w-full sm:w-auto sm:min-w-[140px] px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11 lg:min-w-[150px]"
+                  className="min-w-0 w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11"
                 >
                   <option value="">Império</option>
                   <option value="egito">Egito</option>
@@ -436,10 +436,10 @@ export default function AdminEnrollments() {
                 <button
                   type="submit"
                   disabled={isBusy}
-                  className="btn-primary col-span-2 flex items-center justify-center gap-1 px-3 sm:col-auto sm:w-auto sm:gap-2 sm:px-4 lg:h-11 lg:min-w-[120px]"
+                  className="btn-primary flex items-center justify-center gap-2 px-4 lg:h-11 xl:min-w-[120px]"
                 >
                   <Filter className="w-4 h-4" />
-                  <span className="hidden sm:inline">{isBusy ? 'Buscando...' : 'Filtrar'}</span>
+                  <span>{isBusy ? 'Buscando...' : 'Filtrar'}</span>
                 </button>
               </div>
             </form>

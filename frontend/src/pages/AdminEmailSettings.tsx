@@ -739,7 +739,7 @@ export default function AdminEmailSettings() {
 
                   <div className="rounded-xl border border-gray-200 p-4">
                     <p className="mb-4 text-sm font-semibold text-gray-900">Filtros de público</p>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                       <select
                         value={campaignForm.filters.product || ''}
                         onChange={(e) =>
