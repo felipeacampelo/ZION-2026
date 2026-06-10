@@ -45,7 +45,7 @@ class PaymentAdmin(admin.ModelAdmin):
         }),
     )
     
-    actions = ['mark_as_confirmed', 'cancel_payments', 'reissue_selected_pix_payments']
+    actions = ['mark_as_confirmed', 'cancel_payments', 'reissue_selected_pix_payments', 'sync_selected_with_asaas']
     
     def enrollment_link(self, obj):
         """Display enrollment with link."""
@@ -154,3 +154,77 @@ class PaymentAdmin(admin.ModelAdmin):
 
         self.message_user(request, f'{recreated} cobrança(s) PIX recriada(s) para a inscrição #{enrollment.id}.')
     reissue_selected_pix_payments.short_description = _('Recriar PIX selecionados')
+
+    def sync_selected_with_asaas(self, request, queryset):
+        """Refresh selected payments using the current status from Asaas."""
+        from apps.payments.services.asaas_service import AsaasService
+
+        status_mapping = {
+            'PENDING': 'PENDING',
+            'RECEIVED': 'RECEIVED',
+            'CONFIRMED': 'CONFIRMED',
+            'OVERDUE': 'OVERDUE',
+            'REFUNDED': 'REFUNDED',
+            'RECEIVED_IN_CASH': 'RECEIVED',
+            'REFUND_REQUESTED': 'REFUNDED',
+        }
+
+        asaas = AsaasService()
+        updated = 0
+        unchanged = 0
+
+        for payment in queryset.select_related('enrollment'):
+            if not payment.asaas_payment_id:
+                self.message_user(
+                    request,
+                    f'Pagamento #{payment.id} não possui asaas_payment_id.',
+                    level=messages.WARNING
+                )
+                continue
+
+            try:
+                asaas_payment = asaas.get_payment(payment.asaas_payment_id)
+            except Exception as exc:
+                self.message_user(
+                    request,
+                    f'Erro ao sincronizar pagamento #{payment.id}: {exc}',
+                    level=messages.ERROR
+                )
+                continue
+
+            gateway_status = asaas_payment.get('status', 'PENDING')
+            mapped_status = status_mapping.get(gateway_status, gateway_status)
+            old_status = payment.status
+            changed = old_status != mapped_status
+
+            payment.status = mapped_status
+            payment.raw_webhook_data = {
+                **(payment.raw_webhook_data or {}),
+                'manual_sync': asaas_payment,
+            }
+
+            if mapped_status in ['CONFIRMED', 'RECEIVED'] and not payment.paid_at:
+                payment.paid_at = timezone.now()
+
+            payment.save()
+
+            enrollment = payment.enrollment
+            total_payments = enrollment.payments.count()
+            paid_payments = enrollment.payments.filter(status__in=['CONFIRMED', 'RECEIVED']).count()
+
+            if total_payments > 0 and paid_payments == total_payments and enrollment.status != 'PAID':
+                enrollment.status = 'PAID'
+                if not enrollment.paid_at:
+                    enrollment.paid_at = timezone.now()
+                enrollment.save()
+
+            if changed:
+                updated += 1
+            else:
+                unchanged += 1
+
+        if updated:
+            self.message_user(request, f'{updated} pagamento(s) sincronizado(s) com o Asaas.')
+        if unchanged:
+            self.message_user(request, f'{unchanged} pagamento(s) já estavam atualizados.', level=messages.INFO)
+    sync_selected_with_asaas.short_description = _('Sincronizar com Asaas')
