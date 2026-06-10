@@ -186,6 +186,62 @@ EMAIL_TEMPLATE_DEFAULTS = {
 </html>
 """,
     },
+    'pending_payment': {
+        'name': 'Pagamento Pendente',
+        'subject': '⚠️ Inscrição Pendente - {{ produto }}',
+        'text_content': (
+            "Olá, {{ nome }}!\n\n"
+            "Identificamos que o pagamento referente à sua inscrição no {{ produto }} ainda está pendente.\n"
+            "Sua vaga ainda não está garantida.\n\n"
+            "O prazo para regularização é de mais 3 dias.\n"
+            "Caso o pagamento não seja efetuado dentro desse período, a inscrição poderá ser cancelada e a vaga disponibilizada para outra pessoa.\n\n"
+            "Realize o pagamento em: {{ link_pagamento }}"
+        ),
+        'html_content': f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>{_get_base_styles()}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);">
+            {_get_email_logo_html()}
+            <div class="emoji">⚠️</div>
+            <h1>Inscrição Pendente</h1>
+            <p style="margin-top: 12px; font-size: 16px; opacity: 0.95;">Sua vaga ainda não está garantida.</p>
+        </div>
+        <div class="content">
+            <p>Olá, <strong>{{{{ nome }}}}</strong>!</p>
+            <p>
+                Identificamos que o pagamento referente à sua inscrição no
+                <strong>{{{{ produto }}}}</strong> ainda está pendente. Gostaríamos de lembrar que a confirmação da vaga está
+                condicionada à realização do pagamento.
+            </p>
+            <div class="info-box" style="background: #fef2f2; border-left-color: #dc2626;">
+                <h3 style="color: #991b1b;">📌 Atenção</h3>
+                <p>O prazo para regularização é de mais <strong>3 dias</strong>.</p>
+                <p>
+                    Caso o pagamento não seja efetuado dentro desse período, a inscrição será automaticamente cancelada e a vaga
+                    poderá ser disponibilizada para outra pessoa.
+                </p>
+            </div>
+            <center>
+                <a href="{{{{ link_pagamento }}}}" class="button" style="background: #dc2626;">Realizar Pagamento</a>
+            </center>
+            <p>Agradecemos a compreensão e ficamos à disposição para qualquer dúvida.</p>
+            <div class="footer">
+                <p>Este é um email automático, por favor não responda.</p>
+                <p><strong>Equipe Acampamento Zion</strong></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+""",
+    },
     'installment_reminder': {
         'name': 'Lembrete de Parcela',
         'subject': '⏰ Lembrete: Parcela {{ numero_parcela }} - {{ produto }}',
@@ -355,7 +411,7 @@ def render_email_template(key, context):
 
 
 def build_email_context(enrollment=None, payment=None, reset_link=''):
-    frontend_url = getattr(settings, 'FRONTEND_URL', 'https://areamais.com.br')
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'https://jumpibcapital.com.br')
 
     user_name = 'Participante'
     user_email = ''
@@ -403,16 +459,16 @@ def get_preview_context_for_template(key):
     preview = {
         'nome': 'Maria da Silva',
         'email': 'maria@example.com',
-        'produto': 'Acampamento Área Mais',
+        'produto': 'Acampamento Zion',
         'lote': 'Lote 1',
         'valor': 'R$ 199,90',
         'forma_pagamento': 'PIX Parcelado',
         'parcelas': '3x',
-        'link_minhas_inscricoes': 'https://areamais.com.br/minhas-inscricoes',
-        'link_pagamento': 'https://areamais.com.br/minhas-inscricoes',
+        'link_minhas_inscricoes': 'https://jumpibcapital.com.br/minhas-inscricoes',
+        'link_pagamento': 'https://jumpibcapital.com.br/minhas-inscricoes',
         'vencimento': '20/05/2026',
         'numero_parcela': '2 de 3',
-        'link_reset_senha': 'https://areamais.com.br/reset-password/demo/token',
+        'link_reset_senha': 'https://jumpibcapital.com.br/reset-password/demo/token',
     }
     if key == 'password_reset':
         preview['forma_pagamento'] = ''

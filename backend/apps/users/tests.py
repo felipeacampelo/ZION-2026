@@ -688,8 +688,9 @@ class AdminEmailTests(APITestCase):
         response = self.client.get(reverse('users:admin-email-templates-list'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 4)
+        self.assertEqual(len(response.data), 5)
         self.assertTrue(any(item['key'] == 'enrollment_confirmation' for item in response.data))
+        self.assertTrue(any(item['key'] == 'pending_payment' for item in response.data))
 
     def test_admin_can_update_email_template(self):
         self.client.force_authenticate(user=self.admin)
@@ -706,13 +707,13 @@ class AdminEmailTests(APITestCase):
     def test_template_preview_renders_tokens(self):
         self.client.force_authenticate(user=self.admin)
         response = self.client.post(
-            reverse('users:admin-email-template-preview', args=['payment_confirmation']),
+            reverse('users:admin-email-template-preview', args=['pending_payment']),
             {},
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('Acampamento Área Mais', response.data['subject'])
+        self.assertIn('Acampamento Zion', response.data['subject'])
         self.assertIn('Maria da Silva', response.data['html_content'])
 
     @patch('apps.users.admin_email_views.send_template_test_email')
