@@ -607,6 +607,213 @@ class AdminEmpiresBoardTests(APITestCase):
         self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
 
 
+class AdminNoPaymentYetFilterTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email='admin-filter@example.com',
+            password='password123',
+            is_staff=True,
+        )
+
+        self.product = Product.objects.create(
+            name='Acampamento',
+            description='Produto para filtro',
+            base_price=Decimal('100.00'),
+            max_installments=8,
+            is_active=True,
+        )
+
+        now = timezone.now()
+        self.batch = Batch.objects.create(
+            product=self.product,
+            name='Lote Filtro',
+            start_date=now - timedelta(days=1),
+            end_date=now + timedelta(days=10),
+            price=Decimal('100.00'),
+            pix_installment_price=Decimal('120.00'),
+            credit_card_price=Decimal('130.00'),
+            status='ACTIVE',
+        )
+
+        self.pending_pix = self._create_enrollment(
+            'pending-pix@example.com',
+            'Pend PIX',
+            payment_method='PIX_CASH',
+        )
+        self.no_method = self._create_enrollment(
+            'no-method@example.com',
+            'Sem Metodo',
+            payment_method=None,
+        )
+        self.pending_card = self._create_enrollment(
+            'pending-card@example.com',
+            'Pend Card',
+            payment_method='CREDIT_CARD',
+        )
+        self.overdue_pix = self._create_enrollment(
+            'overdue@example.com',
+            'Overdue Pix',
+            payment_method='PIX_CASH',
+        )
+        Payment.objects.create(
+            enrollment=self.overdue_pix,
+            asaas_payment_id='pay-overdue',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='OVERDUE',
+            due_date=timezone.localdate() - timedelta(days=5),
+        )
+
+        self.installment_without_paid = self._create_enrollment(
+            'installment-open@example.com',
+            'Installment Open',
+            payment_method='PIX_INSTALLMENT',
+            installments=3,
+            final_amount=Decimal('120.00'),
+        )
+        Payment.objects.create(
+            enrollment=self.installment_without_paid,
+            asaas_payment_id='pay-installment-pending-1',
+            installment_number=1,
+            amount=Decimal('40.00'),
+            status='PENDING',
+            due_date=timezone.localdate() + timedelta(days=2),
+        )
+
+        self.installment_with_paid = self._create_enrollment(
+            'installment-paid@example.com',
+            'Installment Paid',
+            payment_method='PIX_INSTALLMENT',
+            installments=3,
+            final_amount=Decimal('120.00'),
+        )
+        Payment.objects.create(
+            enrollment=self.installment_with_paid,
+            asaas_payment_id='pay-installment-paid-1',
+            installment_number=1,
+            amount=Decimal('40.00'),
+            status='CONFIRMED',
+            due_date=timezone.localdate() - timedelta(days=10),
+        )
+        Payment.objects.create(
+            enrollment=self.installment_with_paid,
+            asaas_payment_id='pay-installment-paid-2',
+            installment_number=2,
+            amount=Decimal('40.00'),
+            status='PENDING',
+            due_date=timezone.localdate() + timedelta(days=10),
+        )
+
+        self.paid_enrollment = self._create_enrollment(
+            'paid@example.com',
+            'Paid Enrollment',
+            payment_method='PIX_CASH',
+            status='PAID',
+        )
+        Payment.objects.create(
+            enrollment=self.paid_enrollment,
+            asaas_payment_id='pay-paid',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='RECEIVED',
+            due_date=timezone.localdate() - timedelta(days=3),
+        )
+
+        self.cancelled_enrollment = self._create_enrollment(
+            'cancelled@example.com',
+            'Cancelled Enrollment',
+            payment_method='PIX_CASH',
+            status='CANCELLED',
+        )
+
+    def _create_enrollment(self, email, full_name, payment_method, status='PENDING_PAYMENT', installments=1, final_amount=Decimal('100.00')):
+        user = User.objects.create_user(
+            email=email,
+            password='password123',
+            first_name=full_name.split()[0],
+            last_name='Teste',
+        )
+        return Enrollment.objects.create(
+            user=user,
+            product=self.product,
+            batch=self.batch,
+            form_data={
+                'nome_completo': full_name,
+                'email': email,
+            },
+            status=status,
+            payment_method=payment_method,
+            installments=installments,
+            total_amount=final_amount,
+            discount_amount=Decimal('0.00'),
+            final_amount=final_amount,
+        )
+
+    def test_admin_enrollments_filter_no_payment_yet(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(
+            reverse('users:admin-enrollments-list'),
+            {'payment_state': 'NO_PAYMENT_YET'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_ids = {item['id'] for item in response.data['results']}
+
+        self.assertIn(self.pending_pix.id, returned_ids)
+        self.assertIn(self.no_method.id, returned_ids)
+        self.assertIn(self.pending_card.id, returned_ids)
+        self.assertIn(self.overdue_pix.id, returned_ids)
+        self.assertIn(self.installment_without_paid.id, returned_ids)
+        self.assertNotIn(self.installment_with_paid.id, returned_ids)
+        self.assertNotIn(self.paid_enrollment.id, returned_ids)
+        self.assertNotIn(self.cancelled_enrollment.id, returned_ids)
+
+    def test_campaign_preview_recipients_filters_no_payment_yet(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            reverse('users:admin-email-campaigns-preview-recipients'),
+            {'product': self.product.id, 'payment_state': 'NO_PAYMENT_YET'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        returned_ids = {item['enrollment_id'] for item in response.data['sample']}
+
+        self.assertEqual(response.data['count'], 5)
+        self.assertIn(self.pending_pix.id, returned_ids)
+        self.assertIn(self.no_method.id, returned_ids)
+        self.assertIn(self.pending_card.id, returned_ids)
+        self.assertIn(self.overdue_pix.id, returned_ids)
+        self.assertIn(self.installment_without_paid.id, returned_ids)
+        self.assertNotIn(self.installment_with_paid.id, returned_ids)
+
+    @patch('apps.users.admin_email_views.start_campaign_send')
+    def test_campaign_send_builds_snapshot_with_no_payment_yet_filter(self, mock_start_campaign_send):
+        campaign = EmailCampaign.objects.create(
+            name='Campanha Sem Pagamento',
+            subject='Assunto',
+            html_content='<p>Teste</p>',
+            text_content='Teste',
+            filters={'product': self.product.id, 'payment_state': 'NO_PAYMENT_YET'},
+            created_by=self.admin,
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            reverse('users:admin-email-campaign-send', args=[campaign.id]),
+            {},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.recipient_count, 5)
+        self.assertEqual(EmailCampaignRecipient.objects.filter(campaign=campaign).count(), 5)
+        mock_start_campaign_send.assert_called_once()
+
+
 class AdminEmailTests(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_user(

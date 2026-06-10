@@ -109,6 +109,7 @@ export default function AdminEnrollments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('');
+  const [paymentStateFilter, setPaymentStateFilter] = useState('');
   const [socialQuotaFilter, setSocialQuotaFilter] = useState('');
   const [empireFilter, setEmpireFilter] = useState('');
   const [selectedEnrollment, setSelectedEnrollment] = useState<any>(null);
@@ -122,6 +123,7 @@ export default function AdminEnrollments() {
     search: searchTerm.trim() || undefined,
     status: statusFilter || undefined,
     payment_method: paymentMethodFilter || undefined,
+    payment_state: paymentStateFilter || undefined,
     social_quota: socialQuotaFilter || undefined,
     empire: empireFilter || undefined,
     page,
@@ -213,7 +215,7 @@ export default function AdminEnrollments() {
     }, 300);
 
     return clearSearchDebounce;
-  }, [searchTerm, statusFilter, paymentMethodFilter, socialQuotaFilter, empireFilter]);
+  }, [searchTerm, statusFilter, paymentMethodFilter, paymentStateFilter, socialQuotaFilter, empireFilter]);
 
   const visibleEnrollments = [...enrollments].sort((a, b) => {
     const comparison = compareEnrollmentValues(a, b, sortKey);
@@ -394,6 +396,16 @@ export default function AdminEnrollments() {
                   <option value="PIX_CASH">PIX</option>
                   <option value="PIX_INSTALLMENT">PIX Parc.</option>
                   <option value="CREDIT_CARD">Cartão</option>
+                </select>
+
+                <select
+                  value={paymentStateFilter}
+                  onChange={(e) => setPaymentStateFilter(e.target.value)}
+                  disabled={isBusy}
+                  className="min-w-0 w-full sm:w-auto sm:min-w-[180px] px-2 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11 lg:min-w-[210px]"
+                >
+                  <option value="">Pagamento</option>
+                  <option value="NO_PAYMENT_YET">Sem pagamento efetivado</option>
                 </select>
 
                 <select

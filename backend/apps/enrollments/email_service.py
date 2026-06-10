@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 resend.api_key = getattr(settings, 'RESEND_API_KEY', None)
 
 PLACEHOLDER_PATTERN = re.compile(r"{{\s*([a-zA-Z0-9_]+)\s*}}")
+NO_PAYMENT_YET = 'NO_PAYMENT_YET'
 
 
 def _get_base_styles():
@@ -589,8 +590,9 @@ def send_password_reset_email(user, reset_link):
 
 
 def get_campaign_recipients_queryset(filters):
-    from django.db.models import Q
+    from django.db.models import Exists, OuterRef, Q
     from .models import Enrollment
+    from apps.payments.models import Payment
 
     queryset = Enrollment.objects.select_related('product', 'batch', 'user').order_by('-created_at')
 
@@ -598,6 +600,7 @@ def get_campaign_recipients_queryset(filters):
     status_filter = filters.get('status')
     product_filter = filters.get('product')
     payment_method_filter = filters.get('payment_method')
+    payment_state_filter = filters.get('payment_state')
     search = (filters.get('search') or '').strip()
     enrollment_ids = filters.get('enrollment_ids') or []
 
@@ -609,6 +612,20 @@ def get_campaign_recipients_queryset(filters):
         queryset = queryset.filter(product_id=product_filter)
     if payment_method_filter:
         queryset = queryset.filter(payment_method=payment_method_filter)
+    if payment_state_filter == NO_PAYMENT_YET:
+        paid_payments = Payment.objects.filter(
+            enrollment_id=OuterRef('pk'),
+            status__in=['CONFIRMED', 'RECEIVED'],
+        )
+        queryset = queryset.annotate(
+            has_paid_payment=Exists(paid_payments),
+        ).exclude(
+            status__in=['CANCELLED', 'EXPIRED'],
+        ).filter(
+            Q(payment_method__isnull=True) |
+            Q(payment_method='') |
+            Q(has_paid_payment=False)
+        )
     if enrollment_ids:
         queryset = queryset.filter(id__in=enrollment_ids)
     if search:

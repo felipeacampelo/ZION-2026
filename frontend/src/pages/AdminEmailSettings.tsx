@@ -33,6 +33,7 @@ type CampaignForm = {
     product?: number;
     status?: string;
     payment_method?: string;
+    payment_state?: string;
     search?: string;
     enrollment_ids?: number[];
   };
@@ -797,6 +798,23 @@ export default function AdminEmailSettings() {
                         <option value="PIX_CASH">PIX à vista</option>
                         <option value="PIX_INSTALLMENT">PIX parcelado</option>
                         <option value="CREDIT_CARD">Cartão de crédito</option>
+                      </select>
+
+                      <select
+                        value={campaignForm.filters.payment_state || ''}
+                        onChange={(e) =>
+                          setCampaignForm({
+                            ...campaignForm,
+                            filters: {
+                              ...campaignForm.filters,
+                              payment_state: e.target.value || undefined,
+                            },
+                          })
+                        }
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+                      >
+                        <option value="">Qualquer situação de pagamento</option>
+                        <option value="NO_PAYMENT_YET">Sem pagamento efetivado</option>
                       </select>
 
                       <input

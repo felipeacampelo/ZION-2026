@@ -276,6 +276,7 @@ export interface EmailCampaign {
     product?: number;
     status?: string;
     payment_method?: string;
+    payment_state?: string;
     search?: string;
     enrollment_ids?: number[];
   };
@@ -395,6 +396,7 @@ export const getAdminEnrollments = (params?: {
   product?: number;
   search?: string;
   payment_method?: string;
+  payment_state?: string;
   social_quota?: string;
   empire?: string;
   ids?: number[];
@@ -545,6 +547,7 @@ export const previewAdminEmailCampaignRecipientsByFilters = (filters: {
   product?: number;
   status?: string;
   payment_method?: string;
+  payment_state?: string;
   search?: string;
   enrollment_ids?: number[];
 }) =>
@@ -565,6 +568,7 @@ export const sendAdminEmailCampaignDraftTest = (data: {
     product?: number;
     status?: string;
     payment_method?: string;
+    payment_state?: string;
     search?: string;
     enrollment_ids?: number[];
   };

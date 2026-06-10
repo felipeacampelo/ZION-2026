@@ -22,6 +22,7 @@ from apps.enrollments.models import (
     SocialQuotaContribution,
 )
 from apps.enrollments.serializers import EnrollmentSerializer, SocialQuotaContributionSerializer
+from apps.enrollments.email_service import NO_PAYMENT_YET
 from apps.enrollments.utils import SOCIAL_QUOTA_COUPON_PREFIX, build_social_quota_summary
 from apps.payments.models import Payment
 from apps.products.models import Product, Batch
@@ -724,7 +725,8 @@ def admin_overdue_enrollments(request):
 @permission_classes([IsAdminUser])
 def admin_enrollments_list(request):
     """List all enrollments with filters."""
-    
+    from django.db.models import Exists, OuterRef
+
     enrollments = Enrollment.objects.select_related(
         'product', 'batch', 'user', 'coupon'
     ).prefetch_related('payments', 'social_quota_contributions').order_by('-created_at')
@@ -733,6 +735,7 @@ def admin_enrollments_list(request):
     status_filter = request.query_params.get('status')
     product_filter = request.query_params.get('product')
     payment_method_filter = request.query_params.get('payment_method')
+    payment_state_filter = request.query_params.get('payment_state')
     social_quota_filter = request.query_params.get('social_quota')
     empire_filter = request.query_params.get('empire')
     search = request.query_params.get('search')
@@ -746,6 +749,21 @@ def admin_enrollments_list(request):
     
     if payment_method_filter:
         enrollments = enrollments.filter(payment_method=payment_method_filter)
+
+    if payment_state_filter == NO_PAYMENT_YET:
+        paid_payments = Payment.objects.filter(
+            enrollment_id=OuterRef('pk'),
+            status__in=['CONFIRMED', 'RECEIVED'],
+        )
+        enrollments = enrollments.annotate(
+            has_paid_payment=Exists(paid_payments),
+        ).exclude(
+            status__in=['CANCELLED', 'EXPIRED'],
+        ).filter(
+            Q(payment_method__isnull=True) |
+            Q(payment_method='') |
+            Q(has_paid_payment=False)
+        )
 
     if social_quota_filter == 'true':
         enrollments = enrollments.filter(coupon__code__istartswith=SOCIAL_QUOTA_COUPON_PREFIX)

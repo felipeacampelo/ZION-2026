@@ -113,6 +113,8 @@ class EmailCampaignSerializer(serializers.ModelSerializer):
             normalized['status'] = value['status']
         if value.get('payment_method') not in (None, ''):
             normalized['payment_method'] = value['payment_method']
+        if value.get('payment_state') not in (None, ''):
+            normalized['payment_state'] = value['payment_state']
         if value.get('search') not in (None, ''):
             normalized['search'] = value['search']
 
@@ -155,6 +157,7 @@ class EmailCampaignPreviewFiltersSerializer(serializers.Serializer):
     product = serializers.IntegerField(required=False)
     status = serializers.CharField(required=False)
     payment_method = serializers.CharField(required=False)
+    payment_state = serializers.CharField(required=False)
     search = serializers.CharField(required=False, allow_blank=True)
     enrollment_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
