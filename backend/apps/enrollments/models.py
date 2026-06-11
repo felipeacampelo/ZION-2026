@@ -2,6 +2,7 @@
 Enrollment models with clean architecture.
 """
 from decimal import Decimal
+import secrets
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
@@ -60,6 +61,11 @@ class Enrollment(models.Model):
         ('PIX_CASH', _('PIX à Vista')),
         ('PIX_INSTALLMENT', _('PIX Parcelado')),
         ('CREDIT_CARD', _('Cartão de Crédito')),
+    ]
+
+    SOURCE_CHOICES = [
+        ('PUBLIC', _('Pública')),
+        ('WAITLIST', _('Lista de Espera')),
     ]
     
     user = models.ForeignKey(
@@ -155,10 +161,46 @@ class Enrollment(models.Model):
         blank=True,
         help_text=_('Notas internas visíveis apenas para administradores')
     )
+    pricing_snapshot = models.JSONField(
+        _('Snapshot de Preços'),
+        default=dict,
+        blank=True,
+        help_text=_('Usado para preservar a condição comercial de inscrições oriundas da lista de espera'),
+    )
     
     created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
     updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
     paid_at = models.DateTimeField(_('Pago em'), null=True, blank=True)
+    source = models.CharField(
+        _('Origem'),
+        max_length=16,
+        choices=SOURCE_CHOICES,
+        default='PUBLIC',
+    )
+    waitlist_entry = models.ForeignKey(
+        'WaitlistEntry',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reserved_enrollments',
+        verbose_name=_('Entrada da Lista de Espera'),
+    )
+    reservation_token = models.CharField(
+        _('Token da Reserva'),
+        max_length=128,
+        blank=True,
+        db_index=True,
+    )
+    reservation_expires_at = models.DateTimeField(
+        _('Reserva Expira em'),
+        null=True,
+        blank=True,
+    )
+    reservation_consumed_at = models.DateTimeField(
+        _('Reserva Consumida em'),
+        null=True,
+        blank=True,
+    )
     
     class Meta:
         verbose_name = _('Inscrição')
@@ -186,16 +228,21 @@ class Enrollment(models.Model):
     
     def calculate_amounts(self):
         """Calculate total, discount and final amounts based on batch, payment method and coupon."""
+        pricing_source = self.pricing_snapshot if isinstance(self.pricing_snapshot, dict) else {}
+        pix_cash_price = Decimal(str(pricing_source.get('price', self.batch.price)))
+        pix_installment_price = Decimal(str(pricing_source.get('pix_installment_price', self.batch.pix_installment_price)))
+        credit_card_price = Decimal(str(pricing_source.get('credit_card_price', self.batch.credit_card_price)))
+
         # Determine base price based on payment method
         if self.payment_method == 'PIX_CASH':
-            self.total_amount = self.batch.price  # PIX à vista
+            self.total_amount = pix_cash_price  # PIX à vista
         elif self.payment_method == 'PIX_INSTALLMENT':
-            self.total_amount = self.batch.pix_installment_price  # PIX parcelado
+            self.total_amount = pix_installment_price  # PIX parcelado
         elif self.payment_method == 'CREDIT_CARD':
-            self.total_amount = self.batch.credit_card_price  # Cartão de crédito
+            self.total_amount = credit_card_price  # Cartão de crédito
         else:
             # Fallback to PIX cash price
-            self.total_amount = self.batch.price
+            self.total_amount = pix_cash_price
         
         # Apply coupon discount if exists
         if self.coupon:
@@ -218,6 +265,122 @@ class Enrollment(models.Model):
         if self.batch and self.batch.max_enrollments is not None and self.batch.is_full and self.batch.status != 'FULL':
             self.batch.status = 'FULL'
             self.batch.save(update_fields=['status', 'updated_at'])
+
+    @property
+    def is_waitlist_reservation(self):
+        return self.source == 'WAITLIST' and bool(self.reservation_token)
+
+    @property
+    def reservation_is_active(self):
+        if not self.is_waitlist_reservation or not self.reservation_expires_at:
+            return False
+        return (
+            self.status == 'PENDING_PAYMENT'
+            and self.reservation_consumed_at is None
+            and timezone.now() <= self.reservation_expires_at
+        )
+
+    def issue_reservation_token(self):
+        self.reservation_token = secrets.token_urlsafe(32)
+        return self.reservation_token
+
+
+class WaitlistEntry(models.Model):
+    STATUS_CHOICES = [
+        ('WAITING', _('Aguardando')),
+        ('INVITED', _('Convocado')),
+        ('CONVERTED', _('Convertido')),
+        ('EXPIRED', _('Expirado')),
+        ('REMOVED', _('Removido')),
+    ]
+
+    product = models.ForeignKey(
+        'products.Product',
+        on_delete=models.CASCADE,
+        related_name='waitlist_entries',
+        verbose_name=_('Produto'),
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='waitlist_entries',
+        verbose_name=_('Usuário'),
+    )
+    form_data = models.JSONField(
+        _('Dados do Formulário'),
+        default=dict,
+        blank=True,
+    )
+    coupon_code = models.CharField(
+        _('Cupom Informado'),
+        max_length=50,
+        blank=True,
+        default='',
+    )
+    status = models.CharField(
+        _('Status'),
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default='WAITING',
+    )
+    position = models.PositiveIntegerField(
+        _('Posição'),
+        default=1,
+        db_index=True,
+    )
+    reference_batch = models.ForeignKey(
+        'products.Batch',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='waitlist_references',
+        verbose_name=_('Lote de Referência'),
+    )
+    batch_snapshot = models.JSONField(
+        _('Snapshot Comercial do Lote'),
+        default=dict,
+        blank=True,
+    )
+    invited_at = models.DateTimeField(
+        _('Convidado em'),
+        null=True,
+        blank=True,
+    )
+    invite_expires_at = models.DateTimeField(
+        _('Convite Expira em'),
+        null=True,
+        blank=True,
+    )
+    converted_at = models.DateTimeField(
+        _('Convertido em'),
+        null=True,
+        blank=True,
+    )
+    removed_at = models.DateTimeField(
+        _('Removido em'),
+        null=True,
+        blank=True,
+    )
+    removal_reason = models.CharField(
+        _('Motivo da Remoção'),
+        max_length=64,
+        blank=True,
+        default='',
+    )
+    created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Entrada da Lista de Espera')
+        verbose_name_plural = _('Lista de Espera')
+        ordering = ['position', 'created_at']
+        indexes = [
+            models.Index(fields=['product', 'status', 'position']),
+        ]
+
+    def __str__(self):
+        nome = (self.form_data or {}).get('nome_completo') or self.user.email
+        return f'{self.product.name} - {nome}'
 
 
 class SocialQuotaContribution(models.Model):
@@ -588,6 +751,11 @@ class Settings(models.Model):
         verbose_name='Máximo de Parcelas com Cupom',
         help_text='Número máximo de parcelas permitidas quando cupom especial é aplicado'
     )
+    waitlist_auto_invite_enabled = models.BooleanField(
+        default=True,
+        verbose_name='Convocação Automática da Lista de Espera',
+        help_text='Quando ativo, novas vagas convocam automaticamente o próximo da fila.',
+    )
     
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -728,8 +896,12 @@ class EmailTemplate(models.Model):
     TEMPLATE_KEY_CHOICES = [
         ('enrollment_confirmation', 'Confirmação de Inscrição'),
         ('payment_confirmation', 'Confirmação de Pagamento'),
+        ('pending_payment', 'Pagamento Pendente'),
         ('installment_reminder', 'Lembrete de Parcela'),
         ('password_reset', 'Recuperação de Senha'),
+        ('waitlist_joined', 'Entrada na Lista de Espera'),
+        ('waitlist_invited', 'Convite da Lista de Espera'),
+        ('waitlist_expired', 'Expiração da Lista de Espera'),
     ]
 
     key = models.CharField(

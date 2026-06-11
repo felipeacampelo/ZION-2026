@@ -70,6 +70,8 @@ DEFAULT_TEMPLATE_TOKENS = [
     'vencimento',
     'numero_parcela',
     'link_reset_senha',
+    'link_convite_lista_espera',
+    'prazo_convite',
 ]
 
 
@@ -339,6 +341,65 @@ EMAIL_TEMPLATE_DEFAULTS = {
 </html>
 """,
     },
+    'waitlist_joined': {
+        'name': 'Entrada na Lista de Espera',
+        'subject': '🕊️ Você entrou na lista de espera - {{ produto }}',
+        'text_content': (
+            "Olá, {{ nome }}!\n\n"
+            "Recebemos sua pré-inscrição na lista de espera de {{ produto }}.\n"
+            "Assim que uma vaga surgir, enviaremos um convite exclusivo para este email.\n\n"
+            "Acompanhe sua conta em: {{ link_minhas_inscricoes }}"
+        ),
+        'html_content': f"""
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>{_get_base_styles()}</style></head>
+<body><div class="container"><div class="header">{_get_email_logo_html()}<div class="emoji">🕊️</div><h1>Você entrou na lista de espera</h1></div><div class="content">
+<p>Olá, <strong>{{{{ nome }}}}</strong>!</p>
+<p>Recebemos sua pré-inscrição na lista de espera de <strong>{{{{ produto }}}}</strong>.</p>
+<div class="info-box"><h3>Próximos passos</h3><p>Se uma vaga surgir, você receberá um convite exclusivo por email.</p></div>
+<div class="footer"><p>Este é um email automático, por favor não responda.</p><p>© ZION 2026 - Todos os direitos reservados</p></div>
+</div></div></body></html>
+""",
+    },
+    'waitlist_invited': {
+        'name': 'Convite da Lista de Espera',
+        'subject': '🎟️ Sua vaga foi liberada - {{ produto }}',
+        'text_content': (
+            "Olá, {{ nome }}!\n\n"
+            "Sua vaga em {{ produto }} foi liberada.\n"
+            "Use este link exclusivo para continuar sua inscrição: {{ link_convite_lista_espera }}\n"
+            "Prazo: {{ prazo_convite }}\n\n"
+            "Depois desse prazo, a vaga será passada para a próxima pessoa da fila."
+        ),
+        'html_content': f"""
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>{_get_base_styles()}</style></head>
+<body><div class="container"><div class="header">{_get_email_logo_html()}<div class="emoji">🎟️</div><h1>Sua vaga foi liberada</h1></div><div class="content">
+<p>Olá, <strong>{{{{ nome }}}}</strong>!</p>
+<p>Uma vaga em <strong>{{{{ produto }}}}</strong> foi reservada exclusivamente para você.</p>
+<div class="info-box"><h3>Prazo da reserva</h3><p>Você tem até <strong>{{{{ prazo_convite }}}}</strong> para continuar sua inscrição.</p></div>
+<center><a href="{{{{ link_convite_lista_espera }}}}" class="button">Continuar inscrição</a></center>
+<div class="footer"><p>Este é um email automático, por favor não responda.</p><p>© ZION 2026 - Todos os direitos reservados</p></div>
+</div></div></body></html>
+""",
+    },
+    'waitlist_expired': {
+        'name': 'Expiração da Lista de Espera',
+        'subject': '⌛ Sua reserva expirou - {{ produto }}',
+        'text_content': (
+            "Olá, {{ nome }}!\n\n"
+            "O prazo da sua reserva em {{ produto }} expirou e a vaga foi liberada para a próxima pessoa da fila."
+        ),
+        'html_content': f"""
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>{_get_base_styles()}</style></head>
+<body><div class="container"><div class="header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">{_get_email_logo_html()}<div class="emoji">⌛</div><h1>Prazo encerrado</h1></div><div class="content">
+<p>Olá, <strong>{{{{ nome }}}}</strong>!</p>
+<p>O prazo da sua reserva em <strong>{{{{ produto }}}}</strong> expirou e a vaga foi liberada para a próxima pessoa da fila.</p>
+<div class="footer"><p>Este é um email automático, por favor não responda.</p><p>© ZION 2026 - Todos os direitos reservados</p></div>
+</div></div></body></html>
+""",
+    },
 }
 
 
@@ -424,6 +485,8 @@ def build_email_context(enrollment=None, payment=None, reset_link=''):
     payment_link = f'{frontend_url}/minhas-inscricoes'
     due_date = ''
     installment_number = ''
+    waitlist_invite_link = ''
+    invite_deadline = ''
 
     if enrollment is not None:
         user_name = enrollment.form_data.get('nome_completo', enrollment.user.get_full_name()) or 'Participante'
@@ -440,6 +503,11 @@ def build_email_context(enrollment=None, payment=None, reset_link=''):
         installment_number = str(payment.installment_number)
         payment_link = payment.payment_url or f'{frontend_url}/minhas-inscricoes'
 
+    if enrollment is not None and getattr(enrollment, 'reservation_token', ''):
+        waitlist_invite_link = f'{frontend_url}/lista-espera/convite/{enrollment.reservation_token}'
+        if enrollment.reservation_expires_at:
+            invite_deadline = timezone.localtime(enrollment.reservation_expires_at).strftime('%d/%m/%Y às %H:%M')
+
     return {
         'nome': user_name,
         'email': user_email,
@@ -453,6 +521,8 @@ def build_email_context(enrollment=None, payment=None, reset_link=''):
         'vencimento': due_date,
         'numero_parcela': installment_number,
         'link_reset_senha': reset_link,
+        'link_convite_lista_espera': waitlist_invite_link,
+        'prazo_convite': invite_deadline,
     }
 
 
@@ -470,6 +540,8 @@ def get_preview_context_for_template(key):
         'vencimento': '20/05/2026',
         'numero_parcela': '2 de 3',
         'link_reset_senha': 'https://jumpibcapital.com.br/reset-password/demo/token',
+        'link_convite_lista_espera': 'https://jumpibcapital.com.br/lista-espera/convite/demo-token',
+        'prazo_convite': '21/06/2026 às 20:00',
     }
     if key == 'password_reset':
         preview['forma_pagamento'] = ''
@@ -587,6 +659,41 @@ def send_password_reset_email(user, reset_link):
     except Exception as exc:
         logger.error('Erro ao enviar email de recuperação de senha: %s', exc)
         return False
+
+
+def _send_waitlist_email(key, entry, enrollment=None):
+    context = build_email_context(enrollment=enrollment)
+    context['nome'] = (entry.form_data or {}).get('nome_completo') or entry.user.get_full_name() or entry.user.email
+    context['email'] = (entry.form_data or {}).get('email') or entry.user.email
+    context['produto'] = entry.product.name
+    if entry.reference_batch:
+        context['lote'] = entry.reference_batch.name
+    rendered = render_email_template(key, context)
+    if not rendered['is_active']:
+        logger.info('Template %s desativado; envio ignorado.', key)
+        return False
+    try:
+        return send_email_message(
+            to_email=context['email'],
+            subject=rendered['subject'],
+            html_content=rendered['html_content'],
+            text_content=rendered['text_content'],
+        )
+    except Exception as exc:
+        logger.error('Erro ao enviar email %s: %s', key, exc)
+        return False
+
+
+def send_waitlist_joined_email(entry):
+    return _send_waitlist_email('waitlist_joined', entry)
+
+
+def send_waitlist_invited_email(entry, enrollment):
+    return _send_waitlist_email('waitlist_invited', entry, enrollment=enrollment)
+
+
+def send_waitlist_expired_email(entry):
+    return _send_waitlist_email('waitlist_expired', entry)
 
 
 def get_campaign_recipients_queryset(filters):

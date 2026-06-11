@@ -10,7 +10,15 @@ from .utils import find_duplicate_enrollment_by_cpf, normalize_digits
 from .serializers import (
     EnrollmentSerializer,
     EnrollmentCreateSerializer,
-    EnrollmentListSerializer
+    EnrollmentListSerializer,
+    WaitlistEntryCreateSerializer,
+    WaitlistEntrySerializer,
+    WaitlistReservationUpdateSerializer,
+)
+from .waitlist_service import (
+    complete_waitlist_conversion,
+    get_reserved_enrollment_by_token,
+    process_waitlist_for_product,
 )
 
 logger = logging.getLogger(__name__)
@@ -200,6 +208,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         
         enrollment.status = 'CANCELLED'
         enrollment.save()
+        process_waitlist_for_product(enrollment.product)
         
         serializer = self.get_serializer(enrollment)
         return Response(serializer.data)
@@ -227,6 +236,7 @@ def get_settings(request):
         'max_age_years': settings.max_age_years,
         'min_birth_year': settings.min_birth_year,
         'max_birth_year': settings.max_birth_year,
+        'waitlist_auto_invite_enabled': settings.waitlist_auto_invite_enabled,
     })
 
 
@@ -258,3 +268,94 @@ def check_cpf(request):
         'message': f'Já existe uma inscrição para este CPF em {product.name}.',
         'enrollment_id': duplicate_enrollment.id,
     })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def join_waitlist(request):
+    serializer = WaitlistEntryCreateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    entry = serializer.save()
+    return Response(WaitlistEntrySerializer(entry).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([permissions.AllowAny])
+def waitlist_invite_detail(request, token):
+    enrollment = get_reserved_enrollment_by_token(token)
+    if not enrollment:
+        return Response({'detail': 'Convite inválido ou expirado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response({
+            'enrollment': EnrollmentSerializer(enrollment).data,
+            'invite_expires_at': enrollment.reservation_expires_at,
+            'waitlist_entry': WaitlistEntrySerializer(enrollment.waitlist_entry).data if enrollment.waitlist_entry else None,
+        })
+
+    serializer = WaitlistReservationUpdateSerializer(
+        data=request.data,
+        context={'enrollment': enrollment},
+    )
+    serializer.is_valid(raise_exception=True)
+    enrollment = serializer.save()
+    return Response(EnrollmentSerializer(enrollment).data)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def waitlist_invite_create_payment(request, token):
+    from .models import Coupon, Settings
+    from apps.payments.services import PaymentService
+
+    enrollment = get_reserved_enrollment_by_token(token)
+    if not enrollment:
+        return Response({'detail': 'Convite inválido ou expirado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    payment_method = request.data.get('payment_method')
+    installments = int(request.data.get('installments', 1))
+    settings = Settings.get_settings()
+    payment_availability = {
+        'PIX_CASH': settings.enable_pix_cash,
+        'PIX_INSTALLMENT': settings.enable_pix_installment,
+        'CREDIT_CARD': settings.enable_credit_card,
+    }
+
+    if payment_method not in payment_availability:
+        return Response({'payment_method': 'Forma de pagamento inválida'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not payment_availability[payment_method]:
+        return Response({'payment_method': 'Forma de pagamento desativada no momento'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if enrollment.status != 'PENDING_PAYMENT':
+        return Response({'detail': 'Esta reserva não está disponível para pagamento.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if enrollment.waitlist_entry and enrollment.waitlist_entry.coupon_code and not enrollment.coupon:
+        try:
+            coupon = Coupon.objects.get(code=enrollment.waitlist_entry.coupon_code)
+            is_valid, _message = coupon.is_valid()
+            if is_valid and coupon.can_apply_to_product(enrollment.product):
+                can_apply_payment, _payment_message = coupon.can_apply_to_payment(payment_method, installments)
+                if can_apply_payment:
+                    enrollment.coupon = coupon
+                    coupon.increment_uses()
+        except Coupon.DoesNotExist:
+            pass
+
+    enrollment.payment_method = payment_method
+    enrollment.installments = installments
+    enrollment.calculate_amounts()
+    enrollment.save()
+
+    service = PaymentService()
+    if payment_method == 'PIX_CASH':
+        payment = service.create_pix_cash_payment(enrollment)
+    elif payment_method == 'PIX_INSTALLMENT':
+        payment = service.create_pix_installment_payments(enrollment, installments)[0]
+    else:
+        payment = service.create_credit_card_payment(enrollment, installments)
+
+    complete_waitlist_conversion(enrollment)
+
+    from apps.payments.serializers import PaymentSerializer
+    return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)

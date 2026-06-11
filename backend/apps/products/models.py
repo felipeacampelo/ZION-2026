@@ -68,10 +68,21 @@ class Product(models.Model):
     def __str__(self):
         return self.name
     
-    def get_active_batch(self):
+    def has_waitlist_demand(self):
+        from apps.enrollments.models import WaitlistEntry
+
+        return WaitlistEntry.objects.filter(
+            product=self,
+            status__in=['WAITING', 'INVITED'],
+        ).exists()
+
+    def get_active_batch(self, ignore_waitlist=False):
         """Returns the currently active batch for this product."""
         self.sync_batch_transitions()
         now = timezone.now()
+
+        if not ignore_waitlist and self.has_waitlist_demand():
+            return None
 
         candidate_batches = self.batches.filter(
             status='ACTIVE',

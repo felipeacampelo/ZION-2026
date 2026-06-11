@@ -219,6 +219,11 @@ export default function Home() {
   };
 
   const handleStartEnrollment = () => {
+    if (product?.waitlist_state === 'sold_out_with_waitlist') {
+      navigate('/lista-espera');
+      return;
+    }
+
     if (!isAuthenticated) {
       navigate('/inscricao');
       return;
@@ -641,12 +646,24 @@ export default function Home() {
                     ? 'Inscrições iniciam em breve'
                     : enrollmentWindowStatus === 'closed'
                       ? 'Inscrições encerradas'
-                      : 'Nenhum lote disponível no momento'}
+                      : product?.waitlist_state === 'sold_out_with_waitlist'
+                        ? 'Vagas esgotadas'
+                        : 'Nenhum lote disponível no momento'}
                 </p>
                 {enrollmentWindowStatus === 'not_started' && (
                   <p className="mt-4 text-lg text-gray-600">
                     {`As inscrições começam em ${formatEnrollmentWindowDate(enrollmentStartAt)}.`}
                   </p>
+                )}
+                {product?.waitlist_state === 'sold_out_with_waitlist' && (
+                  <div className="mt-6">
+                    <button
+                      onClick={() => navigate('/lista-espera')}
+                      className="rounded-2xl bg-dark px-6 py-3 text-base font-semibold text-white"
+                    >
+                      Entrar na lista de espera
+                    </button>
+                  </div>
                 )}
               </div>
             </ScrollReveal>

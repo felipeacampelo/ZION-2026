@@ -8,6 +8,7 @@ from .models import (
     DEFAULT_RESPONSIBLE_CONTACT_FIELDS,
     Enrollment,
     SocialQuotaContribution,
+    WaitlistEntry,
 )
 from .utils import build_social_quota_summary, find_duplicate_enrollment_by_cpf, normalize_digits
 from apps.products.serializers import ProductSerializer, BatchSerializer
@@ -122,6 +123,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
             'total_amount',
             'discount_amount',
             'final_amount',
+            'pricing_snapshot',
             'installment_value',
             'payments',
             'social_quota_contributions',
@@ -395,6 +397,225 @@ class EnrollmentCreateSerializer(serializers.Serializer):
         if coupon:
             coupon.increment_uses()
         
+        return enrollment
+
+
+class WaitlistEntrySerializer(serializers.ModelSerializer):
+    participant_name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    reference_batch_name = serializers.CharField(source='reference_batch.name', read_only=True)
+
+    class Meta:
+        model = WaitlistEntry
+        fields = [
+            'id',
+            'participant_name',
+            'email',
+            'phone',
+            'product',
+            'product_name',
+            'status',
+            'position',
+            'coupon_code',
+            'reference_batch_name',
+            'invited_at',
+            'invite_expires_at',
+            'converted_at',
+            'removed_at',
+            'removal_reason',
+            'created_at',
+        ]
+
+    def get_participant_name(self, obj):
+        return (obj.form_data or {}).get('nome_completo', '')
+
+    def get_email(self, obj):
+        return (obj.form_data or {}).get('email', obj.user.email)
+
+    def get_phone(self, obj):
+        return (obj.form_data or {}).get('telefone', '')
+
+
+class WaitlistEntryCreateSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    form_data = serializers.JSONField(required=False, default=dict)
+    coupon_code = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        from datetime import datetime
+        from apps.products.models import Product
+        from .models import Settings
+        from .waitlist_service import is_waitlist_open_for_product
+
+        try:
+            product = Product.objects.get(id=data['product_id'], is_active=True)
+        except Product.DoesNotExist:
+            raise serializers.ValidationError({'product_id': 'Produto não encontrado ou inativo'})
+
+        if not is_waitlist_open_for_product(product):
+            raise serializers.ValidationError({'detail': 'A lista de espera não está disponível para este evento.'})
+
+        form_data = dict(data.get('form_data', {}))
+        settings = Settings.get_settings()
+        form_fields_config = settings.get_form_fields_config()
+        responsible_fields_config = settings.get_responsible_fields_config()
+        conditional_required_fields = {
+            'igreja': form_data.get('membro_batista_capital') == 'nao',
+            'imperio_zion': form_data.get('ja_participou_zion') == 'sim',
+        }
+
+        for field_name in DEFAULT_FORM_FIELDS_CONFIG:
+            field_config = form_fields_config[field_name]
+            value = form_data.get(field_name)
+
+            if not field_config['enabled']:
+                form_data.pop(field_name, None)
+                continue
+
+            is_required = field_config['required']
+            if field_name in conditional_required_fields:
+                is_required = is_required and conditional_required_fields[field_name]
+
+            if is_required and (value is None or str(value).strip() == ''):
+                raise serializers.ValidationError({
+                    'form_data': f'O campo "{field_config["label"]}" é obrigatório.'
+                })
+
+        data_nascimento = form_data.get('data_nascimento')
+        cpf = normalize_digits(form_data.get('cpf'))
+        if cpf:
+            form_data['cpf'] = cpf
+
+        if data_nascimento:
+            try:
+                birth_date = datetime.strptime(data_nascimento, '%Y-%m-%d').date()
+                if birth_date.year < settings.min_birth_year:
+                    raise serializers.ValidationError({
+                        'form_data': f'Inscrições disponíveis apenas para nascidos em {settings.min_birth_year} ou depois.'
+                    })
+                if settings.max_birth_year and birth_date.year > settings.max_birth_year:
+                    raise serializers.ValidationError({
+                        'form_data': f'Inscrições disponíveis apenas para nascidos em {settings.max_birth_year} ou antes.'
+                    })
+            except ValueError:
+                raise serializers.ValidationError({
+                    'form_data': 'Data de nascimento inválida. Use o formato AAAA-MM-DD.'
+                })
+
+        responsible_data = form_data.get('responsavel', {})
+        if not isinstance(responsible_data, dict):
+            raise serializers.ValidationError({
+                'form_data': 'Os dados do responsável devem ser enviados em formato válido.'
+            })
+
+        normalized_responsible_data = {}
+        for field_key, field_meta in DEFAULT_RESPONSIBLE_CONTACT_FIELDS.items():
+            value = responsible_data.get(field_key)
+            if value is None or str(value).strip() == '':
+                raise serializers.ValidationError({
+                    'form_data': f'O campo "{field_meta["label"]}" é obrigatório.'
+                })
+            normalized_responsible_data[field_key] = str(value).strip()
+
+        for field_config in responsible_fields_config:
+            key = field_config['key']
+            value = responsible_data.get(key)
+            if field_config['required']:
+                if field_config['type'] == 'checkbox':
+                    if value is not True:
+                        raise serializers.ValidationError({'form_data': f'O campo "{field_config["label"]}" é obrigatório.'})
+                elif value is None or str(value).strip() == '':
+                    raise serializers.ValidationError({'form_data': f'O campo "{field_config["label"]}" é obrigatório.'})
+
+            if field_config['type'] == 'checkbox':
+                normalized_responsible_data[key] = bool(value)
+            else:
+                string_value = '' if value is None else str(value).strip()
+                if field_config['type'] == 'select' and string_value and string_value not in field_config['options']:
+                    raise serializers.ValidationError({'form_data': f'O valor selecionado para "{field_config["label"]}" é inválido.'})
+                normalized_responsible_data[key] = string_value
+
+        form_data['responsavel'] = normalized_responsible_data
+
+        exclude_enrollment_id = self.context.get('exclude_enrollment_id')
+        duplicate_enrollment = find_duplicate_enrollment_by_cpf(
+            product=product,
+            cpf=cpf,
+            exclude_enrollment_id=exclude_enrollment_id,
+        )
+        if duplicate_enrollment:
+            raise serializers.ValidationError({
+                'form_data': f'Já existe uma inscrição para este CPF em {product.name}.'
+            })
+
+        data['product'] = product
+        data['form_data'] = form_data
+        return data
+
+    def create(self, validated_data):
+        from django.contrib.auth import get_user_model
+        from apps.users.models import UserProfile
+        from .waitlist_service import create_waitlist_entry
+
+        User = get_user_model()
+        form_data = validated_data['form_data']
+        email = form_data.get('email', 'anonymous@example.com')
+        nome_completo = form_data.get('nome_completo', 'Usuário')
+        nome_parts = nome_completo.split(' ', 1)
+        first_name = nome_parts[0] if nome_parts else 'Usuário'
+        last_name = nome_parts[1] if len(nome_parts) > 1 else ''
+        user, _ = User.objects.get_or_create(
+            email=email,
+            defaults={
+                'first_name': first_name,
+                'last_name': last_name,
+            }
+        )
+        UserProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                'phone': form_data.get('telefone', ''),
+                'cpf': form_data.get('cpf') or None,
+            }
+        )
+        return create_waitlist_entry(
+            product=validated_data['product'],
+            user=user,
+            form_data=form_data,
+            coupon_code=validated_data.get('coupon_code', ''),
+        )
+
+
+class WaitlistReservationUpdateSerializer(serializers.Serializer):
+    form_data = serializers.JSONField(required=True)
+
+    def validate(self, data):
+        enrollment = self.context['enrollment']
+        form_data = dict(data.get('form_data', {}))
+        form_data['responsavel'] = form_data.get('responsavel', enrollment.form_data.get('responsavel', {}))
+        merged_form_data = {**enrollment.form_data, **form_data}
+
+        validator = WaitlistEntryCreateSerializer(
+            data={
+                'product_id': enrollment.product_id,
+                'form_data': merged_form_data,
+                'coupon_code': enrollment.waitlist_entry.coupon_code if enrollment.waitlist_entry else '',
+            },
+            context={'exclude_enrollment_id': enrollment.id},
+        )
+        validator.is_valid(raise_exception=True)
+        data['form_data'] = validator.validated_data['form_data']
+        return data
+
+    def save(self, **kwargs):
+        enrollment = self.context['enrollment']
+        enrollment.form_data = self.validated_data['form_data']
+        enrollment.save(update_fields=['form_data', 'updated_at'])
+        if enrollment.waitlist_entry_id:
+            enrollment.waitlist_entry.form_data = self.validated_data['form_data']
+            enrollment.waitlist_entry.save(update_fields=['form_data', 'updated_at'])
         return enrollment
 
 

@@ -20,10 +20,18 @@ from apps.enrollments.models import (
     Coupon,
     RESPONSIBLE_FIELD_TYPES,
     SocialQuotaContribution,
+    WaitlistEntry,
 )
 from apps.enrollments.serializers import EnrollmentSerializer, SocialQuotaContributionSerializer
 from apps.enrollments.email_service import NO_PAYMENT_YET
 from apps.enrollments.utils import SOCIAL_QUOTA_COUPON_PREFIX, build_social_quota_summary
+from apps.enrollments.waitlist_service import (
+    invite_waitlist_entry,
+    normalize_waitlist_positions,
+    process_waitlist_for_product,
+    remove_waitlist_entry,
+    reorder_waitlist,
+)
 from apps.payments.models import Payment
 from apps.products.models import Product, Batch
 from apps.products.serializers import ProductSerializer, BatchSerializer
@@ -54,6 +62,7 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
             'max_age_years',
             'min_birth_year',
             'max_birth_year',
+            'waitlist_auto_invite_enabled',
         ]
         read_only_fields = ['max_installments_with_coupon']
 
@@ -278,6 +287,45 @@ class AdminEmpireAllocationSerializer(serializers.Serializer):
         queryset=Enrollment.objects.select_related('user', 'product', 'batch').all(),
     )
     target_empire = serializers.ChoiceField(choices=['egito', 'persia', 'grecia', 'roma', 'none'])
+
+
+class AdminWaitlistListSerializer(serializers.ModelSerializer):
+    participant_name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    reference_batch_name = serializers.CharField(source='reference_batch.name', read_only=True)
+
+    class Meta:
+        model = WaitlistEntry
+        fields = [
+            'id',
+            'participant_name',
+            'email',
+            'phone',
+            'product',
+            'product_name',
+            'status',
+            'position',
+            'coupon_code',
+            'reference_batch',
+            'reference_batch_name',
+            'invited_at',
+            'invite_expires_at',
+            'converted_at',
+            'removed_at',
+            'removal_reason',
+            'created_at',
+        ]
+
+    def get_participant_name(self, obj):
+        return (obj.form_data or {}).get('nome_completo') or obj.user.get_full_name() or obj.user.email
+
+    def get_email(self, obj):
+        return (obj.form_data or {}).get('email') or obj.user.email
+
+    def get_phone(self, obj):
+        return (obj.form_data or {}).get('telefone') or ''
 
 
 EMPIRE_KEYS = ['egito', 'persia', 'grecia', 'roma', 'none']
@@ -926,6 +974,8 @@ def admin_enrollment_update(request, pk):
     if new_status:
         enrollment.status = new_status
         enrollment.save()
+        if new_status in {'CANCELLED', 'EXPIRED'}:
+            process_waitlist_for_product(enrollment.product)
     
     serializer = EnrollmentSerializer(enrollment)
     return Response(serializer.data)
@@ -1084,7 +1134,8 @@ def admin_batch_create(request):
     
     serializer = BatchSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save()
+        batch = serializer.save()
+        process_waitlist_for_product(batch.product)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1104,7 +1155,8 @@ def admin_batch_update(request, pk):
     
     serializer = BatchSerializer(batch, data=request.data, partial=True)
     if serializer.is_valid():
-        serializer.save()
+        batch = serializer.save()
+        process_waitlist_for_product(batch.product)
         return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1116,10 +1168,81 @@ def admin_batch_delete(request, pk):
     
     try:
         batch = Batch.objects.get(pk=pk)
+        product = batch.product
         batch.delete()
+        process_waitlist_for_product(product)
         return Response(status=status.HTTP_204_NO_CONTENT)
     except Batch.DoesNotExist:
         return Response(
             {'detail': 'Lote não encontrado.'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_waitlist_list(request):
+    product_id = request.query_params.get('product')
+    queryset = WaitlistEntry.objects.select_related('product', 'user', 'reference_batch').order_by('position', 'created_at')
+    if product_id:
+        queryset = queryset.filter(product_id=product_id)
+    serializer = AdminWaitlistListSerializer(queryset, many=True)
+    return Response({
+        'results': serializer.data,
+        'auto_invite_enabled': AppSettings.get_settings().waitlist_auto_invite_enabled,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_waitlist_invite(request, pk):
+    try:
+        entry = WaitlistEntry.objects.select_related('product').get(pk=pk)
+    except WaitlistEntry.DoesNotExist:
+        return Response({'detail': 'Entrada da fila não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+    enrollment = invite_waitlist_entry(entry)
+    if not enrollment:
+        return Response({'detail': 'Nenhuma vaga disponível para convocação no momento.'}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({
+        'detail': 'Convite enviado com sucesso.',
+        'enrollment_id': enrollment.id,
+    })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def admin_waitlist_delete(request, pk):
+    try:
+        entry = WaitlistEntry.objects.select_related('product').get(pk=pk)
+    except WaitlistEntry.DoesNotExist:
+        return Response({'detail': 'Entrada da fila não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+    remove_waitlist_entry(entry, reason='removed_by_admin')
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_waitlist_reorder(request):
+    product_id = request.data.get('product_id')
+    ordered_ids = request.data.get('ordered_ids', [])
+    if not product_id:
+        return Response({'detail': 'product_id é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        product = Product.objects.get(pk=product_id)
+    except Product.DoesNotExist:
+        return Response({'detail': 'Produto não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    reorder_waitlist(product, [int(entry_id) for entry_id in ordered_ids])
+    normalize_waitlist_positions(product)
+    return Response({'detail': 'Fila reordenada com sucesso.'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_waitlist_toggle_auto_invite(request):
+    settings = AppSettings.get_settings()
+    settings.waitlist_auto_invite_enabled = bool(request.data.get('enabled'))
+    settings.save(update_fields=['waitlist_auto_invite_enabled'])
+    return Response({'waitlist_auto_invite_enabled': settings.waitlist_auto_invite_enabled})

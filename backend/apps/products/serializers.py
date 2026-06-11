@@ -3,6 +3,7 @@ Product serializers.
 """
 from rest_framework import serializers
 from .models import Product, Batch
+from apps.enrollments.waitlist_service import get_waitlist_display_state
 
 
 class BatchSerializer(serializers.ModelSerializer):
@@ -40,6 +41,7 @@ class ProductSerializer(serializers.ModelSerializer):
     """Serializer for Product model."""
     
     active_batch = BatchSerializer(read_only=True, source='get_active_batch')
+    waitlist_state = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
@@ -53,12 +55,20 @@ class ProductSerializer(serializers.ModelSerializer):
             'is_active',
             'event_date',
             'active_batch',
+            'waitlist_state',
         ]
+
+    def get_waitlist_state(self, obj):
+        return get_waitlist_display_state(obj)
 
 
 class ProductListSerializer(serializers.ModelSerializer):
     """Simplified serializer for product listing."""
+    waitlist_state = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'image', 'base_price', 'is_active', 'event_date']
+        fields = ['id', 'name', 'description', 'image', 'base_price', 'is_active', 'event_date', 'waitlist_state']
+
+    def get_waitlist_state(self, obj):
+        return get_waitlist_display_state(obj)

@@ -21,6 +21,9 @@ import AdminBatchSettings from './pages/AdminBatchSettings'
 import AdminCouponSettings from './pages/AdminCouponSettings'
 import AdminEmailSettings from './pages/AdminEmailSettings'
 import AdminSocialQuota from './pages/AdminSocialQuota'
+import AdminWaitlist from './pages/AdminWaitlist'
+import WaitlistSignup from './pages/WaitlistSignup'
+import WaitlistInvite from './pages/WaitlistInvite'
 
 function App() {
   return (
@@ -32,6 +35,8 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
+          <Route path="/lista-espera" element={<WaitlistSignup />} />
+          <Route path="/lista-espera/convite/:token" element={<WaitlistInvite />} />
           
           {/* Protected Routes */}
           <Route 
@@ -103,6 +108,14 @@ function App() {
                 <AdminSocialQuota />
               </AdminRoute>
             } 
+          />
+          <Route
+            path="/admin/waitlist"
+            element={
+              <AdminRoute>
+                <AdminWaitlist />
+              </AdminRoute>
+            }
           />
           <Route 
             path="/admin/settings" 

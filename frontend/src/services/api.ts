@@ -48,6 +48,7 @@ export interface Product {
   is_active: boolean;
   event_date?: string;
   active_batch?: Batch;
+  waitlist_state?: string;
 }
 
 export interface Batch {
@@ -109,6 +110,7 @@ export interface Enrollment {
   total_amount?: string;
   discount_amount?: string;
   final_amount: string;
+  pricing_snapshot?: Record<string, string>;
   created_at: string;
   paid_at?: string | null;
   payments?: Payment[];
@@ -121,6 +123,26 @@ export interface Enrollment {
   social_total_progress?: string;
   social_remaining_amount?: string;
   social_is_completed?: boolean;
+  reservation_expires_at?: string | null;
+}
+
+export interface WaitlistEntry {
+  id: number;
+  participant_name: string;
+  email: string;
+  phone: string;
+  product: number;
+  product_name: string;
+  status: string;
+  position: number;
+  coupon_code: string;
+  reference_batch_name?: string | null;
+  invited_at?: string | null;
+  invite_expires_at?: string | null;
+  converted_at?: string | null;
+  removed_at?: string | null;
+  removal_reason?: string;
+  created_at: string;
 }
 
 export interface SocialQuotaContribution {
@@ -498,12 +520,43 @@ export interface AppSettings {
   max_age_years: number;
   min_birth_year: number;
   max_birth_year: number | null;
+  waitlist_auto_invite_enabled: boolean;
 }
 
 export const getSettings = () => api.get<AppSettings>('/enrollments/settings/');
 export const getAdminSettings = () => api.get<AppSettings>('/users/admin/settings/');
 export const updateAdminSettings = (data: Partial<AppSettings>) =>
   api.patch<AppSettings>('/users/admin/settings/', data);
+
+export const joinWaitlist = (data: {
+  product_id: number;
+  form_data: any;
+  coupon_code?: string;
+}) => api.post<WaitlistEntry>('/enrollments/waitlist/', data);
+
+export const getWaitlistInvite = (token: string) =>
+  api.get<{ enrollment: Enrollment; invite_expires_at: string; waitlist_entry: WaitlistEntry | null }>(`/enrollments/waitlist/invite/${token}/`);
+
+export const updateWaitlistInvite = (token: string, data: { form_data: any }) =>
+  api.patch<Enrollment>(`/enrollments/waitlist/invite/${token}/`, data);
+
+export const createWaitlistInvitePayment = (token: string, data: { payment_method: string; installments: number }) =>
+  api.post<Payment>(`/enrollments/waitlist/invite/${token}/create-payment/`, data);
+
+export const getAdminWaitlist = (params?: { product?: number }) =>
+  api.get<{ results: WaitlistEntry[]; auto_invite_enabled: boolean }>('/users/admin/waitlist/', { params });
+
+export const inviteAdminWaitlistEntry = (id: number) =>
+  api.post<{ detail: string; enrollment_id: number }>(`/users/admin/waitlist/${id}/invite/`, {});
+
+export const deleteAdminWaitlistEntry = (id: number) =>
+  api.delete(`/users/admin/waitlist/${id}/delete/`);
+
+export const reorderAdminWaitlist = (data: { product_id: number; ordered_ids: number[] }) =>
+  api.post('/users/admin/waitlist/reorder/', data);
+
+export const toggleAdminWaitlistAutoInvite = (enabled: boolean) =>
+  api.post<{ waitlist_auto_invite_enabled: boolean }>('/users/admin/waitlist/auto-invite/', { enabled });
 
 export const getAdminEmailTemplates = () =>
   api.get<EmailTemplate[]>('/users/admin/email-templates/');

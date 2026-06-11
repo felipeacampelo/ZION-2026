@@ -333,6 +333,10 @@ export default function Enrollment() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedProduct?.active_batch && selectedProduct?.waitlist_state === 'sold_out_with_waitlist') {
+      navigate('/lista-espera');
+      return;
+    }
     if (!consentTermAccepted) {
       setShowConsentModal(true);
       return;
@@ -493,7 +497,20 @@ export default function Enrollment() {
 
               {!selectedProduct.active_batch && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  Lote esgotado ou indisponível no momento. Tente novamente mais tarde.
+                  {selectedProduct.waitlist_state === 'sold_out_with_waitlist'
+                    ? 'As vagas esgotaram. Entre na lista de espera para receber um convite se uma vaga surgir.'
+                    : 'Lote esgotado ou indisponível no momento. Tente novamente mais tarde.'}
+                  {selectedProduct.waitlist_state === 'sold_out_with_waitlist' && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/lista-espera')}
+                        className="rounded-xl bg-dark px-4 py-2 text-sm font-semibold text-white"
+                      >
+                        Ir para a lista de espera
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -882,7 +899,7 @@ export default function Enrollment() {
               disabled={loading || !hasActiveBatch || Boolean(birthYearError) || Boolean(cpfDuplicateError) || validatingCpf}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Processando...' : hasActiveBatch ? 'Continuar para Pagamento' : 'Sem lote disponível'}
+              {loading ? 'Processando...' : hasActiveBatch ? 'Continuar para Pagamento' : selectedProduct?.waitlist_state === 'sold_out_with_waitlist' ? 'Ir para a lista de espera' : 'Sem lote disponível'}
             </button>
           </form>
         </div>

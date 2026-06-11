@@ -17,6 +17,7 @@ import {
   User,
   Users,
   Wallet,
+  Hourglass,
   X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +29,7 @@ interface AdminShellProps {
 const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
   { to: '/admin/enrollments', label: 'Inscritos', icon: Users, end: false },
+  { to: '/admin/waitlist', label: 'Lista de Espera', icon: Hourglass, end: false },
   { to: '/admin/empires', label: 'Impérios', icon: Crown, end: false },
   { to: '/admin/social-quotas', label: 'Cota Social', icon: Wallet, end: false },
   { to: '/admin/settings/event', label: 'Evento', icon: CalendarDays, end: false },
