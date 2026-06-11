@@ -63,6 +63,7 @@ class AdminSettingsSerializer(serializers.ModelSerializer):
             'min_birth_year',
             'max_birth_year',
             'waitlist_auto_invite_enabled',
+            'waitlist_public_start_at',
         ]
         read_only_fields = ['max_installments_with_coupon']
 

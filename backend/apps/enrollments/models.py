@@ -756,6 +756,12 @@ class Settings(models.Model):
         verbose_name='Convocação Automática da Lista de Espera',
         help_text='Quando ativo, novas vagas convocam automaticamente o próximo da fila.',
     )
+    waitlist_public_start_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Abertura Pública da Lista de Espera',
+        help_text='Antes deste horário, o botão da lista de espera não aparece no site.',
+    )
     
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -790,6 +796,13 @@ class Settings(models.Model):
             return 'Inscrições encerradas.'
 
         return ''
+
+    def is_waitlist_publicly_open(self, now=None):
+        """Return whether the waitlist can be shown to the public."""
+        now = now or timezone.now()
+        if self.waitlist_public_start_at and now < self.waitlist_public_start_at:
+            return False
+        return True
 
     def get_form_fields_config(self):
         """Return form field configuration merged with defaults."""

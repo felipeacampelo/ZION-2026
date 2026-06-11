@@ -237,6 +237,7 @@ def get_settings(request):
         'min_birth_year': settings.min_birth_year,
         'max_birth_year': settings.max_birth_year,
         'waitlist_auto_invite_enabled': settings.waitlist_auto_invite_enabled,
+        'waitlist_public_start_at': settings.waitlist_public_start_at,
     })
 
 

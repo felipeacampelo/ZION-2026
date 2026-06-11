@@ -13,7 +13,7 @@ import {
 
 type EventSettingsForm = Pick<
   AppSettings,
-  'home_description' | 'home_date_text' | 'home_location_text' | 'home_location_subtext'
+  'home_description' | 'home_date_text' | 'home_location_text' | 'home_location_subtext' | 'waitlist_public_start_at'
 >;
 
 export default function AdminEventSettings() {
@@ -28,6 +28,7 @@ export default function AdminEventSettings() {
     home_date_text: '',
     home_location_text: '',
     home_location_subtext: '',
+    waitlist_public_start_at: '',
   });
   const [productForm, setProductForm] = useState({
     name: '',
@@ -91,6 +92,7 @@ export default function AdminEventSettings() {
           home_date_text: settingsResponse.data.home_date_text || '',
           home_location_text: settingsResponse.data.home_location_text || '',
           home_location_subtext: settingsResponse.data.home_location_subtext || '',
+          waitlist_public_start_at: toDateTimeLocal(settingsResponse.data.waitlist_public_start_at),
         });
       } catch {
         setError('Erro ao carregar configurações do evento.');
@@ -109,12 +111,19 @@ export default function AdminEventSettings() {
     setSuccess('');
 
     try {
-      const response = await updateAdminSettings(formData);
+      const payload = {
+        ...formData,
+        waitlist_public_start_at: formData.waitlist_public_start_at
+          ? new Date(formData.waitlist_public_start_at).toISOString()
+          : null,
+      };
+      const response = await updateAdminSettings(payload);
       setFormData({
         home_description: response.data.home_description || '',
         home_date_text: response.data.home_date_text || '',
         home_location_text: response.data.home_location_text || '',
         home_location_subtext: response.data.home_location_subtext || '',
+        waitlist_public_start_at: toDateTimeLocal(response.data.waitlist_public_start_at),
       });
       setSuccess('Configurações do evento salvas com sucesso.');
     } catch {
@@ -245,6 +254,22 @@ export default function AdminEventSettings() {
                 />
                 <p className="mt-2 text-sm text-gray-500">
                   Esse texto aparece menor logo abaixo do local na home.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Liberar lista de espera em</label>
+                <input
+                  type="datetime-local"
+                  value={formData.waitlist_public_start_at || ''}
+                  onChange={(e) => {
+                    setFormData((current) => ({ ...current, waitlist_public_start_at: e.target.value }));
+                    setSuccess('');
+                  }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+                />
+                <p className="mt-2 text-sm text-gray-500">
+                  Antes desse horário, o botão da lista de espera não aparece no site. Deixe em branco para liberar imediatamente.
                 </p>
               </div>
 

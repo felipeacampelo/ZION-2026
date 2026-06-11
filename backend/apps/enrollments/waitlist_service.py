@@ -33,6 +33,8 @@ def is_waitlist_open_for_product(product: Product) -> bool:
     settings = Settings.get_settings()
     if settings.get_enrollment_window_status() != 'open':
         return False
+    if not settings.is_waitlist_publicly_open():
+        return False
 
     product.sync_batch_transitions()
     active_batch = product.get_active_batch()
