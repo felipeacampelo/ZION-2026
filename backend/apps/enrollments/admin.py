@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
+from .waitlist_service import invite_waitlist_entry, remove_waitlist_entry
 from .models import (
     Coupon,
     EmailCampaign,
@@ -15,6 +16,7 @@ from .models import (
     EmailTemplate,
     Enrollment,
     Settings,
+    WaitlistEntry,
 )
 
 
@@ -207,6 +209,116 @@ class EnrollmentAdmin(admin.ModelAdmin):
             f'{recreated} cobrança(s) PIX recriada(s). {skipped} inscrição(ões) sem parcelas canceladas foram ignoradas.'
         )
     reissue_cancelled_pix_installments.short_description = _('Recriar parcelas PIX canceladas')
+
+
+@admin.register(WaitlistEntry)
+class WaitlistEntryAdmin(admin.ModelAdmin):
+    """Admin for waitlist entries."""
+
+    list_display = [
+        'id',
+        'attendee_name',
+        'attendee_email',
+        'product',
+        'status_badge',
+        'position',
+        'reference_batch',
+        'coupon_code',
+        'invited_at',
+        'invite_expires_at',
+        'created_at',
+    ]
+    list_filter = ['status', 'product', 'reference_batch', 'created_at']
+    search_fields = ['form_data', 'user__email', 'user__first_name', 'user__last_name', 'product__name', 'coupon_code']
+    readonly_fields = [
+        'created_at',
+        'updated_at',
+        'invited_at',
+        'invite_expires_at',
+        'converted_at',
+        'removed_at',
+    ]
+    actions = ['invite_selected_entries', 'remove_selected_entries']
+
+    fieldsets = (
+        (_('Participante'), {
+            'fields': ('user', 'product', 'status', 'position')
+        }),
+        (_('Dados da Pré-inscrição'), {
+            'fields': ('form_data', 'coupon_code')
+        }),
+        (_('Referência Comercial'), {
+            'fields': ('reference_batch', 'batch_snapshot'),
+            'classes': ('collapse',)
+        }),
+        (_('Convocação'), {
+            'fields': ('invited_at', 'invite_expires_at', 'converted_at')
+        }),
+        (_('Remoção'), {
+            'fields': ('removed_at', 'removal_reason')
+        }),
+        (_('Datas'), {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def attendee_name(self, obj):
+        return obj.form_data.get('nome_completo') or obj.user.get_full_name() or '-'
+    attendee_name.short_description = _('Nome')
+
+    def attendee_email(self, obj):
+        return obj.form_data.get('email') or obj.user.email or '-'
+    attendee_email.short_description = _('Email')
+
+    def status_badge(self, obj):
+        colors = {
+            'WAITING': '#b45309',
+            'INVITED': '#1d4ed8',
+            'CONVERTED': '#15803d',
+            'EXPIRED': '#6b7280',
+            'REMOVED': '#b91c1c',
+        }
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 10px; border-radius: 3px;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = _('Status')
+
+    def invite_selected_entries(self, request, queryset):
+        invited = 0
+        skipped = 0
+
+        for entry in queryset.select_related('product'):
+            enrollment = invite_waitlist_entry(entry)
+            if enrollment:
+                invited += 1
+            else:
+                skipped += 1
+
+        if invited:
+            self.message_user(request, f'{invited} entrada(s) da fila convocada(s).')
+        if skipped:
+            self.message_user(
+                request,
+                f'{skipped} entrada(s) não puderam ser convocadas porque não havia vaga elegível ou o status não permitia.',
+                level=messages.WARNING
+            )
+    invite_selected_entries.short_description = _('Convocar selecionadas')
+
+    def remove_selected_entries(self, request, queryset):
+        removed = 0
+
+        for entry in queryset.select_related('product'):
+            if entry.status == 'REMOVED':
+                continue
+            remove_waitlist_entry(entry, reason='removed_by_admin')
+            removed += 1
+
+        self.message_user(request, f'{removed} entrada(s) removida(s) da lista de espera.')
+    remove_selected_entries.short_description = _('Remover da lista de espera')
 
 
 @admin.register(Coupon)
