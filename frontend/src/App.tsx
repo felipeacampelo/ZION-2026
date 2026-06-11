@@ -23,6 +23,7 @@ import AdminEmailSettings from './pages/AdminEmailSettings'
 import AdminSocialQuota from './pages/AdminSocialQuota'
 import AdminWaitlist from './pages/AdminWaitlist'
 import WaitlistSignup from './pages/WaitlistSignup'
+import WaitlistConfirmation from './pages/WaitlistConfirmation'
 import WaitlistInvite from './pages/WaitlistInvite'
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
           <Route path="/lista-espera" element={<WaitlistSignup />} />
+          <Route path="/lista-espera/confirmacao" element={<WaitlistConfirmation />} />
           <Route path="/lista-espera/convite/:token" element={<WaitlistInvite />} />
           
           {/* Protected Routes */}

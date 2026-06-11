@@ -50,7 +50,6 @@ export default function WaitlistSignup() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -90,7 +89,6 @@ export default function WaitlistSignup() {
     if (!product) return;
     setSaving(true);
     setError('');
-    setSuccess('');
 
     try {
       await joinWaitlist({
@@ -103,7 +101,11 @@ export default function WaitlistSignup() {
         },
         coupon_code: couponCode || undefined,
       });
-      setSuccess('Pré-inscrição registrada na lista de espera com sucesso. Você receberá um email se uma vaga surgir.');
+      navigate('/lista-espera/confirmacao', {
+        state: {
+          eventName: product.name,
+        },
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail || err.response?.data?.form_data || 'Não foi possível entrar na lista de espera.');
     } finally {
@@ -195,7 +197,6 @@ export default function WaitlistSignup() {
           </p>
 
           {error && <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-          {success && <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div>}
 
           {product && (
             <form onSubmit={handleSubmit} className="mt-8 space-y-8">
