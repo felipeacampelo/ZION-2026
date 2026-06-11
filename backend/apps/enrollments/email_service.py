@@ -5,6 +5,7 @@ import logging
 import re
 from decimal import Decimal
 from threading import Thread
+from urllib.parse import quote
 
 import resend
 from django.conf import settings
@@ -70,6 +71,7 @@ DEFAULT_TEMPLATE_TOKENS = [
     'vencimento',
     'numero_parcela',
     'link_reset_senha',
+    'link_criar_senha',
     'link_convite_lista_espera',
     'prazo_convite',
 ]
@@ -369,6 +371,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
             "Sua vaga em {{ produto }} foi liberada.\n"
             "Use este link exclusivo para continuar sua inscrição: {{ link_convite_lista_espera }}\n"
             "Prazo: {{ prazo_convite }}\n\n"
+            "Se quiser acompanhar sua inscrição depois pela sua conta, crie sua senha aqui: {{ link_criar_senha }}\n\n"
             "Depois desse prazo, a vaga será passada para a próxima pessoa da fila."
         ),
         'html_content': f"""
@@ -379,6 +382,7 @@ EMAIL_TEMPLATE_DEFAULTS = {
 <p>Uma vaga em <strong>{{{{ produto }}}}</strong> foi reservada exclusivamente para você.</p>
 <div class="info-box"><h3>Prazo da reserva</h3><p>Você tem até <strong>{{{{ prazo_convite }}}}</strong> para continuar sua inscrição.</p></div>
 <center><a href="{{{{ link_convite_lista_espera }}}}" class="button">Continuar inscrição</a></center>
+<p style="margin-top: 24px; text-align: center;">Se quiser acompanhar sua inscrição depois pela sua conta, <a href="{{{{ link_criar_senha }}}}" style="color: #7c3aed; font-weight: 600;">crie sua senha</a>.</p>
 <div class="footer"><p>Este é um email automático, por favor não responda.</p><p>© ZION 2026 - Todos os direitos reservados</p></div>
 </div></div></body></html>
 """,
@@ -487,6 +491,7 @@ def build_email_context(enrollment=None, payment=None, reset_link=''):
     installment_number = ''
     waitlist_invite_link = ''
     invite_deadline = ''
+    create_password_link = ''
 
     if enrollment is not None:
         user_name = enrollment.form_data.get('nome_completo', enrollment.user.get_full_name()) or 'Participante'
@@ -508,6 +513,9 @@ def build_email_context(enrollment=None, payment=None, reset_link=''):
         if enrollment.reservation_expires_at:
             invite_deadline = timezone.localtime(enrollment.reservation_expires_at).strftime('%d/%m/%Y às %H:%M')
 
+    if user_email:
+        create_password_link = f'{frontend_url}/criar-senha?email={quote(user_email)}'
+
     return {
         'nome': user_name,
         'email': user_email,
@@ -521,6 +529,7 @@ def build_email_context(enrollment=None, payment=None, reset_link=''):
         'vencimento': due_date,
         'numero_parcela': installment_number,
         'link_reset_senha': reset_link,
+        'link_criar_senha': create_password_link,
         'link_convite_lista_espera': waitlist_invite_link,
         'prazo_convite': invite_deadline,
     }
@@ -540,6 +549,7 @@ def get_preview_context_for_template(key):
         'vencimento': '20/05/2026',
         'numero_parcela': '2 de 3',
         'link_reset_senha': 'https://jumpibcapital.com.br/reset-password/demo/token',
+        'link_criar_senha': 'https://jumpibcapital.com.br/criar-senha?email=maria%40example.com',
         'link_convite_lista_espera': 'https://jumpibcapital.com.br/lista-espera/convite/demo-token',
         'prazo_convite': '21/06/2026 às 20:00',
     }

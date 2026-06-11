@@ -77,10 +77,10 @@ export default function ResetPassword() {
             <Lock className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'rgb(220, 253, 97)' }}>
-            Nova Senha
+            Criar senha
           </h1>
           <p className="text-gray-300">
-            Digite sua nova senha
+            Defina sua senha para acessar sua inscrição
           </p>
         </div>
 
@@ -97,7 +97,7 @@ export default function ResetPassword() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Lock className="w-4 h-4 inline mr-2" />
-                Nova Senha *
+                Senha *
               </label>
               <input
                 type="password"
@@ -116,7 +116,7 @@ export default function ResetPassword() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirmar Nova Senha *
+                Confirmar senha *
               </label>
               <input
                 type="password"
@@ -137,7 +137,7 @@ export default function ResetPassword() {
               disabled={loading}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Alterando...' : 'Alterar Senha'}
+              {loading ? 'Salvando...' : 'Criar senha'}
             </button>
           </form>
 

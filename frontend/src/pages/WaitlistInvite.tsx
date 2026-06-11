@@ -101,6 +101,11 @@ export default function WaitlistInvite() {
     };
   }, [enrollment]);
 
+  const createPasswordLink = useMemo(() => {
+    const email = formData.email || enrollment?.form_data?.email || '';
+    return email ? `/criar-senha?email=${encodeURIComponent(email)}` : '/criar-senha';
+  }, [enrollment, formData.email]);
+
   const responsibleExtraFields = useMemo(
     () => responsibleFieldsConfig.filter((field) => !['nome_responsavel', 'email_responsavel', 'telefone_responsavel'].includes(field.key)),
     [responsibleFieldsConfig],
@@ -240,6 +245,12 @@ export default function WaitlistInvite() {
                 Uma vaga em <strong>{enrollment.product?.name}</strong> foi reservada exclusivamente para você até{' '}
                 <strong>{enrollment.reservation_expires_at ? new Date(enrollment.reservation_expires_at).toLocaleString('pt-BR') : '-'}</strong>.
               </p>
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-sm text-gray-700">
+                Quer acompanhar sua inscrição depois pela sua conta?{' '}
+                <a href={createPasswordLink} className="font-semibold text-dark underline-offset-2 hover:underline">
+                  Criar senha
+                </a>
+              </div>
               <button onClick={() => setStep('review')} className="rounded-2xl bg-dark px-6 py-4 font-semibold text-white">
                 Continuar inscrição
               </button>

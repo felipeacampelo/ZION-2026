@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const isCreatePasswordFlow = location.pathname === '/criar-senha';
+  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -36,7 +39,8 @@ export default function ForgotPassword() {
               Email Enviado!
             </h1>
             <p className="text-gray-600 mb-6">
-              Enviamos instruções para recuperação de senha para <strong>{email}</strong>.
+              {isCreatePasswordFlow ? 'Enviamos um link para você criar sua senha em ' : 'Enviamos instruções para recuperação de senha para '}
+              <strong>{email}</strong>.
               Verifique sua caixa de entrada e spam.
             </p>
             <Link
@@ -61,10 +65,12 @@ export default function ForgotPassword() {
             <Mail className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'rgb(220, 253, 97)' }}>
-            Esqueceu a senha?
+            {isCreatePasswordFlow ? 'Criar senha' : 'Esqueceu a senha?'}
           </h1>
           <p className="text-gray-300">
-            Digite seu email e enviaremos instruções para recuperação
+            {isCreatePasswordFlow
+              ? 'Digite seu email para receber um link e definir sua senha de acesso'
+              : 'Digite seu email e enviaremos instruções para recuperação'}
           </p>
         </div>
 
@@ -101,7 +107,7 @@ export default function ForgotPassword() {
               disabled={loading}
               className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Enviando...' : 'Enviar Instruções'}
+              {loading ? 'Enviando...' : isCreatePasswordFlow ? 'Enviar link para criar senha' : 'Enviar instruções'}
             </button>
           </form>
 
