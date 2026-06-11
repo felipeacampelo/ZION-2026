@@ -497,6 +497,7 @@ class SettingsAdmin(admin.ModelAdmin):
                 'enable_pix_installment',
                 'enable_credit_card',
                 'enable_shirt_size_field',
+                'enable_waitlist_public',
                 'waitlist_public_start_at',
             ),
             'description': 'Controla opções visíveis para novas inscrições e novos pagamentos'

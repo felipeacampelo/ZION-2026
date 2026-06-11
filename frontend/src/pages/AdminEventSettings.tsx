@@ -13,7 +13,7 @@ import {
 
 type EventSettingsForm = Pick<
   AppSettings,
-  'home_description' | 'home_date_text' | 'home_location_text' | 'home_location_subtext' | 'waitlist_public_start_at'
+  'home_description' | 'home_date_text' | 'home_location_text' | 'home_location_subtext' | 'enable_waitlist_public' | 'waitlist_public_start_at'
 >;
 
 export default function AdminEventSettings() {
@@ -28,6 +28,7 @@ export default function AdminEventSettings() {
     home_date_text: '',
     home_location_text: '',
     home_location_subtext: '',
+    enable_waitlist_public: true,
     waitlist_public_start_at: '',
   });
   const [productForm, setProductForm] = useState({
@@ -92,6 +93,7 @@ export default function AdminEventSettings() {
           home_date_text: settingsResponse.data.home_date_text || '',
           home_location_text: settingsResponse.data.home_location_text || '',
           home_location_subtext: settingsResponse.data.home_location_subtext || '',
+          enable_waitlist_public: settingsResponse.data.enable_waitlist_public ?? true,
           waitlist_public_start_at: toDateTimeLocal(settingsResponse.data.waitlist_public_start_at),
         });
       } catch {
@@ -123,6 +125,7 @@ export default function AdminEventSettings() {
         home_date_text: response.data.home_date_text || '',
         home_location_text: response.data.home_location_text || '',
         home_location_subtext: response.data.home_location_subtext || '',
+        enable_waitlist_public: response.data.enable_waitlist_public ?? true,
         waitlist_public_start_at: toDateTimeLocal(response.data.waitlist_public_start_at),
       });
       setSuccess('Configurações do evento salvas com sucesso.');
@@ -258,6 +261,21 @@ export default function AdminEventSettings() {
               </div>
 
               <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Lista de espera pública</label>
+                <label className="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={formData.enable_waitlist_public}
+                    onChange={(e) => {
+                      setFormData((current) => ({ ...current, enable_waitlist_public: e.target.checked }));
+                      setSuccess('');
+                    }}
+                  />
+                  Ativar botão da lista de espera para o público
+                </label>
+              </div>
+
+              <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">Liberar lista de espera em</label>
                 <input
                   type="datetime-local"
@@ -267,9 +285,10 @@ export default function AdminEventSettings() {
                     setSuccess('');
                   }}
                   className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900"
+                  disabled={!formData.enable_waitlist_public}
                 />
                 <p className="mt-2 text-sm text-gray-500">
-                  Antes desse horário, o botão da lista de espera não aparece no site. Deixe em branco para liberar imediatamente.
+                  Com a lista ativa, antes desse horário o botão não aparece no site. Deixe em branco para liberar imediatamente.
                 </p>
               </div>
 

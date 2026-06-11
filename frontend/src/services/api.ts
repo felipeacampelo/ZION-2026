@@ -506,6 +506,7 @@ export interface AppSettings {
   home_date_text: string;
   home_location_text: string;
   home_location_subtext: string;
+  enable_waitlist_public: boolean;
   waitlist_public_start_at: string | null;
   enrollment_start_at: string | null;
   enrollment_end_at: string | null;

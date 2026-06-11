@@ -756,6 +756,11 @@ class Settings(models.Model):
         verbose_name='Convocação Automática da Lista de Espera',
         help_text='Quando ativo, novas vagas convocam automaticamente o próximo da fila.',
     )
+    enable_waitlist_public = models.BooleanField(
+        default=True,
+        verbose_name='Ativar Lista de Espera Pública',
+        help_text='Controla se o botão da lista de espera pode aparecer para o público.',
+    )
     waitlist_public_start_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -800,6 +805,8 @@ class Settings(models.Model):
     def is_waitlist_publicly_open(self, now=None):
         """Return whether the waitlist can be shown to the public."""
         now = now or timezone.now()
+        if not self.enable_waitlist_public:
+            return False
         if self.waitlist_public_start_at and now < self.waitlist_public_start_at:
             return False
         return True
