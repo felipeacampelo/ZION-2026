@@ -618,18 +618,18 @@ def admin_dashboard_stats(request):
     """Get dashboard statistics for admin."""
     from django.db.models import Exists, OuterRef
 
+    active_enrollments = Enrollment.objects.exclude(status__in=['CANCELLED', 'EXPIRED'])
+
     # Enrollment stats
-    total_enrollments = Enrollment.objects.count()
-    pending_enrollments = Enrollment.objects.filter(status='PENDING_PAYMENT').count()
-    confirmed_enrollments = Enrollment.objects.filter(status='PAID').count()
+    total_enrollments = active_enrollments.count()
+    pending_enrollments = active_enrollments.filter(status='PENDING_PAYMENT').count()
+    confirmed_enrollments = active_enrollments.filter(status='PAID').count()
     paid_payments_for_enrollment = Payment.objects.filter(
         enrollment_id=OuterRef('pk'),
         status__in=['CONFIRMED', 'RECEIVED'],
     )
-    effective_enrollments = Enrollment.objects.annotate(
+    effective_enrollments = active_enrollments.annotate(
         has_effective_payment=Exists(paid_payments_for_enrollment),
-    ).exclude(
-        status__in=['CANCELLED', 'EXPIRED'],
     ).filter(
         has_effective_payment=True,
     ).count()
@@ -673,7 +673,7 @@ def admin_dashboard_stats(request):
     
     # Recent activity (last 7 days)
     week_ago = timezone.now() - timedelta(days=7)
-    recent_enrollments = Enrollment.objects.filter(
+    recent_enrollments = active_enrollments.filter(
         created_at__gte=week_ago
     ).count()
     
@@ -683,23 +683,23 @@ def admin_dashboard_stats(request):
     ).count()
     
     # Payment methods breakdown
-    payment_methods = Enrollment.objects.values('payment_method').annotate(count=Count('id'))
+    payment_methods = active_enrollments.values('payment_method').annotate(count=Count('id'))
 
     # Members breakdown
-    members_count = Enrollment.objects.filter(form_data__membro_batista_capital='sim').count()
-    non_members_count = Enrollment.objects.filter(form_data__membro_batista_capital='nao').count()
+    members_count = active_enrollments.filter(form_data__membro_batista_capital='sim').count()
+    non_members_count = active_enrollments.filter(form_data__membro_batista_capital='nao').count()
     no_answer_count = total_enrollments - members_count - non_members_count
 
     zion_history_counts = {
-        'first_time': Enrollment.objects.filter(form_data__ja_participou_zion='nao').count(),
-        'returning': Enrollment.objects.filter(form_data__ja_participou_zion='sim').count(),
-        'unknown': Enrollment.objects.exclude(
+        'first_time': active_enrollments.filter(form_data__ja_participou_zion='nao').count(),
+        'returning': active_enrollments.filter(form_data__ja_participou_zion='sim').count(),
+        'unknown': active_enrollments.exclude(
             form_data__ja_participou_zion__in=['sim', 'nao']
         ).count(),
     }
 
     birth_year_counts = {}
-    for enrollment in Enrollment.objects.only('form_data'):
+    for enrollment in active_enrollments.only('form_data'):
         birth_date = (enrollment.form_data or {}).get('data_nascimento', '')
         if isinstance(birth_date, str) and len(birth_date) >= 4:
             year = birth_date[:4]
@@ -712,11 +712,11 @@ def admin_dashboard_stats(request):
     ]
 
     empire_counts = {
-        'egito': Enrollment.objects.filter(form_data__imperio_zion='egito').count(),
-        'persia': Enrollment.objects.filter(form_data__imperio_zion='persia').count(),
-        'grecia': Enrollment.objects.filter(form_data__imperio_zion='grecia').count(),
-        'roma': Enrollment.objects.filter(form_data__imperio_zion='roma').count(),
-        'none': Enrollment.objects.filter(
+        'egito': active_enrollments.filter(form_data__imperio_zion='egito').count(),
+        'persia': active_enrollments.filter(form_data__imperio_zion='persia').count(),
+        'grecia': active_enrollments.filter(form_data__imperio_zion='grecia').count(),
+        'roma': active_enrollments.filter(form_data__imperio_zion='roma').count(),
+        'none': active_enrollments.filter(
             Q(form_data__imperio_zion__isnull=True) | Q(form_data__imperio_zion='')
         ).count(),
     }

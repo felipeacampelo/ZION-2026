@@ -135,6 +135,7 @@ export default function Home() {
 
   const product = products[0];
   const activeBatch = product?.active_batch;
+  const isWaitlistOnly = !activeBatch && product?.waitlist_state === 'sold_out_with_waitlist';
 
   const pixCashPrice = activeBatch?.price ? parseFloat(String(activeBatch.price)) : null;
   const pixInstallmentPrice = activeBatch?.pix_installment_price ? parseFloat(String(activeBatch.pix_installment_price)) : null;
@@ -219,8 +220,16 @@ export default function Home() {
   };
 
   const handleStartEnrollment = () => {
-    if (product?.waitlist_state === 'sold_out_with_waitlist') {
+    if (!product) {
+      return;
+    }
+
+    if (isWaitlistOnly) {
       navigate('/lista-espera');
+      return;
+    }
+
+    if (!activeBatch) {
       return;
     }
 
@@ -349,9 +358,10 @@ export default function Home() {
             >
               <button
                 onClick={handleStartEnrollment}
-                className="btn-gold text-base md:text-lg px-10 py-4 font-semibold"
+                disabled={!product}
+                className="btn-gold text-base md:text-lg px-10 py-4 font-semibold disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Fazer Inscrição
+                {isWaitlistOnly ? 'Entrar na lista de espera' : 'Fazer Inscrição'}
               </button>
               <button
                 onClick={() => scrollToSection('detalhes')}
