@@ -259,7 +259,7 @@ export default function AdminDashboard() {
                   >
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-700">
-                        Receita líquida
+                        Receita líquida operacional
                       </p>
                       <TrendingUp className="h-4 w-4" style={{ color: brandPurple }} />
                     </div>
@@ -268,6 +268,9 @@ export default function AdminDashboard() {
                     </p>
                     <p className="text-sm text-gray-600">
                       Taxas: - R$ {stats ? formatCurrency(stats.revenue.fees) : '0,00'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Cota social arrecadada fica separada deste total
                     </p>
                   </div>
                   <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 shadow-sm">
@@ -375,6 +378,9 @@ export default function AdminDashboard() {
                 </div>
                 <p className="mt-5 text-3xl font-bold text-gray-950">{stats.social_quota.total}</p>
                 <p className="mt-1 text-sm text-gray-600">na cota social</p>
+                <p className="mt-2 text-sm font-semibold text-gray-900">
+                  Arrecadado: R$ {formatCurrency(stats.social_quota.raised_total)}
+                </p>
                 <div className="mt-5 flex gap-2 text-xs font-semibold">
                   <span className="rounded-full bg-green-50 px-2.5 py-1 text-green-700">
                     {stats.social_quota.completed} fecharam valor
