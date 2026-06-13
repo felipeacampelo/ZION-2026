@@ -48,6 +48,10 @@ interface DashboardStats {
     overdue: number;
     fees: number;
     net: number;
+    pix_total: number;
+    credit_total: number;
+    credit_received: number;
+    credit_pending_settlement: number;
   };
   members: {
     yes: number;
@@ -301,6 +305,43 @@ export default function AdminDashboard() {
                     <p className="mt-2 text-2xl font-bold text-gray-950">{confirmedRate}%</p>
                     <p className="text-sm text-gray-600">inscrições já confirmadas</p>
                   </div>
+                </div>
+              )}
+
+              {stats && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    {
+                      label: 'PIX arrecadado',
+                      value: stats.revenue.pix_total,
+                      helper: 'Pagamentos PIX confirmados/recebidos',
+                    },
+                    {
+                      label: 'Crédito pago no site',
+                      value: stats.revenue.credit_total,
+                      helper: 'Cartão pago pelo cliente',
+                    },
+                    {
+                      label: 'Crédito recebido na conta',
+                      value: stats.revenue.credit_received,
+                      helper: 'Cartão já liquidado',
+                    },
+                    {
+                      label: 'Crédito pendente de repasse',
+                      value: stats.revenue.credit_pending_settlement,
+                      helper: 'Pago no cartão, aguardando repasse',
+                    },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                        {item.label}
+                      </p>
+                      <p className="mt-2 text-2xl font-bold text-gray-950">
+                        R$ {formatCurrency(item.value)}
+                      </p>
+                      <p className="text-sm text-gray-600">{item.helper}</p>
+                    </div>
+                  ))}
                 </div>
               )}
           </div>

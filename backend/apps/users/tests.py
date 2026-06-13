@@ -357,7 +357,59 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['empires']['none'], 1)
         self.assertEqual(response.data['revenue']['pending'], 190.0)
         self.assertEqual(response.data['revenue']['overdue'], 130.0)
+        self.assertEqual(response.data['revenue']['pix_total'], 200.0)
+        self.assertEqual(response.data['revenue']['credit_total'], 130.0)
+        self.assertEqual(response.data['revenue']['credit_received'], 0.0)
+        self.assertEqual(response.data['revenue']['credit_pending_settlement'], 130.0)
         self.assertIn('social_quota', response.data)
+
+    def test_dashboard_counts_site_payments_for_social_quota_in_payment_method_totals(self):
+        social_coupon = Coupon.objects.create(
+            code='COTASOCIAL-DASH',
+            discount_type='FIXED',
+            discount_value=Decimal('50.00'),
+            min_purchase=Decimal('0.00'),
+            valid_from=timezone.now() - timedelta(days=1),
+            valid_until=timezone.now() + timedelta(days=30),
+            active=True,
+        )
+        social_user = User.objects.create_user(
+            email='social-dashboard@example.com',
+            password='password123',
+        )
+        social_enrollment = Enrollment.objects.create(
+            user=social_user,
+            product=self.product,
+            batch=self.batch,
+            coupon=social_coupon,
+            form_data={'nome_completo': 'Social Dashboard'},
+            payment_method='PIX_CASH',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('50.00'),
+            final_amount=Decimal('50.00'),
+        )
+        Payment.objects.create(
+            enrollment=social_enrollment,
+            asaas_payment_id='pay-social-dashboard',
+            installment_number=1,
+            amount=Decimal('50.00'),
+            status='RECEIVED',
+            due_date=timezone.now().date(),
+        )
+        SocialQuotaContribution.objects.create(
+            enrollment=social_enrollment,
+            date=timezone.now().date(),
+            amount=Decimal('25.00'),
+            notes='Arrecadação manual',
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(reverse('users:admin-dashboard'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['revenue']['pix_total'], 50.0)
+        self.assertEqual(response.data['social_quota']['raised_total'], 25.0)
 
 
 class AdminSocialQuotaTests(APITestCase):

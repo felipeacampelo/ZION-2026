@@ -642,8 +642,21 @@ def admin_dashboard_stats(request):
     pending_payments = Payment.objects.filter(status='PENDING').count()
     
     # Revenue stats
-    total_revenue = Payment.objects.filter(
-        status__in=['CONFIRMED', 'RECEIVED']
+    paid_payments = Payment.objects.filter(status__in=['CONFIRMED', 'RECEIVED'])
+    total_revenue = paid_payments.aggregate(total=Sum('amount'))['total'] or 0
+    pix_revenue = paid_payments.filter(
+        enrollment__payment_method__in=['PIX_CASH', 'PIX_INSTALLMENT']
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    credit_revenue = paid_payments.filter(
+        enrollment__payment_method='CREDIT_CARD'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    credit_received_revenue = Payment.objects.filter(
+        status='RECEIVED',
+        enrollment__payment_method='CREDIT_CARD',
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    credit_pending_settlement_revenue = Payment.objects.filter(
+        status='CONFIRMED',
+        enrollment__payment_method='CREDIT_CARD',
     ).aggregate(total=Sum('amount'))['total'] or 0
     
     open_revenue = Payment.objects.filter(
@@ -761,6 +774,10 @@ def admin_dashboard_stats(request):
             'overdue': float(overdue_revenue),
             'fees': float(total_fees),
             'net': float(net_revenue),
+            'pix_total': float(pix_revenue),
+            'credit_total': float(credit_revenue),
+            'credit_received': float(credit_received_revenue),
+            'credit_pending_settlement': float(credit_pending_settlement_revenue),
         },
         'members': {
             'yes': members_count,
