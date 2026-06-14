@@ -24,6 +24,7 @@ from apps.enrollments.models import (
 )
 from apps.enrollments.serializers import EnrollmentSerializer, SocialQuotaContributionSerializer
 from apps.enrollments.email_service import NO_PAYMENT_YET
+from apps.enrollments.email_service import send_enrollment_expired_email
 from apps.enrollments.utils import SOCIAL_QUOTA_COUPON_PREFIX, build_social_quota_summary
 from apps.enrollments.waitlist_service import (
     invite_waitlist_entry,
@@ -993,6 +994,8 @@ def admin_enrollment_update(request, pk):
     if new_status:
         enrollment.status = new_status
         enrollment.save()
+        if new_status == 'EXPIRED':
+            send_enrollment_expired_email(enrollment)
         if new_status in {'CANCELLED', 'EXPIRED'}:
             process_waitlist_for_product(enrollment.product)
     

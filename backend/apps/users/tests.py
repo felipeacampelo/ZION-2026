@@ -870,6 +870,21 @@ class AdminNoPaymentYetFilterTests(APITestCase):
         self.assertNotIn(self.paid_enrollment.id, returned_ids)
         self.assertNotIn(self.cancelled_enrollment.id, returned_ids)
 
+    @patch('apps.users.admin_views.send_enrollment_expired_email')
+    def test_admin_enrollment_update_sends_expired_email(self, mock_send_enrollment_expired_email):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.patch(
+            reverse('users:admin-enrollment-update', args=[self.pending_pix.id]),
+            {'status': 'EXPIRED'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.pending_pix.refresh_from_db()
+        self.assertEqual(self.pending_pix.status, 'EXPIRED')
+        mock_send_enrollment_expired_email.assert_called_once_with(self.pending_pix)
+
     def test_campaign_preview_recipients_filters_no_payment_yet(self):
         self.client.force_authenticate(user=self.admin)
 

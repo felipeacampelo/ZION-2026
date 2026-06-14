@@ -917,6 +917,7 @@ class EmailTemplate(models.Model):
         ('enrollment_confirmation', 'Confirmação de Inscrição'),
         ('payment_confirmation', 'Confirmação de Pagamento'),
         ('pending_payment', 'Pagamento Pendente'),
+        ('enrollment_expired', 'Inscrição Expirada por Falta de Pagamento'),
         ('installment_reminder', 'Lembrete de Parcela'),
         ('password_reset', 'Recuperação de Senha'),
         ('waitlist_joined', 'Entrada na Lista de Espera'),

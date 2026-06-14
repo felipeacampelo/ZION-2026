@@ -247,6 +247,56 @@ EMAIL_TEMPLATE_DEFAULTS = {
 </html>
 """,
     },
+    'enrollment_expired': {
+        'name': 'Inscrição Expirada por Falta de Pagamento',
+        'subject': '❌ Inscrição Cancelada - prazo de pagamento expirado',
+        'text_content': (
+            "Olá, {{ nome }}!\n\n"
+            "O prazo para pagamento da sua inscrição em {{ produto }} expirou.\n"
+            "Por isso, sua inscrição foi cancelada automaticamente.\n\n"
+            "Se ainda houver vagas disponíveis, você poderá realizar uma nova inscrição pelo site.\n"
+            "Acompanhe em: {{ link_minhas_inscricoes }}"
+        ),
+        'html_content': f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>{_get_base_styles()}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header" style="background: linear-gradient(135deg, #6b7280 0%, #374151 100%);">
+            {_get_email_logo_html()}
+            <div class="emoji">❌</div>
+            <h1>Inscrição Cancelada</h1>
+            <p style="margin-top: 12px; font-size: 16px; opacity: 0.95;">O prazo para pagamento expirou.</p>
+        </div>
+        <div class="content">
+            <p>Olá, <strong>{{{{ nome }}}}</strong>!</p>
+            <p>
+                O prazo para pagamento da sua inscrição em <strong>{{{{ produto }}}}</strong> expirou e,
+                por isso, a inscrição foi cancelada automaticamente.
+            </p>
+            <div class="info-box" style="border-left-color: #6b7280;">
+                <h3>Prazo encerrado</h3>
+                <p>Sua vaga foi liberada e a inscrição não está mais ativa.</p>
+                <p>Se ainda houver vagas disponíveis, você poderá realizar uma nova inscrição pelo site.</p>
+            </div>
+            <center>
+                <a href="{{{{ link_minhas_inscricoes }}}}" class="button" style="background: #374151;">Ver Minhas Inscrições</a>
+            </center>
+            <div class="footer">
+                <p>Este é um email automático, por favor não responda.</p>
+                <p>© ZION 2026 - Todos os direitos reservados</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+""",
+    },
     'installment_reminder': {
         'name': 'Lembrete de Parcela',
         'subject': '⏰ Lembrete: Parcela {{ numero_parcela }} - {{ produto }}',
@@ -668,6 +718,24 @@ def send_password_reset_email(user, reset_link):
         )
     except Exception as exc:
         logger.error('Erro ao enviar email de recuperação de senha: %s', exc)
+        return False
+
+
+def send_enrollment_expired_email(enrollment):
+    context = build_email_context(enrollment=enrollment)
+    rendered = render_email_template('enrollment_expired', context)
+    if not rendered['is_active']:
+        logger.info('Template enrollment_expired desativado; envio ignorado.')
+        return False
+    try:
+        return send_email_message(
+            to_email=enrollment.form_data.get('email', enrollment.user.email),
+            subject=rendered['subject'],
+            html_content=rendered['html_content'],
+            text_content=rendered['text_content'],
+        )
+    except Exception as exc:
+        logger.error('Erro ao enviar email de inscrição expirada: %s', exc)
         return False
 
 
