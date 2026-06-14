@@ -77,11 +77,26 @@ export default function AdminWaitlist() {
     [entries],
   );
 
-  const getWaitlistStatusMeta = (status: string) =>
-    WAITLIST_STATUS_META[status] ?? {
-      label: status,
+  const getWaitlistStatusMeta = (entry: WaitlistEntry) => {
+    if (entry.status === 'CONVERTED') {
+      if (entry.waitlist_payment_state === 'PAID') {
+        return {
+          label: 'Pago',
+          className: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+        };
+      }
+
+      return {
+        label: 'Aguardando pagamento',
+        className: 'bg-violet-100 text-violet-800 border border-violet-200',
+      };
+    }
+
+    return WAITLIST_STATUS_META[entry.status] ?? {
+      label: entry.status,
       className: 'bg-gray-100 text-gray-700 border border-gray-200',
     };
+  };
 
   const loadData = async (productId?: number | '') => {
     setLoading(true);
@@ -242,7 +257,7 @@ export default function AdminWaitlist() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {orderedEntries.map((entry) => {
-                    const statusMeta = getWaitlistStatusMeta(entry.status);
+                    const statusMeta = getWaitlistStatusMeta(entry);
 
                     return (
                     <tr key={entry.id} className="text-sm text-gray-700">

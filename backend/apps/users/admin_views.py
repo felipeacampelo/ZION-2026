@@ -9,7 +9,7 @@ from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, Sum, Q, Prefetch
 from django.utils import timezone
 from datetime import timedelta, datetime
 
@@ -298,6 +298,7 @@ class AdminWaitlistListSerializer(serializers.ModelSerializer):
     phone = serializers.SerializerMethodField()
     product_name = serializers.CharField(source='product.name', read_only=True)
     reference_batch_name = serializers.CharField(source='reference_batch.name', read_only=True)
+    waitlist_payment_state = serializers.SerializerMethodField()
 
     class Meta:
         model = WaitlistEntry
@@ -313,6 +314,7 @@ class AdminWaitlistListSerializer(serializers.ModelSerializer):
             'coupon_code',
             'reference_batch',
             'reference_batch_name',
+            'waitlist_payment_state',
             'invited_at',
             'invite_expires_at',
             'converted_at',
@@ -329,6 +331,29 @@ class AdminWaitlistListSerializer(serializers.ModelSerializer):
 
     def get_phone(self, obj):
         return (obj.form_data or {}).get('telefone') or ''
+
+    def get_waitlist_payment_state(self, obj):
+        if obj.status != 'CONVERTED':
+            return None
+
+        prefetched_enrollments = getattr(obj, 'prefetched_reserved_enrollments', None)
+        enrollments = list(prefetched_enrollments) if prefetched_enrollments is not None else list(obj.reserved_enrollments.all())
+        if not enrollments:
+            return 'PENDING_PAYMENT'
+
+        latest_enrollment = max(
+            enrollments,
+            key=lambda enrollment: enrollment.created_at or timezone.make_aware(datetime.min),
+        )
+        payments = list(getattr(latest_enrollment, 'prefetched_payments', latest_enrollment.payments.all()))
+
+        if any(payment.status in ['CONFIRMED', 'RECEIVED'] for payment in payments) or latest_enrollment.status == 'PAID':
+            return 'PAID'
+
+        if payments:
+            return 'PENDING_PAYMENT'
+
+        return 'PENDING_PAYMENT'
 
 
 EMPIRE_KEYS = ['egito', 'persia', 'grecia', 'roma', 'none']
@@ -1205,7 +1230,15 @@ def admin_batch_delete(request, pk):
 @permission_classes([IsAdminUser])
 def admin_waitlist_list(request):
     product_id = request.query_params.get('product')
-    queryset = WaitlistEntry.objects.select_related('product', 'user', 'reference_batch').order_by('position', 'created_at')
+    queryset = WaitlistEntry.objects.select_related('product', 'user', 'reference_batch').prefetch_related(
+        Prefetch(
+            'reserved_enrollments',
+            queryset=Enrollment.objects.prefetch_related(
+                Prefetch('payments', queryset=Payment.objects.all(), to_attr='prefetched_payments')
+            ).order_by('-created_at'),
+            to_attr='prefetched_reserved_enrollments',
+        )
+    ).order_by('position', 'created_at')
     if product_id:
         queryset = queryset.filter(product_id=product_id)
     serializer = AdminWaitlistListSerializer(queryset, many=True)

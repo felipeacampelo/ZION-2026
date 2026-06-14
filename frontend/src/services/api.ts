@@ -137,6 +137,7 @@ export interface WaitlistEntry {
   position: number;
   coupon_code: string;
   reference_batch_name?: string | null;
+  waitlist_payment_state?: 'PAID' | 'PENDING_PAYMENT' | null;
   invited_at?: string | null;
   invite_expires_at?: string | null;
   converted_at?: string | null;
