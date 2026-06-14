@@ -12,6 +12,37 @@ import {
   type WaitlistEntry,
 } from '../services/api';
 
+const WAITLIST_STATUS_META: Record<string, { label: string; className: string }> = {
+  WAITING: {
+    label: 'Na fila',
+    className: 'bg-amber-100 text-amber-800 border border-amber-200',
+  },
+  INVITED: {
+    label: 'Convocado',
+    className: 'bg-sky-100 text-sky-800 border border-sky-200',
+  },
+  CONVERTED: {
+    label: 'Convertido',
+    className: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+  },
+  EXPIRED: {
+    label: 'Expirado',
+    className: 'bg-orange-100 text-orange-800 border border-orange-200',
+  },
+  REMOVED: {
+    label: 'Removido',
+    className: 'bg-rose-100 text-rose-800 border border-rose-200',
+  },
+};
+
+const WAITLIST_STATUS_ORDER: Record<string, number> = {
+  CONVERTED: 0,
+  INVITED: 1,
+  WAITING: 2,
+  EXPIRED: 3,
+  REMOVED: 4,
+};
+
 export default function AdminWaitlist() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<number | ''>('');
@@ -26,6 +57,31 @@ export default function AdminWaitlist() {
     () => entries.filter((entry) => entry.status === 'WAITING'),
     [entries],
   );
+
+  const orderedEntries = useMemo(
+    () =>
+      [...entries].sort((a, b) => {
+        const statusDiff =
+          (WAITLIST_STATUS_ORDER[a.status] ?? 99) - (WAITLIST_STATUS_ORDER[b.status] ?? 99);
+
+        if (statusDiff !== 0) {
+          return statusDiff;
+        }
+
+        if (a.status === 'WAITING' && b.status === 'WAITING') {
+          return (a.position ?? Number.MAX_SAFE_INTEGER) - (b.position ?? Number.MAX_SAFE_INTEGER);
+        }
+
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }),
+    [entries],
+  );
+
+  const getWaitlistStatusMeta = (status: string) =>
+    WAITLIST_STATUS_META[status] ?? {
+      label: status,
+      className: 'bg-gray-100 text-gray-700 border border-gray-200',
+    };
 
   const loadData = async (productId?: number | '') => {
     setLoading(true);
@@ -185,7 +241,10 @@ export default function AdminWaitlist() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {entries.map((entry) => (
+                  {orderedEntries.map((entry) => {
+                    const statusMeta = getWaitlistStatusMeta(entry.status);
+
+                    return (
                     <tr key={entry.id} className="text-sm text-gray-700">
                       <td className="px-4 py-4">
                         {entry.status === 'WAITING' ? (
@@ -211,7 +270,9 @@ export default function AdminWaitlist() {
                       <td className="px-4 py-4">{entry.reference_batch_name || '-'}</td>
                       <td className="px-4 py-4">{entry.coupon_code || '-'}</td>
                       <td className="px-4 py-4">
-                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">{entry.status}</span>
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusMeta.className}`}>
+                          {statusMeta.label}
+                        </span>
                       </td>
                       <td className="px-4 py-4 text-xs text-gray-500">
                         {entry.invite_expires_at ? new Date(entry.invite_expires_at).toLocaleString('pt-BR') : '-'}
@@ -232,7 +293,8 @@ export default function AdminWaitlist() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
