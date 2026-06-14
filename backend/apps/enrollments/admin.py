@@ -2,8 +2,10 @@
 Enrollments admin configuration.
 """
 from datetime import timedelta
+from decimal import Decimal
 from django.contrib import admin
 from django.contrib import messages
+from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
@@ -20,10 +22,66 @@ from .models import (
 )
 
 
+class EnrollmentAdminForm(forms.ModelForm):
+    class Meta:
+        model = Enrollment
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.instance.pk and self.instance.payments.exclude(status='CANCELLED').exists():
+            if any(field in self.changed_data for field in ['coupon', 'payment_method', 'installments', 'batch']):
+                raise forms.ValidationError(
+                    'Não é possível alterar cupom, lote ou forma de pagamento após gerar cobrança para esta inscrição.'
+                )
+
+        coupon = cleaned_data.get('coupon')
+        product = cleaned_data.get('product') or self.instance.product
+        batch = cleaned_data.get('batch') or self.instance.batch
+        payment_method = cleaned_data.get('payment_method') or self.instance.payment_method
+        installments = cleaned_data.get('installments') or self.instance.installments or 1
+
+        if not batch:
+            return cleaned_data
+
+        pricing_source = self.instance.pricing_snapshot if isinstance(self.instance.pricing_snapshot, dict) else {}
+        pix_cash_price = Decimal(str(pricing_source.get('price', batch.price)))
+        pix_installment_price = Decimal(str(pricing_source.get('pix_installment_price', batch.pix_installment_price)))
+        credit_card_price = Decimal(str(pricing_source.get('credit_card_price', batch.credit_card_price)))
+
+        if payment_method == 'PIX_INSTALLMENT':
+            total_amount = pix_installment_price
+        elif payment_method == 'CREDIT_CARD':
+            total_amount = credit_card_price
+        else:
+            total_amount = pix_cash_price
+
+        if coupon:
+            is_valid, message = coupon.is_valid()
+            if not is_valid:
+                self.add_error('coupon', message)
+                return cleaned_data
+
+            if product and not coupon.can_apply_to_product(product):
+                self.add_error('coupon', 'Este cupom não é válido para este produto.')
+                return cleaned_data
+
+            can_apply_payment, payment_message = coupon.can_apply_to_payment(payment_method, installments)
+            if not can_apply_payment:
+                self.add_error('coupon', payment_message)
+                return cleaned_data
+
+            if total_amount < coupon.min_purchase:
+                self.add_error('coupon', f'Valor mínimo para este cupom é R$ {coupon.min_purchase}.')
+
+        return cleaned_data
+
+
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
     """Admin for Enrollment model."""
-    
+
+    form = EnrollmentAdminForm
     list_display = ['id', 'user_info', 'product', 'batch', 'status_badge', 'payment_method_display', 'final_amount', 'installments', 'shirt_size', 'pg_leader', 'created_at']
     list_filter = ['status', 'payment_method', 'batch__product', 'created_at']
     search_fields = ['user__email', 'user__first_name', 'user__last_name', 'product__name']
@@ -39,7 +97,7 @@ class EnrollmentAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
         (_('Pagamento'), {
-            'fields': ('payment_method', 'installments', 'total_amount', 'discount_amount', 'final_amount')
+            'fields': ('payment_method', 'installments', 'coupon', 'total_amount', 'discount_amount', 'final_amount')
         }),
         (_('Status'), {
             'fields': ('status', 'paid_at')
@@ -54,6 +112,28 @@ class EnrollmentAdmin(admin.ModelAdmin):
     )
     
     actions = ['mark_as_paid', 'cancel_enrollments', 'export_to_csv', 'reissue_cancelled_pix_installments']
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        if obj and obj.payments.exclude(status='CANCELLED').exists():
+            readonly_fields.extend(['coupon', 'payment_method', 'installments', 'batch'])
+        return readonly_fields
+
+    def save_model(self, request, obj, form, change):
+        previous_enrollment = Enrollment.objects.filter(pk=obj.pk).select_related('coupon').first() if change else None
+
+        obj.calculate_amounts()
+        super().save_model(request, obj, form, change)
+
+        previous_coupon = previous_enrollment.coupon if previous_enrollment else None
+        current_coupon = obj.coupon
+
+        if previous_coupon and previous_coupon != current_coupon and previous_coupon.uses_count > 0:
+            previous_coupon.uses_count -= 1
+            previous_coupon.save(update_fields=['uses_count'])
+
+        if current_coupon and previous_coupon != current_coupon:
+            current_coupon.increment_uses()
     
     def user_info(self, obj):
         """Display user information with link."""
