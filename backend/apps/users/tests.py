@@ -357,11 +357,70 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['empires']['none'], 1)
         self.assertEqual(response.data['revenue']['pending'], 190.0)
         self.assertEqual(response.data['revenue']['overdue'], 130.0)
-        self.assertEqual(response.data['revenue']['pix_total'], 200.0)
-        self.assertEqual(response.data['revenue']['credit_total'], 130.0)
+        self.assertEqual(response.data['revenue']['pix_total'], 100.0)
+        self.assertEqual(response.data['revenue']['credit_total'], 0.0)
         self.assertEqual(response.data['revenue']['credit_received'], 0.0)
-        self.assertEqual(response.data['revenue']['credit_pending_settlement'], 130.0)
+        self.assertEqual(response.data['revenue']['credit_pending_settlement'], 0.0)
         self.assertIn('social_quota', response.data)
+
+    def test_dashboard_uses_payment_record_to_classify_pix_and_excludes_inactive_enrollments(self):
+        pix_payment = Payment.objects.create(
+            enrollment=self.member_enrollment,
+            asaas_payment_id='pay-dashboard-pix-actual',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='RECEIVED',
+            due_date=timezone.now().date(),
+            pix_qr_code='base64-pix',
+        )
+        self.member_enrollment.payment_method = 'CREDIT_CARD'
+        self.member_enrollment.save(update_fields=['payment_method'])
+
+        active_card_payment = Payment.objects.create(
+            enrollment=self.unknown_enrollment,
+            asaas_payment_id='pay-dashboard-card-active',
+            installment_number=1,
+            amount=Decimal('130.00'),
+            status='CONFIRMED',
+            due_date=timezone.now().date(),
+            raw_webhook_data={'payment': {'billingType': 'CREDIT_CARD'}},
+        )
+
+        cancelled_user = User.objects.create_user(
+            email='cancelled-pix-dashboard@example.com',
+            password='password123',
+        )
+        cancelled_enrollment = Enrollment.objects.create(
+            user=cancelled_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'nome_completo': 'Cancelled Pix'},
+            payment_method='PIX_CASH',
+            status='CANCELLED',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+        cancelled_payment = Payment.objects.create(
+            enrollment=cancelled_enrollment,
+            asaas_payment_id='pay-dashboard-pix-cancelled',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='RECEIVED',
+            due_date=timezone.now().date(),
+            pix_qr_code='cancelled-pix',
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(reverse('users:admin-dashboard'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['revenue']['pix_total'], 100.0)
+        self.assertEqual(response.data['revenue']['credit_total'], 130.0)
+        self.assertEqual(response.data['payments']['confirmed'], 3)
+        self.assertNotEqual(cancelled_payment.id, pix_payment.id)
+        self.assertNotEqual(active_card_payment.id, pix_payment.id)
 
     def test_dashboard_counts_site_payments_for_social_quota_in_payment_method_totals(self):
         social_coupon = Coupon.objects.create(

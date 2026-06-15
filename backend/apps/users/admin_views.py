@@ -391,6 +391,34 @@ def calculate_asaas_fee(payment_amount, payment_method, installments):
     return Decimal('0')
 
 
+def resolve_payment_method(payment):
+    """
+    Infer the actual payment method from the payment record itself.
+
+    The dashboard used to rely on the current enrollment.payment_method,
+    which can drift from the original charge and misclassify historical
+    receipts. Prefer persisted payment evidence first, then fall back to the
+    enrollment when nothing else is available.
+    """
+    webhook_data = payment.raw_webhook_data if isinstance(payment.raw_webhook_data, dict) else {}
+    created_data = webhook_data.get('created', {}) if isinstance(webhook_data.get('created'), dict) else {}
+    webhook_payment = webhook_data.get('payment', {}) if isinstance(webhook_data.get('payment'), dict) else {}
+
+    if payment.pix_qr_code or payment.pix_copy_paste:
+        return 'PIX'
+
+    billing_type = (
+        webhook_payment.get('billingType')
+        or created_data.get('billingType')
+    )
+    if billing_type == 'PIX':
+        return 'PIX'
+    if billing_type == 'CREDIT_CARD':
+        return 'CREDIT_CARD'
+
+    return payment.enrollment.payment_method
+
+
 def build_overdue_enrollments():
     """Build grouped overdue enrollments for admin dashboards."""
     today = timezone.localdate()
@@ -864,6 +892,7 @@ def admin_dashboard_stats(request):
     from django.db.models import Exists, OuterRef
 
     active_enrollments = Enrollment.objects.exclude(status__in=['CANCELLED', 'EXPIRED'])
+    active_enrollment_statuses = ['PENDING_PAYMENT', 'PAID']
 
     # Enrollment stats
     total_enrollments = active_enrollments.count()
@@ -887,20 +916,21 @@ def admin_dashboard_stats(request):
     pending_payments = Payment.objects.filter(status='PENDING').count()
     
     # Revenue stats
-    paid_payments = Payment.objects.filter(status__in=['CONFIRMED', 'RECEIVED'])
+    paid_payments = Payment.objects.filter(
+        status__in=['CONFIRMED', 'RECEIVED'],
+        enrollment__status__in=active_enrollment_statuses,
+    )
     total_revenue = paid_payments.aggregate(total=Sum('amount'))['total'] or 0
-    pix_revenue = paid_payments.filter(
-        enrollment__payment_method__in=['PIX_CASH', 'PIX_INSTALLMENT']
-    ).aggregate(total=Sum('amount'))['total'] or 0
-    credit_revenue = paid_payments.filter(
-        enrollment__payment_method='CREDIT_CARD'
-    ).aggregate(total=Sum('amount'))['total'] or 0
+    pix_revenue = Decimal('0')
+    credit_revenue = Decimal('0')
     credit_received_revenue = Payment.objects.filter(
         status='RECEIVED',
+        enrollment__status__in=active_enrollment_statuses,
         enrollment__payment_method='CREDIT_CARD',
     ).aggregate(total=Sum('amount'))['total'] or 0
     credit_pending_settlement_revenue = Payment.objects.filter(
         status='CONFIRMED',
+        enrollment__status__in=active_enrollment_statuses,
         enrollment__payment_method='CREDIT_CARD',
     ).aggregate(total=Sum('amount'))['total'] or 0
     
@@ -919,20 +949,24 @@ def admin_dashboard_stats(request):
     credit_received_fees = Decimal('0')
     credit_pending_settlement_fees = Decimal('0')
     confirmed_payments_list = Payment.objects.filter(
-        status__in=['CONFIRMED', 'RECEIVED']
+        status__in=['CONFIRMED', 'RECEIVED'],
+        enrollment__status__in=active_enrollment_statuses,
     ).select_related('enrollment')
-    
+
     for payment in confirmed_payments_list:
         enrollment = payment.enrollment
+        resolved_payment_method = resolve_payment_method(payment)
         fee = calculate_asaas_fee(
             payment.amount,
-            enrollment.payment_method,
+            resolved_payment_method,
             enrollment.installments
         )
         total_fees += fee
-        if enrollment.payment_method in ['PIX_CASH', 'PIX_INSTALLMENT']:
+        if resolved_payment_method in ['PIX', 'PIX_CASH', 'PIX_INSTALLMENT']:
+            pix_revenue += payment.amount
             pix_fees += fee
-        elif enrollment.payment_method == 'CREDIT_CARD':
+        elif resolved_payment_method == 'CREDIT_CARD':
+            credit_revenue += payment.amount
             credit_fees += fee
             if payment.status == 'RECEIVED':
                 credit_received_fees += fee
