@@ -1,6 +1,8 @@
 """
 Admin views for managing system data.
 """
+import csv
+import json
 from collections import OrderedDict
 from decimal import Decimal
 from statistics import mean
@@ -9,6 +11,7 @@ from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from django.http import HttpResponse
 from django.db.models import Count, Sum, Q, Prefetch
 from django.utils import timezone
 from datetime import timedelta, datetime
@@ -35,6 +38,7 @@ from apps.enrollments.waitlist_service import (
     reorder_waitlist,
 )
 from apps.payments.models import Payment
+from apps.payments.services.asaas_service import AsaasService, AsaasAPIException
 from apps.products.models import Product, Batch
 from apps.products.serializers import ProductSerializer, BatchSerializer
 
@@ -637,6 +641,186 @@ def build_empire_board_response():
         }
 
     response['summary'] = summary
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_export_asaas_extract(request):
+    """Export project Asaas extract enriched with local enrollment data."""
+    local_payments = list(
+        Payment.objects.select_related(
+            'enrollment',
+            'enrollment__user',
+            'enrollment__product',
+            'enrollment__batch',
+        )
+        .exclude(asaas_payment_id__isnull=True)
+        .exclude(asaas_payment_id='')
+        .order_by('created_at')
+    )
+
+    if not local_payments:
+        return Response(
+            {'detail': 'Nenhum pagamento com Asaas foi encontrado para exportação.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    start_date = request.query_params.get('start_date') or local_payments[0].created_at.date().isoformat()
+    finish_date = request.query_params.get('finish_date') or timezone.localdate().isoformat()
+
+    asaas = AsaasService()
+    extract_rows = []
+    offset = 0
+    limit = 100
+
+    try:
+        while True:
+            payload = asaas.list_financial_transactions(
+                start_date=start_date,
+                finish_date=finish_date,
+                limit=limit,
+                offset=offset,
+            )
+            data = payload.get('data', []) or []
+            extract_rows.extend(data)
+            if len(data) < limit:
+                break
+            offset += limit
+    except AsaasAPIException as exc:
+        return Response(
+            {'detail': f'Erro ao consultar o extrato do Asaas: {exc}'},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    payments_by_asaas_id = {payment.asaas_payment_id: payment for payment in local_payments}
+    matched_transactions = []
+    matched_payment_ids = set()
+
+    for row in extract_rows:
+        payment_id = row.get('paymentId') or (row.get('payment') or {}).get('id')
+        local_payment = payments_by_asaas_id.get(payment_id)
+        if not local_payment:
+            continue
+        matched_transactions.append((row, local_payment))
+        matched_payment_ids.add(payment_id)
+
+    payment_details = {}
+    for asaas_payment_id in payments_by_asaas_id.keys():
+        try:
+            payment_details[asaas_payment_id] = asaas.get_payment(asaas_payment_id)
+        except AsaasAPIException as exc:
+            payment_details[asaas_payment_id] = {'_error': str(exc)}
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = (
+        f'attachment; filename="extrato_asaas_zion_{start_date}_{finish_date}.csv"'
+    )
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'origem',
+        'periodo_inicio',
+        'periodo_fim',
+        'tipo_linha',
+        'transaction_id',
+        'transaction_type',
+        'transaction_date',
+        'transaction_value',
+        'transaction_description',
+        'transaction_payment_id',
+        'local_payment_id',
+        'local_enrollment_id',
+        'local_created_at',
+        'local_paid_at',
+        'local_product',
+        'local_batch',
+        'local_status',
+        'local_payment_method',
+        'local_installments',
+        'local_amount',
+        'payer_name',
+        'payer_email',
+        'asaas_payment_id',
+        'asaas_status',
+        'asaas_billing_type',
+        'asaas_value',
+        'asaas_net_value',
+        'asaas_original_value',
+        'asaas_description',
+        'asaas_external_reference',
+        'asaas_due_date',
+        'asaas_payment_date',
+        'asaas_client_payment_date',
+        'asaas_credit_date',
+        'asaas_estimated_credit_date',
+        'asaas_invoice_url',
+        'asaas_error',
+        'transaction_raw_json',
+        'payment_raw_json',
+    ])
+
+    def serialize_json(value):
+        return json.dumps(value, ensure_ascii=False) if value else ''
+
+    def write_row(row_type, local_payment, transaction=None):
+        enrollment = local_payment.enrollment
+        payment_info = payment_details.get(local_payment.asaas_payment_id, {}) or {}
+        form_data = enrollment.form_data or {}
+        transaction_payment_id = ''
+        if transaction:
+            transaction_payment_id = transaction.get('paymentId') or (transaction.get('payment') or {}).get('id') or ''
+
+        writer.writerow([
+            'zion',
+            start_date,
+            finish_date,
+            row_type,
+            transaction.get('id', '') if transaction else '',
+            transaction.get('type', '') if transaction else '',
+            transaction.get('date', '') if transaction else '',
+            transaction.get('value', '') if transaction else '',
+            transaction.get('description', '') if transaction else '',
+            transaction_payment_id,
+            local_payment.id,
+            enrollment.id,
+            local_payment.created_at.isoformat() if local_payment.created_at else '',
+            local_payment.paid_at.isoformat() if local_payment.paid_at else '',
+            getattr(enrollment.product, 'name', ''),
+            getattr(enrollment.batch, 'name', ''),
+            local_payment.status,
+            enrollment.payment_method or '',
+            enrollment.installments or '',
+            local_payment.amount,
+            form_data.get('nome_completo', '') if isinstance(form_data, dict) else '',
+            getattr(getattr(enrollment, 'user', None), 'email', ''),
+            local_payment.asaas_payment_id,
+            payment_info.get('status', ''),
+            payment_info.get('billingType', ''),
+            payment_info.get('value', ''),
+            payment_info.get('netValue', ''),
+            payment_info.get('originalValue', ''),
+            payment_info.get('description', ''),
+            payment_info.get('externalReference', ''),
+            payment_info.get('dueDate', ''),
+            payment_info.get('paymentDate', ''),
+            payment_info.get('clientPaymentDate', ''),
+            payment_info.get('creditDate', ''),
+            payment_info.get('estimatedCreditDate', ''),
+            payment_info.get('invoiceUrl', ''),
+            payment_info.get('_error', ''),
+            serialize_json(transaction),
+            serialize_json(payment_info),
+        ])
+
+    for transaction, local_payment in matched_transactions:
+        write_row('TRANSACTION', local_payment, transaction)
+
+    for local_payment in local_payments:
+        if local_payment.asaas_payment_id in matched_payment_ids:
+            continue
+        write_row('PAYMENT_ONLY', local_payment, None)
+
     return response
 
 

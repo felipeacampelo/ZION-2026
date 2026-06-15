@@ -5,6 +5,7 @@ import httpx
 from decimal import Decimal
 from datetime import date, timedelta
 from typing import Dict, Optional, List
+from urllib.parse import urlencode
 from django.conf import settings
 from django.utils import timezone
 
@@ -323,3 +324,32 @@ class AsaasService:
         query_string = '&'.join([f'{k}={v}' for k, v in params.items()])
         
         return self._make_request('GET', f'payments?{query_string}')
+
+    def list_financial_transactions(
+        self,
+        start_date: str,
+        finish_date: str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Dict:
+        """
+        List financial transactions from the Asaas account extract.
+
+        Args:
+            start_date: Initial date in YYYY-MM-DD format
+            finish_date: Final date in YYYY-MM-DD format
+            limit: Results per page
+            offset: Pagination offset
+
+        Returns:
+            Dict with 'data' and pagination metadata
+        """
+        params = urlencode(
+            {
+                'startDate': start_date,
+                'finishDate': finish_date,
+                'limit': limit,
+                'offset': offset,
+            }
+        )
+        return self._make_request('GET', f'financialTransactions?{params}')

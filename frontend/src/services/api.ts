@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosProgressEvent } from 'axios';
 
 // API base URL: configurable via environment (VITE_API_URL) for Railway/production
 // Falls back to localhost for local development
@@ -413,6 +414,15 @@ export const changePassword = (data: {
 
 // Admin endpoints
 export const getAdminDashboard = () => api.get('/users/admin/dashboard/');
+export const exportAdminAsaasExtract = (
+  params?: { start_date?: string; finish_date?: string },
+  onDownloadProgress?: (progressEvent: AxiosProgressEvent) => void,
+) =>
+  api.get('/users/admin/dashboard/export-asaas-extract/', {
+    params,
+    responseType: 'blob',
+    onDownloadProgress,
+  });
 
 export const getAdminEnrollments = (params?: {
   status?: string;

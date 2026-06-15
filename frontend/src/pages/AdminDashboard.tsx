@@ -5,12 +5,14 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  Download,
   FileText,
   Layers3,
   TrendingUp,
   Users,
 } from 'lucide-react';
 import {
+  exportAdminAsaasExtract,
   getAdminDashboard,
   getAdminOverdueEnrollments,
   type OverdueEnrollmentSummary,
@@ -185,6 +187,8 @@ export default function AdminDashboard() {
     results: [],
   });
   const [loading, setLoading] = useState(true);
+  const [exportingExtract, setExportingExtract] = useState(false);
+  const [extractProgress, setExtractProgress] = useState<number | null>(null);
   const [showOverduePayments, setShowOverduePayments] = useState(false);
   const [selectedEnrollment, setSelectedEnrollment] = useState<any>(null);
 
@@ -218,6 +222,33 @@ export default function AdminDashboard() {
     stats && stats.enrollments.total > 0
       ? Math.round((stats.enrollments.effective / stats.enrollments.total) * 100)
       : 0;
+
+  const handleExportAsaasExtract = async () => {
+    setExportingExtract(true);
+    setExtractProgress(null);
+    try {
+      const response = await exportAdminAsaasExtract(undefined, (progressEvent) => {
+        if (!progressEvent.total) {
+          setExtractProgress(null);
+          return;
+        }
+        setExtractProgress(Math.min(100, Math.round((progressEvent.loaded / progressEvent.total) * 100)));
+      });
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8-sig' });
+      const link = document.createElement('a');
+      const contentDisposition = response.headers['content-disposition'] || '';
+      const filenameMatch = contentDisposition.match(/filename="([^\"]+)"/);
+      link.href = URL.createObjectURL(blob);
+      link.download = filenameMatch?.[1] || `extrato_asaas_zion_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Error exporting Asaas extract:', error);
+    } finally {
+      setExportingExtract(false);
+      setExtractProgress(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -360,6 +391,59 @@ export default function AdminDashboard() {
 
         {stats && (
           <>
+            <section className={`${sectionCardClass} p-5 lg:p-6`}>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                    Financeiro
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold text-gray-950">Extrato Asaas</h2>
+                  <p className="mt-2 max-w-2xl text-sm text-gray-600">
+                    Exporta um CSV enriquecido com os lançamentos do Asaas conciliados pelos pagamentos locais do projeto.
+                  </p>
+                </div>
+                <div className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600">
+                  Filtrado pelos IDs Asaas do sistema
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-start">
+                <button
+                  type="button"
+                  onClick={handleExportAsaasExtract}
+                  disabled={exportingExtract}
+                  className="inline-flex items-center gap-2 rounded-full bg-gray-950 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4" />
+                  {exportingExtract ? 'Exportando extrato...' : 'Exportar extrato Asaas'}
+                </button>
+              </div>
+
+              {exportingExtract && (
+                <div className="mt-4 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium text-slate-700">
+                      {extractProgress !== null
+                        ? `Baixando extrato... ${extractProgress}%`
+                        : 'Preparando e baixando extrato...'}
+                    </span>
+                    <span className="text-slate-500">
+                      {extractProgress !== null ? `${extractProgress}%` : 'processando'}
+                    </span>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className={extractProgress !== null ? 'h-full rounded-full transition-all duration-300' : 'h-full rounded-full animate-pulse'}
+                      style={{
+                        width: extractProgress !== null ? `${Math.max(extractProgress, 6)}%` : '55%',
+                        backgroundColor: brandPurple,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </section>
+
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <article className={`${sectionCardClass} p-5`}>
                 <div className="flex items-start justify-between">
