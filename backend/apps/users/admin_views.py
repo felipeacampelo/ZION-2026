@@ -696,6 +696,10 @@ def admin_dashboard_stats(request):
     
     # Calculate fees and net revenue
     total_fees = Decimal('0')
+    pix_fees = Decimal('0')
+    credit_fees = Decimal('0')
+    credit_received_fees = Decimal('0')
+    credit_pending_settlement_fees = Decimal('0')
     confirmed_payments_list = Payment.objects.filter(
         status__in=['CONFIRMED', 'RECEIVED']
     ).select_related('enrollment')
@@ -708,8 +712,20 @@ def admin_dashboard_stats(request):
             enrollment.installments
         )
         total_fees += fee
+        if enrollment.payment_method in ['PIX_CASH', 'PIX_INSTALLMENT']:
+            pix_fees += fee
+        elif enrollment.payment_method == 'CREDIT_CARD':
+            credit_fees += fee
+            if payment.status == 'RECEIVED':
+                credit_received_fees += fee
+            elif payment.status == 'CONFIRMED':
+                credit_pending_settlement_fees += fee
     
     net_revenue = Decimal(str(total_revenue)) - total_fees
+    pix_net_revenue = Decimal(str(pix_revenue)) - pix_fees
+    credit_net_revenue = Decimal(str(credit_revenue)) - credit_fees
+    credit_received_net_revenue = Decimal(str(credit_received_revenue)) - credit_received_fees
+    credit_pending_settlement_net_revenue = Decimal(str(credit_pending_settlement_revenue)) - credit_pending_settlement_fees
     
     # Recent activity (last 7 days)
     week_ago = timezone.now() - timedelta(days=7)
@@ -802,9 +818,13 @@ def admin_dashboard_stats(request):
             'fees': float(total_fees),
             'net': float(net_revenue),
             'pix_total': float(pix_revenue),
+            'pix_net_total': float(pix_net_revenue),
             'credit_total': float(credit_revenue),
+            'credit_net_total': float(credit_net_revenue),
             'credit_received': float(credit_received_revenue),
+            'credit_received_net': float(credit_received_net_revenue),
             'credit_pending_settlement': float(credit_pending_settlement_revenue),
+            'credit_pending_settlement_net': float(credit_pending_settlement_net_revenue),
         },
         'members': {
             'yes': members_count,

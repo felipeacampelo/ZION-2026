@@ -49,9 +49,13 @@ interface DashboardStats {
     fees: number;
     net: number;
     pix_total: number;
+    pix_net_total: number;
     credit_total: number;
+    credit_net_total: number;
     credit_received: number;
+    credit_received_net: number;
     credit_pending_settlement: number;
+    credit_pending_settlement_net: number;
   };
   members: {
     yes: number;
@@ -313,22 +317,26 @@ export default function AdminDashboard() {
                   {[
                     {
                       label: 'PIX arrecadado',
-                      value: stats.revenue.pix_total,
+                      value: stats.revenue.pix_net_total,
+                      grossValue: stats.revenue.pix_total,
                       helper: 'Pagamentos PIX confirmados/recebidos',
                     },
                     {
                       label: 'Crédito pago no site',
-                      value: stats.revenue.credit_total,
+                      value: stats.revenue.credit_net_total,
+                      grossValue: stats.revenue.credit_total,
                       helper: 'Cartão pago pelo cliente',
                     },
                     {
                       label: 'Crédito recebido na conta',
-                      value: stats.revenue.credit_received,
+                      value: stats.revenue.credit_received_net,
+                      grossValue: stats.revenue.credit_received,
                       helper: 'Cartão já liquidado',
                     },
                     {
                       label: 'Crédito pendente de repasse',
-                      value: stats.revenue.credit_pending_settlement,
+                      value: stats.revenue.credit_pending_settlement_net,
+                      grossValue: stats.revenue.credit_pending_settlement,
                       helper: 'Pago no cartão, aguardando repasse',
                     },
                   ].map((item) => (
@@ -338,6 +346,9 @@ export default function AdminDashboard() {
                       </p>
                       <p className="mt-2 text-2xl font-bold text-gray-950">
                         R$ {formatCurrency(item.value)}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-gray-500">
+                        Bruto: R$ {formatCurrency(item.grossValue)}
                       </p>
                       <p className="text-sm text-gray-600">{item.helper}</p>
                     </div>
