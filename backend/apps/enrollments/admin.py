@@ -23,16 +23,24 @@ from .models import (
 
 
 class EnrollmentAdminForm(forms.ModelForm):
+    financial_fields = {'coupon', 'payment_method', 'installments', 'batch'}
+
     class Meta:
         model = Enrollment
         fields = '__all__'
 
     def clean(self):
         cleaned_data = super().clean()
-        if self.instance.pk and self.instance.payments.exclude(status='CANCELLED').exists():
-            if any(field in self.changed_data for field in ['coupon', 'payment_method', 'installments', 'batch']):
+        if self.instance.pk and any(field in self.changed_data for field in self.financial_fields):
+            payments = self.instance.payments.exclude(status__in=['CANCELLED', 'REFUNDED'])
+            if payments.filter(status__in=['CONFIRMED', 'RECEIVED']).exists():
                 raise forms.ValidationError(
-                    'Não é possível alterar cupom, lote ou forma de pagamento após gerar cobrança para esta inscrição.'
+                    'Não é possível alterar cupom, lote ou forma de pagamento após pagamento confirmado para esta inscrição.'
+                )
+
+            if payments.exclude(status__in=['CREATED', 'PENDING']).exists():
+                raise forms.ValidationError(
+                    'Só é possível alterar cupom ou valores quando as cobranças existentes ainda estiverem em aberto.'
                 )
 
         coupon = cleaned_data.get('coupon')
@@ -115,12 +123,31 @@ class EnrollmentAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))
-        if obj and obj.payments.exclude(status='CANCELLED').exists():
+        if obj and obj.payments.filter(status__in=['CONFIRMED', 'RECEIVED']).exists():
             readonly_fields.extend(['coupon', 'payment_method', 'installments', 'batch'])
         return readonly_fields
 
     def save_model(self, request, obj, form, change):
         previous_enrollment = Enrollment.objects.filter(pk=obj.pk).select_related('coupon').first() if change else None
+        financial_fields_changed = any(
+            field in form.changed_data for field in EnrollmentAdminForm.financial_fields
+        )
+
+        if previous_enrollment and financial_fields_changed:
+            from apps.payments.services import PaymentService
+
+            payments_to_cancel = list(
+                previous_enrollment.payments.filter(status__in=['CREATED', 'PENDING']).order_by('installment_number')
+            )
+            if payments_to_cancel:
+                service = PaymentService()
+                for payment in payments_to_cancel:
+                    service.cancel_payment(payment)
+                self.message_user(
+                    request,
+                    f'{len(payments_to_cancel)} cobrança(s) pendente(s) foram canceladas para recalcular a inscrição.',
+                    level=messages.WARNING,
+                )
 
         obj.calculate_amounts()
         super().save_model(request, obj, form, change)
