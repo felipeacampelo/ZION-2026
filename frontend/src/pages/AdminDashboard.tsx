@@ -388,16 +388,16 @@ export default function AdminDashboard() {
                       helper: 'Cartão pago pelo cliente',
                     },
                     {
-                      label: 'Crédito recebido na conta',
+                      label: 'Crédito com baixa RECEIVED',
                       value: stats.revenue.credit_received_net,
                       grossValue: stats.revenue.credit_received,
-                      helper: 'Cartão já liquidado',
+                      helper: 'Status RECEIVED no Asaas; não representa repasse parcelado na conta',
                     },
                     {
-                      label: 'Crédito pendente de repasse',
+                      label: 'Crédito com status CONFIRMED',
                       value: stats.revenue.credit_pending_settlement_net,
                       grossValue: stats.revenue.credit_pending_settlement,
-                      helper: 'Pago no cartão, aguardando repasse',
+                      helper: 'Status CONFIRMED no Asaas; não representa cronograma real de liquidação',
                     },
                   ].map((item) => (
                     <div key={item.label} className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">

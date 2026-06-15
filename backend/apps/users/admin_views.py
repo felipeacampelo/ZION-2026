@@ -553,7 +553,7 @@ def calculate_asaas_fee(payment_amount, payment_method, installments):
     """
     amount = Decimal(str(payment_amount))
     
-    if payment_method in ['PIX_CASH', 'PIX_INSTALLMENT']:
+    if payment_method in ['PIX', 'PIX_CASH', 'PIX_INSTALLMENT']:
         return Decimal('1.99')
     elif payment_method == 'CREDIT_CARD':
         fixed_fee = Decimal('0.49')
