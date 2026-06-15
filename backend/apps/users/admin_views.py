@@ -30,6 +30,7 @@ from apps.enrollments.waitlist_service import (
     invite_waitlist_entry,
     normalize_waitlist_positions,
     process_waitlist_for_product,
+    purge_expired_waitlist_reservations,
     remove_waitlist_entry,
     reorder_waitlist,
 )
@@ -1230,6 +1231,7 @@ def admin_batch_delete(request, pk):
 @permission_classes([IsAdminUser])
 def admin_waitlist_list(request):
     product_id = request.query_params.get('product')
+    purge_expired_waitlist_reservations(product=Product.objects.filter(pk=product_id).first() if product_id else None)
     queryset = WaitlistEntry.objects.select_related('product', 'user', 'reference_batch').prefetch_related(
         Prefetch(
             'reserved_enrollments',
