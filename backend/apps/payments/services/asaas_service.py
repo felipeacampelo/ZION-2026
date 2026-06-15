@@ -2,6 +2,7 @@
 Asaas API integration service with clean architecture.
 """
 import httpx
+import time
 from decimal import Decimal
 from datetime import date, timedelta
 from typing import Dict, Optional, List
@@ -57,27 +58,39 @@ class AsaasService:
             AsaasAPIException: If request fails
         """
         url = f'{self.base_url}/{endpoint}'
-        
+
         try:
             with httpx.Client() as client:
-                response = client.request(
-                    method=method,
-                    url=url,
-                    headers=self.headers,
-                    json=data,
-                    timeout=30.0
-                )
-                
-                if response.status_code >= 400:
-                    error_data = response.json() if response.text else {}
-                    raise AsaasAPIException(
-                        f"Asaas API error: {response.status_code} - {error_data}"
+                is_retryable = method.upper() == 'GET'
+                max_attempts = 4 if is_retryable else 1
+
+                for attempt in range(max_attempts):
+                    response = client.request(
+                        method=method,
+                        url=url,
+                        headers=self.headers,
+                        json=data,
+                        timeout=30.0
                     )
-                
-                return response.json()
-                
+
+                    if response.status_code == 429 and attempt < max_attempts - 1:
+                        retry_after = response.headers.get('Retry-After')
+                        wait_seconds = float(retry_after) if retry_after else float(2 ** attempt)
+                        time.sleep(min(wait_seconds, 8.0))
+                        continue
+
+                    if response.status_code >= 400:
+                        error_data = response.json() if response.text else {}
+                        raise AsaasAPIException(
+                            f"Asaas API error: {response.status_code} - {error_data}"
+                        )
+
+                    return response.json()
+
         except httpx.RequestError as e:
             raise AsaasAPIException(f"Request failed: {str(e)}")
+
+        raise AsaasAPIException('Asaas API request failed after retries.')
     
     def create_customer(
         self,

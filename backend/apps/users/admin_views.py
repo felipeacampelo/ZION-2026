@@ -695,22 +695,20 @@ def admin_export_asaas_extract(request):
 
     payments_by_asaas_id = {payment.asaas_payment_id: payment for payment in local_payments}
     matched_transactions = []
+    asaas_only_transactions = []
     matched_payment_ids = set()
 
     for row in extract_rows:
         payment_id = row.get('paymentId') or (row.get('payment') or {}).get('id')
         local_payment = payments_by_asaas_id.get(payment_id)
         if not local_payment:
+            asaas_only_transactions.append(row)
             continue
         matched_transactions.append((row, local_payment))
         matched_payment_ids.add(payment_id)
 
     payment_details = {}
-    for asaas_payment_id in payments_by_asaas_id.keys():
-        try:
-            payment_details[asaas_payment_id] = asaas.get_payment(asaas_payment_id)
-        except AsaasAPIException as exc:
-            payment_details[asaas_payment_id] = {'_error': str(exc)}
+    payment_details_blocked_error = None
 
     response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
     response['Content-Disposition'] = (
@@ -763,10 +761,42 @@ def admin_export_asaas_extract(request):
     def serialize_json(value):
         return json.dumps(value, ensure_ascii=False) if value else ''
 
-    def write_row(row_type, local_payment, transaction=None):
-        enrollment = local_payment.enrollment
-        payment_info = payment_details.get(local_payment.asaas_payment_id, {}) or {}
-        form_data = enrollment.form_data or {}
+    def get_payment_detail(asaas_payment_id):
+        nonlocal payment_details_blocked_error
+
+        if not asaas_payment_id:
+            return {}
+
+        if asaas_payment_id in payment_details:
+            return payment_details[asaas_payment_id]
+
+        if payment_details_blocked_error:
+            payment_details[asaas_payment_id] = {'_error': payment_details_blocked_error}
+            return payment_details[asaas_payment_id]
+
+        try:
+            payment_details[asaas_payment_id] = asaas.get_payment(asaas_payment_id)
+        except AsaasAPIException as exc:
+            error_message = str(exc)
+            if '429' in error_message:
+                payment_details_blocked_error = (
+                    'Consulta interrompida após rate limit do Asaas; use o JSON bruto do extrato para conciliar as demais linhas.'
+                )
+                payment_details[asaas_payment_id] = {'_error': payment_details_blocked_error}
+            else:
+                payment_details[asaas_payment_id] = {'_error': error_message}
+
+        return payment_details[asaas_payment_id]
+
+    def write_row(row_type, local_payment=None, transaction=None):
+        enrollment = local_payment.enrollment if local_payment else None
+        asaas_payment_id = (
+            (local_payment.asaas_payment_id if local_payment else None)
+            or (transaction.get('paymentId') if transaction else None)
+            or ((transaction.get('payment') or {}).get('id') if transaction else None)
+        )
+        payment_info = get_payment_detail(asaas_payment_id)
+        form_data = (enrollment.form_data or {}) if enrollment else {}
         transaction_payment_id = ''
         if transaction:
             transaction_payment_id = transaction.get('paymentId') or (transaction.get('payment') or {}).get('id') or ''
@@ -782,19 +812,19 @@ def admin_export_asaas_extract(request):
             transaction.get('value', '') if transaction else '',
             transaction.get('description', '') if transaction else '',
             transaction_payment_id,
-            local_payment.id,
-            enrollment.id,
-            local_payment.created_at.isoformat() if local_payment.created_at else '',
-            local_payment.paid_at.isoformat() if local_payment.paid_at else '',
-            getattr(enrollment.product, 'name', ''),
-            getattr(enrollment.batch, 'name', ''),
-            local_payment.status,
-            enrollment.payment_method or '',
-            enrollment.installments or '',
-            local_payment.amount,
+            local_payment.id if local_payment else '',
+            enrollment.id if enrollment else '',
+            local_payment.created_at.isoformat() if local_payment and local_payment.created_at else '',
+            local_payment.paid_at.isoformat() if local_payment and local_payment.paid_at else '',
+            getattr(enrollment.product, 'name', '') if enrollment else '',
+            getattr(enrollment.batch, 'name', '') if enrollment else '',
+            local_payment.status if local_payment else '',
+            enrollment.payment_method or '' if enrollment else '',
+            enrollment.installments or '' if enrollment else '',
+            local_payment.amount if local_payment else '',
             form_data.get('nome_completo', '') if isinstance(form_data, dict) else '',
-            getattr(getattr(enrollment, 'user', None), 'email', ''),
-            local_payment.asaas_payment_id,
+            getattr(getattr(enrollment, 'user', None), 'email', '') if enrollment else '',
+            asaas_payment_id or '',
             payment_info.get('status', ''),
             payment_info.get('billingType', ''),
             payment_info.get('value', ''),
@@ -815,6 +845,9 @@ def admin_export_asaas_extract(request):
 
     for transaction, local_payment in matched_transactions:
         write_row('TRANSACTION', local_payment, transaction)
+
+    for transaction in asaas_only_transactions:
+        write_row('ASAAS_ONLY', None, transaction)
 
     for local_payment in local_payments:
         if local_payment.asaas_payment_id in matched_payment_ids:
