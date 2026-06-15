@@ -411,6 +411,75 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['revenue']['pix_total'], 50.0)
         self.assertEqual(response.data['social_quota']['raised_total'], 25.0)
 
+    def test_overdue_enrollments_excludes_cancelled_and_expired_enrollments(self):
+        active_payment = Payment.objects.create(
+            enrollment=self.member_enrollment,
+            asaas_payment_id='pay-overdue-active',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='OVERDUE',
+            due_date=timezone.localdate() - timedelta(days=3),
+        )
+
+        cancelled_user = User.objects.create_user(
+            email='cancelled-overdue@example.com',
+            password='password123',
+        )
+        cancelled_enrollment = Enrollment.objects.create(
+            user=cancelled_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'nome_completo': 'Cancelled Overdue'},
+            payment_method='PIX_CASH',
+            status='CANCELLED',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+        Payment.objects.create(
+            enrollment=cancelled_enrollment,
+            asaas_payment_id='pay-overdue-cancelled',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='OVERDUE',
+            due_date=timezone.localdate() - timedelta(days=5),
+        )
+
+        expired_user = User.objects.create_user(
+            email='expired-overdue@example.com',
+            password='password123',
+        )
+        expired_enrollment = Enrollment.objects.create(
+            user=expired_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'nome_completo': 'Expired Overdue'},
+            payment_method='PIX_CASH',
+            status='EXPIRED',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+        Payment.objects.create(
+            enrollment=expired_enrollment,
+            asaas_payment_id='pay-overdue-expired',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='OVERDUE',
+            due_date=timezone.localdate() - timedelta(days=7),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(reverse('users:admin-overdue-enrollments'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['total_overdue_payments'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.member_enrollment.id)
+        self.assertEqual(response.data['results'][0]['overdue_payments'][0]['id'], active_payment.id)
+
 
 class AdminSocialQuotaTests(APITestCase):
     def setUp(self):

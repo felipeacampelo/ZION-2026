@@ -401,6 +401,7 @@ def build_overdue_enrollments():
     ).filter(
         due_date__lt=today,
         status__in=unpaid_statuses,
+        enrollment__status__in=['PENDING_PAYMENT', 'PAID'],
     ).order_by('enrollment_id', 'due_date', 'installment_number')
 
     grouped = OrderedDict()
