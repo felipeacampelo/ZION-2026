@@ -16,6 +16,7 @@ from .views import (
 from .admin_views import (
     admin_dashboard_stats,
     admin_export_asaas_extract,
+    admin_export_asaas_extract_json,
     admin_overdue_enrollments,
     admin_enrollments_list,
     admin_enrollment_update,
@@ -79,6 +80,7 @@ urlpatterns = [
     # Admin endpoints
     path('admin/dashboard/', admin_dashboard_stats, name='admin-dashboard'),
     path('admin/dashboard/export-asaas-extract/', admin_export_asaas_extract, name='admin-export-asaas-extract'),
+    path('admin/dashboard/export-asaas-extract-json/', admin_export_asaas_extract_json, name='admin-export-asaas-extract-json'),
     path('admin/settings/', admin_settings, name='admin-settings'),
     path('admin/overdue-enrollments/', admin_overdue_enrollments, name='admin-overdue-enrollments'),
     path('admin/enrollments/', admin_enrollments_list, name='admin-enrollments-list'),

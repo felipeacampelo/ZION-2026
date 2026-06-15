@@ -423,6 +423,15 @@ export const exportAdminAsaasExtract = (
     responseType: 'blob',
     onDownloadProgress,
   });
+export const exportAdminAsaasExtractJson = (
+  params?: { start_date?: string; finish_date?: string },
+  onDownloadProgress?: (progressEvent: AxiosProgressEvent) => void,
+) =>
+  api.get('/users/admin/dashboard/export-asaas-extract-json/', {
+    params,
+    responseType: 'blob',
+    onDownloadProgress,
+  });
 
 export const getAdminEnrollments = (params?: {
   status?: string;

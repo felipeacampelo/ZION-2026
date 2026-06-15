@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import {
   exportAdminAsaasExtract,
+  exportAdminAsaasExtractJson,
   getAdminDashboard,
   getAdminOverdueEnrollments,
   type OverdueEnrollmentSummary,
@@ -188,6 +189,7 @@ export default function AdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [exportingExtract, setExportingExtract] = useState(false);
+  const [exportingExtractJson, setExportingExtractJson] = useState(false);
   const [extractProgress, setExtractProgress] = useState<number | null>(null);
   const [showOverduePayments, setShowOverduePayments] = useState(false);
   const [selectedEnrollment, setSelectedEnrollment] = useState<any>(null);
@@ -246,6 +248,33 @@ export default function AdminDashboard() {
       console.error('Error exporting Asaas extract:', error);
     } finally {
       setExportingExtract(false);
+      setExtractProgress(null);
+    }
+  };
+
+  const handleExportAsaasExtractJson = async () => {
+    setExportingExtractJson(true);
+    setExtractProgress(null);
+    try {
+      const response = await exportAdminAsaasExtractJson(undefined, (progressEvent) => {
+        if (!progressEvent.total) {
+          setExtractProgress(null);
+          return;
+        }
+        setExtractProgress(Math.min(100, Math.round((progressEvent.loaded / progressEvent.total) * 100)));
+      });
+      const blob = new Blob([response.data], { type: 'application/json;charset=utf-8' });
+      const link = document.createElement('a');
+      const contentDisposition = response.headers['content-disposition'] || '';
+      const filenameMatch = contentDisposition.match(/filename="([^\"]+)"/);
+      link.href = URL.createObjectURL(blob);
+      link.download = filenameMatch?.[1] || `extrato_asaas_zion_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Error exporting Asaas extract JSON:', error);
+    } finally {
+      setExportingExtractJson(false);
       setExtractProgress(null);
     }
   };
@@ -399,7 +428,7 @@ export default function AdminDashboard() {
                   </p>
                   <h2 className="mt-2 text-2xl font-bold text-gray-950">Extrato Asaas</h2>
                   <p className="mt-2 max-w-2xl text-sm text-gray-600">
-                    Exporta um CSV enriquecido com os lançamentos do Asaas conciliados pelos pagamentos locais do projeto.
+                    Exporta CSV para operação e JSON estruturado para auditoria e conciliação detalhada.
                   </p>
                 </div>
                 <div className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600">
@@ -407,25 +436,34 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="mt-4 flex justify-start">
+              <div className="mt-4 flex flex-wrap justify-start gap-3">
                 <button
                   type="button"
                   onClick={handleExportAsaasExtract}
-                  disabled={exportingExtract}
+                  disabled={exportingExtract || exportingExtractJson}
                   className="inline-flex items-center gap-2 rounded-full bg-gray-950 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Download className="h-4 w-4" />
-                  {exportingExtract ? 'Exportando extrato...' : 'Exportar extrato Asaas'}
+                  {exportingExtract ? 'Exportando CSV...' : 'Exportar CSV'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportAsaasExtractJson}
+                  disabled={exportingExtract || exportingExtractJson}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4" />
+                  {exportingExtractJson ? 'Exportando JSON...' : 'Exportar JSON'}
                 </button>
               </div>
 
-              {exportingExtract && (
+              {(exportingExtract || exportingExtractJson) && (
                 <div className="mt-4 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="font-medium text-slate-700">
                       {extractProgress !== null
-                        ? `Baixando extrato... ${extractProgress}%`
-                        : 'Preparando e baixando extrato...'}
+                        ? `Baixando ${exportingExtractJson ? 'JSON' : 'CSV'}... ${extractProgress}%`
+                        : `Preparando e baixando ${exportingExtractJson ? 'JSON' : 'CSV'}...`}
                     </span>
                     <span className="text-slate-500">
                       {extractProgress !== null ? `${extractProgress}%` : 'processando'}
@@ -433,10 +471,17 @@ export default function AdminDashboard() {
                   </div>
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
                     <div
-                      className={extractProgress !== null ? 'h-full rounded-full transition-all duration-300' : 'h-full rounded-full animate-pulse'}
+                      className={
+                        extractProgress !== null
+                          ? 'h-full rounded-full transition-all duration-300'
+                          : 'h-full rounded-full animate-pulse'
+                      }
                       style={{
-                        width: extractProgress !== null ? `${Math.max(extractProgress, 6)}%` : '55%',
-                        backgroundColor: brandPurple,
+                        width: extractProgress !== null ? `${Math.max(extractProgress, 6)}%` : undefined,
+                        background:
+                          extractProgress !== null
+                            ? brandPurple
+                            : 'linear-gradient(90deg, rgba(165,44,240,0.28) 0%, rgba(165,44,240,0.78) 50%, rgba(165,44,240,0.28) 100%)',
                       }}
                     />
                   </div>
