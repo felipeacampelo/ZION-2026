@@ -17,6 +17,7 @@ from apps.enrollments.models import (
     Enrollment,
     Settings,
     SocialQuotaContribution,
+    WaitlistEntry,
 )
 from apps.payments.models import Payment
 from apps.products.models import Batch, Product
@@ -539,6 +540,45 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['results'][0]['id'], self.member_enrollment.id)
         self.assertEqual(response.data['results'][0]['overdue_payments'][0]['id'], active_payment.id)
 
+    def test_admin_waitlist_list_heals_paid_invited_entry(self):
+        self.member_enrollment.source = 'WAITLIST'
+        self.member_enrollment.status = 'PAID'
+        self.member_enrollment.reservation_token = 'waitlist-heal-token'
+        self.member_enrollment.paid_at = timezone.now()
+        self.member_enrollment.save(update_fields=['source', 'status', 'reservation_token', 'paid_at', 'updated_at'])
+
+        waitlist_entry = self.member_enrollment.waitlist_entry = WaitlistEntry.objects.create(
+            product=self.product,
+            user=self.member_user,
+            form_data={'nome_completo': 'Member Dashboard'},
+            status='INVITED',
+            position=1,
+            invited_at=timezone.now() - timedelta(hours=1),
+            invite_expires_at=timezone.now() + timedelta(hours=23),
+        )
+        self.member_enrollment.save(update_fields=['waitlist_entry', 'updated_at'])
+
+        Payment.objects.create(
+            enrollment=self.member_enrollment,
+            asaas_payment_id='pay-waitlist-heal',
+            installment_number=1,
+            amount=Decimal('100.00'),
+            status='RECEIVED',
+            due_date=timezone.localdate(),
+            paid_at=timezone.now(),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(reverse('users:admin-waitlist-list'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['results'][0]['status'], 'CONVERTED')
+        self.assertEqual(response.data['results'][0]['waitlist_payment_state'], 'PAID')
+        waitlist_entry.refresh_from_db()
+        self.member_enrollment.refresh_from_db()
+        self.assertEqual(waitlist_entry.status, 'CONVERTED')
+        self.assertIsNotNone(self.member_enrollment.reservation_consumed_at)
+
 
 class AdminSocialQuotaTests(APITestCase):
     def setUp(self):
@@ -773,6 +813,44 @@ class AdminEmpiresBoardTests(APITestCase):
         self.assertIsNotNone(response.data['egito']['average_age'])
         self.assertIsNotNone(response.data['none']['average_age'])
 
+    def test_empires_board_excludes_cancelled_and_expired_enrollments(self):
+        Enrollment.objects.create(
+            user=User.objects.create_user(email='cancelled@example.com', password='password123'),
+            product=self.product,
+            batch=self.batch,
+            status='CANCELLED',
+            form_data={
+                'nome_completo': 'Teen Cancelled',
+                'imperio_zion': 'egito',
+                'data_nascimento': '2010-02-02',
+            },
+            total_amount=Decimal('580.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('580.00'),
+        )
+        Enrollment.objects.create(
+            user=User.objects.create_user(email='expired@example.com', password='password123'),
+            product=self.product,
+            batch=self.batch,
+            status='EXPIRED',
+            form_data={
+                'nome_completo': 'Teen Expired',
+                'imperio_zion': 'roma',
+                'data_nascimento': '2011-03-03',
+            },
+            total_amount=Decimal('580.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('580.00'),
+        )
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(reverse('users:admin-empires-board'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['egito']['count'], 1)
+        self.assertEqual(response.data['roma']['count'], 0)
+        self.assertEqual(response.data['summary']['total'], 2)
+
     def test_empires_allocate_updates_unassigned_enrollment(self):
         self.client.force_authenticate(user=self.admin)
 
@@ -802,6 +880,21 @@ class AdminEmpiresBoardTests(APITestCase):
         self.assertNotIn('imperio_zion', self.egito_enrollment.form_data)
         self.assertEqual(response.data['board']['egito']['count'], 0)
         self.assertEqual(response.data['board']['none']['count'], 2)
+
+    def test_empires_allocate_rejects_inactive_enrollment(self):
+        self.egito_enrollment.status = 'CANCELLED'
+        self.egito_enrollment.save(update_fields=['status'])
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(
+            reverse('users:admin-empires-allocate'),
+            {'enrollment_id': self.egito_enrollment.id, 'target_empire': 'roma'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.egito_enrollment.refresh_from_db()
+        self.assertEqual(self.egito_enrollment.form_data['imperio_zion'], 'egito')
 
     def test_admin_can_create_update_and_delete_social_quota_contribution(self):
         self.client.force_authenticate(user=self.admin)

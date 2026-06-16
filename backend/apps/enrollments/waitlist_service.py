@@ -247,6 +247,23 @@ def complete_waitlist_conversion(enrollment: Enrollment) -> None:
 
 
 @transaction.atomic
+def sync_waitlist_entry_conversion(enrollment: Enrollment) -> bool:
+    """
+    Heal stale waitlist entries when a WAITLIST enrollment advanced outside the
+    dedicated invite payment flow.
+    """
+    if enrollment.source != 'WAITLIST' or not enrollment.waitlist_entry_id:
+        return False
+
+    has_paid_payment = enrollment.payments.filter(status__in=['CONFIRMED', 'RECEIVED']).exists()
+    if enrollment.status != 'PAID' and not has_paid_payment and enrollment.reservation_consumed_at is None:
+        return False
+
+    complete_waitlist_conversion(enrollment)
+    return True
+
+
+@transaction.atomic
 def remove_waitlist_entry(entry: WaitlistEntry, reason: str = 'removed') -> None:
     product = entry.product
     entry.status = 'REMOVED'

@@ -30,6 +30,7 @@ from apps.enrollments.email_service import NO_PAYMENT_YET
 from apps.enrollments.email_service import send_enrollment_expired_email
 from apps.enrollments.utils import SOCIAL_QUOTA_COUPON_PREFIX, build_social_quota_summary
 from apps.enrollments.waitlist_service import (
+    sync_waitlist_entry_conversion,
     invite_waitlist_entry,
     normalize_waitlist_positions,
     process_waitlist_for_product,
@@ -473,6 +474,11 @@ class AdminEmpireAllocationSerializer(serializers.Serializer):
     )
     target_empire = serializers.ChoiceField(choices=['egito', 'persia', 'grecia', 'roma', 'none'])
 
+    def validate_enrollment(self, enrollment):
+        if enrollment.status in {'CANCELLED', 'EXPIRED'}:
+            raise serializers.ValidationError('Inscrições canceladas não podem ser alocadas em impérios.')
+        return enrollment
+
 
 class AdminWaitlistListSerializer(serializers.ModelSerializer):
     participant_name = serializers.SerializerMethodField()
@@ -505,6 +511,19 @@ class AdminWaitlistListSerializer(serializers.ModelSerializer):
             'created_at',
         ]
 
+    def to_representation(self, instance):
+        prefetched_enrollments = getattr(instance, 'prefetched_reserved_enrollments', None)
+        enrollments = list(prefetched_enrollments) if prefetched_enrollments is not None else list(instance.reserved_enrollments.all())
+        if enrollments and instance.status != 'CONVERTED':
+            latest_enrollment = max(
+                enrollments,
+                key=lambda enrollment: enrollment.created_at or timezone.make_aware(datetime.min),
+            )
+            if sync_waitlist_entry_conversion(latest_enrollment):
+                instance.refresh_from_db(fields=['status', 'converted_at', 'updated_at'])
+
+        return super().to_representation(instance)
+
     def get_participant_name(self, obj):
         return (obj.form_data or {}).get('nome_completo') or obj.user.get_full_name() or obj.user.email
 
@@ -515,18 +534,16 @@ class AdminWaitlistListSerializer(serializers.ModelSerializer):
         return (obj.form_data or {}).get('telefone') or ''
 
     def get_waitlist_payment_state(self, obj):
-        if obj.status != 'CONVERTED':
-            return None
-
         prefetched_enrollments = getattr(obj, 'prefetched_reserved_enrollments', None)
         enrollments = list(prefetched_enrollments) if prefetched_enrollments is not None else list(obj.reserved_enrollments.all())
         if not enrollments:
-            return 'PENDING_PAYMENT'
+            return None if obj.status != 'CONVERTED' else 'PENDING_PAYMENT'
 
         latest_enrollment = max(
             enrollments,
             key=lambda enrollment: enrollment.created_at or timezone.make_aware(datetime.min),
         )
+
         payments = list(getattr(latest_enrollment, 'prefetched_payments', latest_enrollment.payments.all()))
 
         if any(payment.status in ['CONFIRMED', 'RECEIVED'] for payment in payments) or latest_enrollment.status == 'PAID':
@@ -566,6 +583,51 @@ def calculate_asaas_fee(payment_amount, payment_method, installments):
         return fixed_fee + percentage_fee
     
     return Decimal('0')
+
+
+def normalize_installments(installments):
+    """Return a safe positive installment count."""
+    try:
+        parsed = int(installments or 1)
+    except (TypeError, ValueError):
+        parsed = 1
+    return max(parsed, 1)
+
+
+def move_to_next_business_day(value):
+    """Shift weekend dates to the next business day."""
+    while value.weekday() >= 5:
+        value += timedelta(days=1)
+    return value
+
+
+def calculate_credit_card_settlement(payment, today):
+    """
+    Estimate settled and pending card amounts using Asaas 32-day cycles.
+
+    Each installment is assumed to be released 32 days after confirmation,
+    with weekend releases shifting to the next business day.
+    """
+    installments = normalize_installments(payment.enrollment.installments)
+    paid_at = payment.paid_at
+
+    if not paid_at:
+        return Decimal('0'), payment.amount, 0, installments
+
+    confirmation_date = timezone.localtime(paid_at).date() if timezone.is_aware(paid_at) else paid_at.date()
+    settled_installments = 0
+
+    for installment_index in range(1, installments + 1):
+        release_date = move_to_next_business_day(
+            confirmation_date + timedelta(days=32 * installment_index)
+        )
+        if release_date <= today:
+            settled_installments += 1
+
+    settled_ratio = Decimal(settled_installments) / Decimal(installments)
+    settled_amount = payment.amount * settled_ratio
+    pending_amount = payment.amount - settled_amount
+    return settled_amount, pending_amount, settled_installments, installments
 
 
 def resolve_payment_method(payment):
@@ -823,7 +885,11 @@ def accumulate_empire_stats(summary, form_data):
 
 def build_empire_board_response():
     grouped = {key: [] for key in EMPIRE_KEYS}
-    enrollments = Enrollment.objects.select_related('user').order_by('created_at')
+    enrollments = (
+        Enrollment.objects.select_related('user')
+        .exclude(status__in=['CANCELLED', 'EXPIRED'])
+        .order_by('created_at')
+    )
     summary = build_empire_stats_summary()
     grouped_stats = {key: build_empire_stats_summary() for key in EMPIRE_KEYS}
 
@@ -983,16 +1049,8 @@ def admin_dashboard_stats(request):
     total_revenue = paid_payments.aggregate(total=Sum('amount'))['total'] or 0
     pix_revenue = Decimal('0')
     credit_revenue = Decimal('0')
-    credit_received_revenue = Payment.objects.filter(
-        status='RECEIVED',
-        enrollment__status__in=active_enrollment_statuses,
-        enrollment__payment_method='CREDIT_CARD',
-    ).aggregate(total=Sum('amount'))['total'] or 0
-    credit_pending_settlement_revenue = Payment.objects.filter(
-        status='CONFIRMED',
-        enrollment__status__in=active_enrollment_statuses,
-        enrollment__payment_method='CREDIT_CARD',
-    ).aggregate(total=Sum('amount'))['total'] or 0
+    credit_received_revenue = Decimal('0')
+    credit_pending_settlement_revenue = Decimal('0')
     
     open_revenue = Payment.objects.filter(
         status__in=['CREATED', 'PENDING', 'OVERDUE']
@@ -1008,6 +1066,7 @@ def admin_dashboard_stats(request):
     credit_fees = Decimal('0')
     credit_received_fees = Decimal('0')
     credit_pending_settlement_fees = Decimal('0')
+    today = timezone.localdate()
     confirmed_payments_list = Payment.objects.filter(
         status__in=['CONFIRMED', 'RECEIVED'],
         enrollment__status__in=active_enrollment_statuses,
@@ -1028,10 +1087,14 @@ def admin_dashboard_stats(request):
         elif resolved_payment_method == 'CREDIT_CARD':
             credit_revenue += payment.amount
             credit_fees += fee
-            if payment.status == 'RECEIVED':
-                credit_received_fees += fee
-            elif payment.status == 'CONFIRMED':
-                credit_pending_settlement_fees += fee
+            settled_amount, pending_amount, _, installments = calculate_credit_card_settlement(payment, today)
+            credit_received_revenue += settled_amount
+            credit_pending_settlement_revenue += pending_amount
+
+            settled_ratio = Decimal('0') if payment.amount == 0 else (settled_amount / payment.amount)
+            pending_ratio = Decimal('1') - settled_ratio
+            credit_received_fees += fee * settled_ratio
+            credit_pending_settlement_fees += fee * pending_ratio
     
     net_revenue = Decimal(str(total_revenue)) - total_fees
     pix_net_revenue = Decimal(str(pix_revenue)) - pix_fees

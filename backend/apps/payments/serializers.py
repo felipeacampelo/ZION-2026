@@ -108,6 +108,7 @@ class PaymentCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         """Create payment using PaymentService."""
         from apps.payments.services import PaymentService
+        from apps.enrollments.waitlist_service import complete_waitlist_conversion
         import logging
         logger = logging.getLogger(__name__)
         
@@ -132,6 +133,9 @@ class PaymentCreateSerializer(serializers.Serializer):
                 payment = payments[0]  # Return first payment
             else:  # CREDIT_CARD
                 payment = service.create_credit_card_payment(enrollment, installments)
+
+            if enrollment.source == 'WAITLIST' and enrollment.waitlist_entry_id:
+                complete_waitlist_conversion(enrollment)
             
             return payment
             

@@ -10,7 +10,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.enrollments.models import Enrollment
-from apps.enrollments.models import Settings
+from apps.enrollments.models import Settings, WaitlistEntry
 from apps.payments.models import Payment
 from apps.products.models import Batch, Product
 
@@ -143,6 +143,53 @@ class PaymentSecurityTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['asaas_payment_id'], 'pay-created-1')
         self.assertEqual(response.data['enrollment']['id'], self.owner_enrollment.id)
+
+    @patch('apps.payments.services.PaymentService')
+    def test_create_payment_converts_waitlist_entry_for_waitlist_enrollment(self, mock_service_class):
+        waitlist_entry = WaitlistEntry.objects.create(
+            product=self.product,
+            user=self.owner,
+            form_data={'email': self.owner.email, 'nome_completo': 'Owner User'},
+            status='INVITED',
+            position=1,
+        )
+        self.owner_enrollment.source = 'WAITLIST'
+        self.owner_enrollment.waitlist_entry = waitlist_entry
+        self.owner_enrollment.reservation_token = 'waitlist-token'
+        self.owner_enrollment.save(update_fields=['source', 'waitlist_entry', 'reservation_token', 'updated_at'])
+
+        service_instance = mock_service_class.return_value
+
+        def create_payment(enrollment):
+            return Payment.objects.create(
+                enrollment=enrollment,
+                asaas_payment_id='pay-created-waitlist',
+                installment_number=1,
+                amount=enrollment.final_amount,
+                status='PENDING',
+                due_date=timezone.now().date(),
+            )
+
+        service_instance.create_pix_cash_payment.side_effect = create_payment
+
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.post(
+            reverse('payments:payment-list'),
+            {
+                'enrollment_id': self.owner_enrollment.id,
+                'payment_method': 'PIX_CASH',
+                'installments': 1,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        waitlist_entry.refresh_from_db()
+        self.owner_enrollment.refresh_from_db()
+        self.assertEqual(waitlist_entry.status, 'CONVERTED')
+        self.assertIsNotNone(waitlist_entry.converted_at)
+        self.assertIsNotNone(self.owner_enrollment.reservation_consumed_at)
 
     @patch('apps.payments.services.asaas_service.AsaasService.create_credit_card_payment')
     @patch('apps.payments.services.payment_service.PaymentService.ensure_customer_exists')

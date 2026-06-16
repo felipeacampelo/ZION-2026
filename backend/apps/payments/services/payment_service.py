@@ -426,6 +426,13 @@ class PaymentService:
                 if not enrollment.paid_at:
                     enrollment.paid_at = timezone.now()
                 enrollment.save()
+
+                if enrollment.source == 'WAITLIST' and enrollment.waitlist_entry_id:
+                    try:
+                        from apps.enrollments.waitlist_service import sync_waitlist_entry_conversion
+                        sync_waitlist_entry_conversion(enrollment)
+                    except Exception as e:
+                        logger.error('Failed to sync waitlist entry for enrollment %s: %s', enrollment.id, e)
                 
                 # Send payment confirmation email
                 try:
