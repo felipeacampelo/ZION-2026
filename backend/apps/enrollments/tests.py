@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.enrollments.admin import EnrollmentAdminForm
+from apps.enrollments.admin import EnrollmentAdminForm, extract_enrollment_gender, update_enrollment_gender
 from apps.enrollments.models import Settings
 from apps.products.models import Batch, Product
 from apps.payments.models import Payment
@@ -418,3 +418,14 @@ class EnrollmentAdminFormTests(APITestCase):
         enrollment = form.save()
 
         self.assertEqual(enrollment.form_data['sexo'], 'Masculino')
+
+    def test_extract_enrollment_gender_returns_empty_string_when_missing(self):
+        self.assertEqual(extract_enrollment_gender({}), '')
+        self.assertEqual(extract_enrollment_gender(None), '')
+
+    def test_update_enrollment_gender_sets_and_removes_value(self):
+        updated = update_enrollment_gender({'nome_completo': 'Participante'}, 'Feminino')
+        self.assertEqual(updated['sexo'], 'Feminino')
+
+        removed = update_enrollment_gender(updated, '')
+        self.assertNotIn('sexo', removed)

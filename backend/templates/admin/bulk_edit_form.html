@@ -4,11 +4,11 @@
 {% block content %}
 <h1>{{ title }}</h1>
 
-<p>Você está prestes a alterar o {{ field_name }} dos seguintes cupons:</p>
+<p>Você está prestes a alterar o {{ field_name }} dos seguintes {{ object_name_plural|default:"itens" }}:</p>
 
 <ul>
 {% for obj in objects %}
-    <li>{{ obj.code }} - {{ obj.get_discount_display }}</li>
+    <li>{{ obj }}</li>
 {% endfor %}
 </ul>
 
@@ -25,7 +25,7 @@
             <input type="hidden" name="_selected_action" value="{{ obj.pk }}" />
         {% endfor %}
         <input type="submit" name="apply" value="Aplicar" class="default" />
-        <a href="{% url 'admin:enrollments_coupon_changelist' %}" class="button cancel-link">Cancelar</a>
+        <a href="{{ cancel_url|default:'../' }}" class="button cancel-link">Cancelar</a>
     </div>
 </form>
 {% endblock %}

@@ -5,11 +5,13 @@ from datetime import timedelta
 from decimal import Decimal
 from django.contrib import admin
 from django.contrib import messages
+from django.http import HttpResponseRedirect
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
+from django.shortcuts import render
 from .waitlist_service import invite_waitlist_entry, remove_waitlist_entry
 from .models import (
     Coupon,
@@ -20,6 +22,21 @@ from .models import (
     Settings,
     WaitlistEntry,
 )
+
+
+def extract_enrollment_gender(form_data):
+    if not isinstance(form_data, dict):
+        return ''
+    return str(form_data.get('sexo') or '').strip()
+
+
+def update_enrollment_gender(form_data, gender):
+    normalized_form_data = dict(form_data or {})
+    if gender:
+        normalized_form_data['sexo'] = gender
+    else:
+        normalized_form_data.pop('sexo', None)
+    return normalized_form_data
 
 
 class EnrollmentAdminForm(forms.ModelForm):
@@ -42,7 +59,7 @@ class EnrollmentAdminForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['sexo'].initial = (self.instance.form_data or {}).get('sexo', '')
+        self.fields['sexo'].initial = extract_enrollment_gender(self.instance.form_data)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -101,13 +118,8 @@ class EnrollmentAdminForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        form_data = dict(instance.form_data or {})
         sexo = self.cleaned_data.get('sexo')
-        if sexo:
-            form_data['sexo'] = sexo
-        else:
-            form_data.pop('sexo', None)
-        instance.form_data = form_data
+        instance.form_data = update_enrollment_gender(instance.form_data, sexo)
 
         if commit:
             instance.save()
@@ -116,13 +128,35 @@ class EnrollmentAdminForm(forms.ModelForm):
         return instance
 
 
+class EnrollmentGenderFilter(admin.SimpleListFilter):
+    title = _('Sexo')
+    parameter_name = 'sexo'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('Masculino', _('Masculino')),
+            ('Feminino', _('Feminino')),
+            ('missing', _('Sem sexo informado')),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == 'Masculino':
+            return queryset.filter(form_data__sexo='Masculino')
+        if value == 'Feminino':
+            return queryset.filter(form_data__sexo='Feminino')
+        if value == 'missing':
+            return queryset.exclude(form_data__sexo__in=['Masculino', 'Feminino'])
+        return queryset
+
+
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
     """Admin for Enrollment model."""
 
     form = EnrollmentAdminForm
-    list_display = ['id', 'user_info', 'product', 'batch', 'status_badge', 'payment_method_display', 'final_amount', 'installments', 'shirt_size', 'pg_leader', 'created_at']
-    list_filter = ['status', 'payment_method', 'batch__product', 'created_at']
+    list_display = ['id', 'user_info', 'gender_badge', 'product', 'batch', 'status_badge', 'payment_method_display', 'final_amount', 'installments', 'shirt_size', 'pg_leader', 'created_at']
+    list_filter = ['status', 'payment_method', 'batch__product', EnrollmentGenderFilter, 'created_at']
     search_fields = ['user__email', 'user__first_name', 'user__last_name', 'product__name']
     readonly_fields = ['created_at', 'updated_at', 'paid_at', 'total_amount', 'discount_amount', 'final_amount']
     date_hierarchy = 'created_at'
@@ -153,7 +187,7 @@ class EnrollmentAdmin(admin.ModelAdmin):
         }),
     )
     
-    actions = ['mark_as_paid', 'cancel_enrollments', 'export_to_csv', 'reissue_cancelled_pix_installments']
+    actions = ['mark_as_paid', 'cancel_enrollments', 'bulk_set_gender', 'export_to_csv', 'reissue_cancelled_pix_installments']
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))
@@ -240,6 +274,21 @@ class EnrollmentAdmin(admin.ModelAdmin):
             obj.get_payment_method_display()
         )
     payment_method_display.short_description = _('Método')
+
+    def gender_badge(self, obj):
+        gender = extract_enrollment_gender(obj.form_data)
+        if gender == 'Masculino':
+            return format_html(
+                '<span style="background-color: #dbeafe; color: #1d4ed8; padding: 3px 10px; border-radius: 999px;">Masculino</span>'
+            )
+        if gender == 'Feminino':
+            return format_html(
+                '<span style="background-color: #fce7f3; color: #be185d; padding: 3px 10px; border-radius: 999px;">Feminino</span>'
+            )
+        return format_html(
+            '<span style="background-color: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 999px;">Falta informar</span>'
+        )
+    gender_badge.short_description = _('Sexo')
     
     def shirt_size(self, obj):
         """Display shirt size from form_data."""
@@ -265,6 +314,43 @@ class EnrollmentAdmin(admin.ModelAdmin):
         updated = queryset.exclude(status='CANCELLED').update(status='CANCELLED')
         self.message_user(request, f'{updated} inscrição(ões) cancelada(s).')
     cancel_enrollments.short_description = _('Cancelar inscrições')
+
+    @admin.action(description=_('Definir sexo das inscrições selecionadas'))
+    def bulk_set_gender(self, request, queryset):
+        class GenderBulkForm(forms.Form):
+            sexo = forms.ChoiceField(
+                label='Sexo para aplicar',
+                choices=EnrollmentAdminForm.GENDER_CHOICES[1:],
+                required=True,
+            )
+
+        if 'apply' in request.POST:
+            form = GenderBulkForm(request.POST)
+            if form.is_valid():
+                sexo = form.cleaned_data['sexo']
+                updated = 0
+                for enrollment in queryset.iterator():
+                    updated_form_data = update_enrollment_gender(enrollment.form_data, sexo)
+                    if updated_form_data == (enrollment.form_data or {}):
+                        continue
+                    enrollment.form_data = updated_form_data
+                    enrollment.save(update_fields=['form_data', 'updated_at'])
+                    updated += 1
+
+                self.message_user(request, f'{updated} inscrição(ões) atualizada(s) com sexo {sexo}.')
+                return HttpResponseRedirect(request.get_full_path())
+        else:
+            form = GenderBulkForm()
+
+        return render(request, 'admin/bulk_edit_form.html', {
+            'title': 'Definir sexo das inscrições',
+            'objects': queryset,
+            'form': form,
+            'action': 'bulk_set_gender',
+            'field_name': 'sexo',
+            'object_name_plural': 'inscrições',
+            'cancel_url': request.get_full_path(),
+        })
     
     def export_to_csv(self, request, queryset):
         """Export enrollments to CSV with all form data."""
