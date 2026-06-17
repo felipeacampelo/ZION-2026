@@ -1257,6 +1257,7 @@ def admin_enrollments_list(request):
     payment_state_filter = request.query_params.get('payment_state')
     social_quota_filter = request.query_params.get('social_quota')
     empire_filter = request.query_params.get('empire')
+    gender_filter = request.query_params.get('gender')
     search = request.query_params.get('search')
     enrollment_ids = request.query_params.get('ids')
     
@@ -1296,6 +1297,28 @@ def admin_enrollments_list(request):
             )
         else:
             enrollments = enrollments.filter(form_data__imperio_zion=empire_filter)
+
+    if gender_filter == 'male':
+        enrollments = enrollments.filter(
+            Q(form_data__sexo__iregex=r'^(masculino|masc|m|homem)$') |
+            Q(form_data__genero__iregex=r'^(masculino|masc|m|homem)$') |
+            Q(form_data__sexo_biologico__iregex=r'^(masculino|masc|m|homem)$') |
+            Q(form_data__sexo_participante__iregex=r'^(masculino|masc|m|homem)$')
+        )
+    elif gender_filter == 'female':
+        enrollments = enrollments.filter(
+            Q(form_data__sexo__iregex=r'^(feminino|fem|f|mulher)$') |
+            Q(form_data__genero__iregex=r'^(feminino|fem|f|mulher)$') |
+            Q(form_data__sexo_biologico__iregex=r'^(feminino|fem|f|mulher)$') |
+            Q(form_data__sexo_participante__iregex=r'^(feminino|fem|f|mulher)$')
+        )
+    elif gender_filter == 'unknown':
+        enrollments = enrollments.exclude(
+            Q(form_data__sexo__iregex=r'^(masculino|masc|m|homem|feminino|fem|f|mulher)$') |
+            Q(form_data__genero__iregex=r'^(masculino|masc|m|homem|feminino|fem|f|mulher)$') |
+            Q(form_data__sexo_biologico__iregex=r'^(masculino|masc|m|homem|feminino|fem|f|mulher)$') |
+            Q(form_data__sexo_participante__iregex=r'^(masculino|masc|m|homem|feminino|fem|f|mulher)$')
+        )
 
     if enrollment_ids:
         parsed_ids = [

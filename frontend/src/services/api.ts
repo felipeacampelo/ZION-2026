@@ -441,6 +441,7 @@ export const getAdminEnrollments = (params?: {
   payment_state?: string;
   social_quota?: string;
   empire?: string;
+  gender?: 'male' | 'female' | 'unknown';
   ids?: number[];
   page?: number;
   page_size?: number;

@@ -112,6 +112,7 @@ export default function AdminEnrollments() {
   const [paymentStateFilter, setPaymentStateFilter] = useState('');
   const [socialQuotaFilter, setSocialQuotaFilter] = useState('');
   const [empireFilter, setEmpireFilter] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
   const [selectedEnrollment, setSelectedEnrollment] = useState<any>(null);
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -126,6 +127,7 @@ export default function AdminEnrollments() {
     payment_state: paymentStateFilter || undefined,
     social_quota: socialQuotaFilter || undefined,
     empire: empireFilter || undefined,
+    gender: genderFilter || undefined,
     page,
     page_size: ENROLLMENTS_PAGE_SIZE,
   });
@@ -215,7 +217,7 @@ export default function AdminEnrollments() {
     }, 300);
 
     return clearSearchDebounce;
-  }, [searchTerm, statusFilter, paymentMethodFilter, paymentStateFilter, socialQuotaFilter, empireFilter]);
+  }, [searchTerm, statusFilter, paymentMethodFilter, paymentStateFilter, socialQuotaFilter, empireFilter, genderFilter]);
 
   const visibleEnrollments = [...enrollments].sort((a, b) => {
     const comparison = compareEnrollmentValues(a, b, sortKey);
@@ -373,7 +375,7 @@ export default function AdminEnrollments() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:gap-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 xl:gap-3">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -431,6 +433,18 @@ export default function AdminEnrollments() {
                   <option value="grecia">Grécia</option>
                   <option value="roma">Roma</option>
                   <option value="none">Sem império</option>
+                </select>
+
+                <select
+                  value={genderFilter}
+                  onChange={(e) => setGenderFilter(e.target.value)}
+                  disabled={isBusy}
+                  className="min-w-0 w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11"
+                >
+                  <option value="">Sexo</option>
+                  <option value="male">Masculino</option>
+                  <option value="female">Feminino</option>
+                  <option value="unknown">Sem informação</option>
                 </select>
 
                 <button

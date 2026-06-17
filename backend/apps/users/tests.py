@@ -642,7 +642,7 @@ class AdminSocialQuotaTests(APITestCase):
             product=self.product,
             batch=self.batch,
             coupon=self.social_coupon,
-            form_data={'nome_completo': 'Teen Social', 'imperio_zion': 'egito'},
+            form_data={'nome_completo': 'Teen Social', 'imperio_zion': 'egito', 'sexo': 'Masculino'},
             payment_method='PIX_CASH',
             installments=1,
             total_amount=Decimal('580.00'),
@@ -654,7 +654,7 @@ class AdminSocialQuotaTests(APITestCase):
             product=self.product,
             batch=self.batch,
             coupon=self.normal_coupon,
-            form_data={'nome_completo': 'Teen Normal', 'imperio_zion': 'roma'},
+            form_data={'nome_completo': 'Teen Normal', 'imperio_zion': 'roma', 'sexo': 'Feminino'},
             payment_method='PIX_CASH',
             installments=1,
             total_amount=Decimal('580.00'),
@@ -737,6 +737,42 @@ class AdminSocialQuotaTests(APITestCase):
         response = self.client.get(
             reverse('users:admin-enrollments-list'),
             {'empire': 'none'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.no_empire_enrollment.id)
+
+    def test_admin_enrollments_filter_gender_male(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(
+            reverse('users:admin-enrollments-list'),
+            {'gender': 'male'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.social_enrollment.id)
+
+    def test_admin_enrollments_filter_gender_female(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(
+            reverse('users:admin-enrollments-list'),
+            {'gender': 'female'},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], self.normal_enrollment.id)
+
+    def test_admin_enrollments_filter_gender_unknown(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(
+            reverse('users:admin-enrollments-list'),
+            {'gender': 'unknown'},
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
