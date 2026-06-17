@@ -210,9 +210,14 @@ class Enrollment(models.Model):
             models.Index(fields=['user', 'status']),
             models.Index(fields=['batch', 'status']),
         ]
+
+    @property
+    def participant_name(self):
+        form_data = self.form_data or {}
+        return form_data.get('nome_completo') or self.user.get_full_name() or self.user.email
     
     def __str__(self):
-        return f'{self.user.email} - {self.product.name}'
+        return f'{self.participant_name} - {self.product.name}'
     
     @property
     def installment_value(self):

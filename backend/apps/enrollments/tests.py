@@ -429,3 +429,11 @@ class EnrollmentAdminFormTests(APITestCase):
 
         removed = update_enrollment_gender(updated, '')
         self.assertNotIn('sexo', removed)
+
+    def test_enrollment_participant_name_prefers_form_data_name(self):
+        self.user.first_name = 'Nome'
+        self.user.last_name = 'Responsavel'
+        self.user.save(update_fields=['first_name', 'last_name'])
+
+        self.assertEqual(self.enrollment.participant_name, 'Participante Admin')
+        self.assertIn('Participante Admin', str(self.enrollment))

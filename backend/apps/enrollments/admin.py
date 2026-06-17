@@ -155,9 +155,9 @@ class EnrollmentAdmin(admin.ModelAdmin):
     """Admin for Enrollment model."""
 
     form = EnrollmentAdminForm
-    list_display = ['id', 'user_info', 'gender_badge', 'product', 'batch', 'status_badge', 'payment_method_display', 'final_amount', 'installments', 'shirt_size', 'pg_leader', 'created_at']
+    list_display = ['id', 'participant_info', 'gender_badge', 'product', 'batch', 'status_badge', 'payment_method_display', 'final_amount', 'installments', 'shirt_size', 'pg_leader', 'created_at']
     list_filter = ['status', 'payment_method', 'batch__product', EnrollmentGenderFilter, 'created_at']
-    search_fields = ['user__email', 'user__first_name', 'user__last_name', 'product__name']
+    search_fields = ['form_data__nome_completo', 'user__email', 'user__first_name', 'user__last_name', 'product__name']
     readonly_fields = ['created_at', 'updated_at', 'paid_at', 'total_amount', 'discount_amount', 'final_amount']
     date_hierarchy = 'created_at'
     
@@ -230,16 +230,16 @@ class EnrollmentAdmin(admin.ModelAdmin):
         if current_coupon and previous_coupon != current_coupon:
             current_coupon.increment_uses()
     
-    def user_info(self, obj):
-        """Display user information with link."""
+    def participant_info(self, obj):
+        """Display participant name and the account email linked to the enrollment."""
         url = reverse('admin:users_user_change', args=[obj.user.id])
         return format_html(
             '<a href="{}">{}</a><br><small style="color: gray;">{}</small>',
             url,
-            obj.user.get_full_name() or obj.user.email,
+            obj.participant_name,
             obj.user.email
         )
-    user_info.short_description = _('Usuário')
+    participant_info.short_description = _('Inscrito')
     
     def status_badge(self, obj):
         """Display status with color badge."""
