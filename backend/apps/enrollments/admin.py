@@ -24,10 +24,25 @@ from .models import (
 
 class EnrollmentAdminForm(forms.ModelForm):
     financial_fields = {'coupon', 'payment_method', 'installments', 'batch'}
+    GENDER_CHOICES = (
+        ('', '---------'),
+        ('Masculino', 'Masculino'),
+        ('Feminino', 'Feminino'),
+    )
+
+    sexo = forms.ChoiceField(
+        label='Sexo',
+        choices=GENDER_CHOICES,
+        required=False,
+    )
 
     class Meta:
         model = Enrollment
         fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['sexo'].initial = (self.instance.form_data or {}).get('sexo', '')
 
     def clean(self):
         cleaned_data = super().clean()
@@ -84,6 +99,22 @@ class EnrollmentAdminForm(forms.ModelForm):
 
         return cleaned_data
 
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        form_data = dict(instance.form_data or {})
+        sexo = self.cleaned_data.get('sexo')
+        if sexo:
+            form_data['sexo'] = sexo
+        else:
+            form_data.pop('sexo', None)
+        instance.form_data = form_data
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+
+        return instance
+
 
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
@@ -99,6 +130,9 @@ class EnrollmentAdmin(admin.ModelAdmin):
     fieldsets = (
         (_('Usuário e Produto'), {
             'fields': ('user', 'product', 'batch')
+        }),
+        (_('Dados principais'), {
+            'fields': ('sexo',)
         }),
         (_('Dados do Formulário'), {
             'fields': ('form_data',),

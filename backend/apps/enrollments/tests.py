@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.enrollments.admin import EnrollmentAdminForm
 from apps.enrollments.models import Settings
 from apps.products.models import Batch, Product
 from apps.payments.models import Payment
@@ -345,3 +346,75 @@ class EnrollmentSecurityTests(APITestCase):
             detail_response.data['payments'][0]['payment_url'],
             'https://sandbox.asaas.com/i/pay-card-test',
         )
+
+
+class EnrollmentAdminFormTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='admin-form-participant@example.com',
+            password='password123',
+        )
+
+        self.product = Product.objects.create(
+            name='Produto Admin Form',
+            description='Produto para testar admin form',
+            base_price=Decimal('100.00'),
+            max_installments=8,
+            is_active=True,
+        )
+
+        now = timezone.now()
+        self.batch = Batch.objects.create(
+            product=self.product,
+            name='Lote Admin Form',
+            start_date=now - timedelta(days=1),
+            end_date=now + timedelta(days=10),
+            price=Decimal('100.00'),
+            pix_installment_price=Decimal('120.00'),
+            credit_card_price=Decimal('130.00'),
+            status='ACTIVE',
+        )
+
+        self.enrollment = self.product.enrollments.create(
+            user=self.user,
+            batch=self.batch,
+            form_data={'nome_completo': 'Participante Admin'},
+            payment_method='PIX_CASH',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+
+    def test_admin_form_initializes_gender_from_form_data(self):
+        self.enrollment.form_data = {'sexo': 'Feminino'}
+        form = EnrollmentAdminForm(instance=self.enrollment)
+
+        self.assertEqual(form.fields['sexo'].initial, 'Feminino')
+
+    def test_admin_form_persists_gender_into_form_data(self):
+        form = EnrollmentAdminForm(
+            data={
+                'user': self.user.id,
+                'product': self.product.id,
+                'batch': self.batch.id,
+                'form_data': '{"nome_completo": "Participante Admin"}',
+                'sexo': 'Masculino',
+                'status': 'PENDING_PAYMENT',
+                'payment_method': 'PIX_CASH',
+                'installments': 1,
+                'total_amount': '100.00',
+                'discount_amount': '0.00',
+                'final_amount': '100.00',
+                'admin_notes': '',
+                'pricing_snapshot': '{}',
+                'source': 'PUBLIC',
+                'reservation_token': '',
+            },
+            instance=self.enrollment,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        enrollment = form.save()
+
+        self.assertEqual(enrollment.form_data['sexo'], 'Masculino')

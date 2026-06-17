@@ -1129,8 +1129,20 @@ def admin_dashboard_stats(request):
         ).count(),
     }
 
+    male_count = 0
+    female_count = 0
+    unknown_gender_count = 0
+
     birth_year_counts = {}
     for enrollment in active_enrollments.only('form_data'):
+        gender = normalize_gender(enrollment.form_data or {})
+        if gender == 'male':
+            male_count += 1
+        elif gender == 'female':
+            female_count += 1
+        else:
+            unknown_gender_count += 1
+
         birth_date = (enrollment.form_data or {}).get('data_nascimento', '')
         if isinstance(birth_date, str) and len(birth_date) >= 4:
             year = birth_date[:4]
@@ -1205,6 +1217,11 @@ def admin_dashboard_stats(request):
             'yes': members_count,
             'no': non_members_count,
             'unknown': no_answer_count,
+        },
+        'gender': {
+            'male': male_count,
+            'female': female_count,
+            'unknown': unknown_gender_count,
         },
         'zion_history': zion_history_counts,
         'birth_years': ordered_birth_year_counts,

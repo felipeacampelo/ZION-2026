@@ -65,6 +65,11 @@ interface DashboardStats {
     no: number;
     unknown: number;
   };
+  gender: {
+    male: number;
+    female: number;
+    unknown: number;
+  };
   zion_history: {
     first_time: number;
     returning: number;
@@ -219,6 +224,9 @@ export default function AdminDashboard() {
 
   const totalMembers = stats
     ? stats.members.yes + stats.members.no
+    : 0;
+  const totalKnownGender = stats
+    ? stats.gender.male + stats.gender.female
     : 0;
   const confirmedRate =
     stats && stats.enrollments.total > 0
@@ -388,16 +396,16 @@ export default function AdminDashboard() {
                       helper: 'Cartão pago pelo cliente',
                     },
                     {
-                      label: 'Crédito com baixa RECEIVED',
+                      label: 'Crédito liquidado estimado',
                       value: stats.revenue.credit_received_net,
                       grossValue: stats.revenue.credit_received,
-                      helper: 'Status RECEIVED no Asaas; não representa repasse parcelado na conta',
+                      helper: 'Estimativa de parcelas já liquidadas com regra de 32 dias corridos',
                     },
                     {
-                      label: 'Crédito com status CONFIRMED',
+                      label: 'Crédito a liquidar estimado',
                       value: stats.revenue.credit_pending_settlement_net,
                       grossValue: stats.revenue.credit_pending_settlement,
-                      helper: 'Status CONFIRMED no Asaas; não representa cronograma real de liquidação',
+                      helper: 'Estimativa de saldo ainda aguardando liquidação por parcela',
                     },
                   ].map((item) => (
                     <div key={item.label} className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
@@ -609,6 +617,51 @@ export default function AdminDashboard() {
                         </div>
                       );
                     })}
+                </div>
+              </div>
+
+              <div className={`${sectionCardClass} p-5 lg:p-6`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+                      Sexo
+                    </p>
+                    <h2 className="mt-2 text-xl font-bold text-gray-950">Meninos x meninas</h2>
+                  </div>
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: brandPurpleSoft }}
+                  >
+                    <Users className="h-5 w-5" style={{ color: brandPurple }} />
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  {[
+                    { label: 'Meninos', value: stats.gender.male, color: brandPurple },
+                    { label: 'Meninas', value: stats.gender.female, color: '#111827' },
+                  ].map((item) => {
+                    const width = totalKnownGender > 0 ? (item.value / totalKnownGender) * 100 : 0;
+                    return (
+                      <div key={item.label}>
+                        <div className="mb-2 flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{item.label}</span>
+                          <span className="font-semibold text-gray-950">{item.value}</span>
+                        </div>
+                        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${width}%`, backgroundColor: item.color }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {stats.gender.unknown > 0 && (
+                    <p className="text-xs text-gray-500">
+                      {stats.gender.unknown} inscri{stats.gender.unknown === 1 ? 'ção sem sexo informado' : 'ções sem sexo informado'}
+                    </p>
+                  )}
                 </div>
               </div>
 
