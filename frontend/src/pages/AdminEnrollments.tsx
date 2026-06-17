@@ -22,6 +22,7 @@ const formatCpfForCsv = (cpf: unknown) => {
 
 type SortKey = 'id' | 'nome' | 'email' | 'telefone' | 'status' | 'payment_method' | 'valor';
 type SortDirection = 'asc' | 'desc';
+type GenderFilter = '' | 'male' | 'female' | 'unknown';
 
 const compareEnrollmentValues = (a: any, b: any, key: SortKey) => {
   switch (key) {
@@ -112,7 +113,7 @@ export default function AdminEnrollments() {
   const [paymentStateFilter, setPaymentStateFilter] = useState('');
   const [socialQuotaFilter, setSocialQuotaFilter] = useState('');
   const [empireFilter, setEmpireFilter] = useState('');
-  const [genderFilter, setGenderFilter] = useState('');
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>('');
   const [selectedEnrollment, setSelectedEnrollment] = useState<any>(null);
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -437,7 +438,7 @@ export default function AdminEnrollments() {
 
                 <select
                   value={genderFilter}
-                  onChange={(e) => setGenderFilter(e.target.value)}
+                  onChange={(e) => setGenderFilter(e.target.value as GenderFilter)}
                   disabled={isBusy}
                   className="min-w-0 w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple text-sm sm:text-base text-gray-900 bg-white lg:h-11"
                 >
