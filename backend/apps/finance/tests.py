@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import timedelta
 
+from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
@@ -11,6 +12,7 @@ from apps.enrollments.models import Enrollment
 from apps.payments.models import Payment
 from apps.products.models import Batch, Product
 
+from .constants import AREA_LEADERS_GROUP_NAME
 from .models import Area, AreaBudget, AreaLeaderAssignment, BudgetRubric, ExpenseAuditLog
 
 
@@ -22,6 +24,8 @@ class FinanceFlowTests(APITestCase):
         self.admin = User.objects.create_user(email='finance-admin@example.com', password='password123', is_staff=True)
         self.leader = User.objects.create_user(email='leader@example.com', password='password123', first_name='Lider')
         self.outsider = User.objects.create_user(email='outsider@example.com', password='password123')
+        self.area_leaders_group = Group.objects.create(name=AREA_LEADERS_GROUP_NAME)
+        self.leader.groups.add(self.area_leaders_group)
 
         self.product = Product.objects.create(
             name='Produto Financeiro',
@@ -84,6 +88,23 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('allocated_amount', response.data)
 
+    def test_leader_candidates_only_return_active_group_members(self):
+        inactive_leader = User.objects.create_user(
+            email='inactive-leader@example.com',
+            password='password123',
+            is_active=False,
+        )
+        inactive_leader.groups.add(self.area_leaders_group)
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(reverse('finance:leader-candidates'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        emails = [item['email'] for item in response.data['results']]
+        self.assertIn(self.leader.email, emails)
+        self.assertNotIn(self.outsider.email, emails)
+        self.assertNotIn(inactive_leader.email, emails)
+
     def _create_area_and_rubric(self):
         area = Area.objects.create(name='Produção', description='Área')
         AreaBudget.objects.create(area=area, allocated_amount=Decimal('80.00'))
@@ -134,6 +155,41 @@ class FinanceFlowTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('allocated_amount', response.data)
+
+    def test_area_creation_rejects_leader_outside_area_leaders_group(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            reverse('finance:finance-area-list'),
+            {
+                'name': 'Comunicação',
+                'description': 'Área',
+                'allocated_amount': '30.00',
+                'leader_id': self.outsider.id,
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('leader_id', response.data)
+
+    def test_area_with_historical_ineligible_leader_loads_but_cannot_be_updated(self):
+        area, _ = self._create_area_and_rubric()
+        self.leader.groups.remove(self.area_leaders_group)
+
+        self.client.force_authenticate(self.admin)
+        get_response = self.client.get(reverse('finance:finance-area-detail', args=[area.id]))
+        self.assertEqual(get_response.status_code, status.HTTP_200_OK)
+        self.assertFalse(get_response.data['leader_is_eligible'])
+
+        patch_response = self.client.patch(
+            reverse('finance:finance-area-detail', args=[area.id]),
+            {
+                'allocated_amount': '81.00',
+            },
+            format='json',
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('leader_id', patch_response.data)
 
     def test_leader_cannot_request_more_than_rubric_available(self):
         _, rubric = self._create_area_and_rubric()

@@ -338,6 +338,7 @@ export interface FinanceArea {
   description: string;
   is_active: boolean;
   leader: FinanceUserOption | null;
+  leader_is_eligible: boolean | null;
   budget: {
     allocated_amount: string;
   };

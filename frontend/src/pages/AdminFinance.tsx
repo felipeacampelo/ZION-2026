@@ -29,6 +29,33 @@ import {
 const formatCurrency = (value?: string) =>
   Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const getErrorMessage = (error: any) => {
+  const payload = error?.response?.data;
+  if (!payload) {
+    return error?.message || 'Não foi possível concluir a operação.';
+  }
+  if (typeof payload === 'string') {
+    return payload;
+  }
+  if (payload.detail) {
+    return payload.detail;
+  }
+  const firstEntry = Object.entries(payload)[0];
+  if (!firstEntry) {
+    return 'Não foi possível concluir a operação.';
+  }
+  const [field, value] = firstEntry;
+  const labels: Record<string, string> = {
+    leader_id: 'Líder principal',
+    allocated_amount: 'Valor orçado',
+  };
+  const label = labels[field] || field;
+  if (Array.isArray(value)) {
+    return `${label}: ${value.join(' ')}`;
+  }
+  return `${label}: ${String(value)}`;
+};
+
 const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]';
 const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
 
@@ -45,6 +72,7 @@ export default function AdminFinance() {
   const [rubricForm, setRubricForm] = useState({ area: '', name: '', description: '', allocated_amount: '' });
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
   const [editingAreaAmount, setEditingAreaAmount] = useState('');
+  const [editingAreaLeaderId, setEditingAreaLeaderId] = useState('');
   const [editingRubricId, setEditingRubricId] = useState<number | null>(null);
   const [editingRubricAmount, setEditingRubricAmount] = useState('');
   const [rejectingRequestId, setRejectingRequestId] = useState<number | null>(null);
@@ -72,7 +100,7 @@ export default function AdminFinance() {
       setRequests(requestsRes.data);
       setLeaders(leadersRes.data.results);
     } catch (loadError: any) {
-      setError('Nao foi possivel carregar o modulo financeiro.');
+      setError('Não foi possível carregar o módulo financeiro.');
       console.error(loadError);
     } finally {
       setLoading(false);
@@ -93,7 +121,7 @@ export default function AdminFinance() {
       setAreaForm({ name: '', description: '', allocated_amount: '', leader_id: '' });
       await loadData();
     } catch (submitError: any) {
-      setError(JSON.stringify(submitError.response?.data || submitError.message));
+      setError(getErrorMessage(submitError));
     }
   };
 
@@ -109,20 +137,29 @@ export default function AdminFinance() {
       setRubricForm({ area: '', name: '', description: '', allocated_amount: '' });
       await loadData();
     } catch (submitError: any) {
-      setError(JSON.stringify(submitError.response?.data || submitError.message));
+      setError(getErrorMessage(submitError));
     }
   };
 
   const startAreaEdit = (area: FinanceArea) => {
     setEditingAreaId(area.id);
     setEditingAreaAmount(area.budget.allocated_amount);
+    setEditingAreaLeaderId(area.leader ? String(area.leader.id) : '');
   };
 
   const saveAreaEdit = async (areaId: number) => {
-    await updateFinanceArea(areaId, { allocated_amount: editingAreaAmount });
-    setEditingAreaId(null);
-    setEditingAreaAmount('');
-    await loadData();
+    try {
+      await updateFinanceArea(areaId, {
+        allocated_amount: editingAreaAmount,
+        leader_id: editingAreaLeaderId ? Number(editingAreaLeaderId) : null,
+      });
+      setEditingAreaId(null);
+      setEditingAreaAmount('');
+      setEditingAreaLeaderId('');
+      await loadData();
+    } catch (submitError: any) {
+      setError(getErrorMessage(submitError));
+    }
   };
 
   const startRubricEdit = (rubric: FinanceRubric) => {
@@ -175,9 +212,9 @@ export default function AdminFinance() {
       <div className="space-y-6">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-dark/70">Controle Financeiro</p>
-          <h1 className="mt-2 text-3xl font-black text-gray-950">Receita liquida, orcamento e execucao</h1>
+          <h1 className="mt-2 text-3xl font-black text-gray-950">Receita líquida, orçamento e execução</h1>
           <p className="mt-2 max-w-3xl text-sm text-gray-600">
-            O teto do modulo vem da receita liquida das inscricoes. A distribuicao por area e manual, mas nunca pode ultrapassar o total ja realizado.
+            O teto do módulo vem da receita líquida das inscrições. A distribuição por área é manual, mas nunca pode ultrapassar o total já realizado.
           </p>
         </div>
         <div className="flex justify-end">
@@ -190,7 +227,7 @@ export default function AdminFinance() {
 
         <section className="grid gap-4 lg:grid-cols-4">
           <div className={cardClass}>
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Receita liquida</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Receita líquida</p>
             <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.revenue.net)}</p>
           </div>
           <div className={cardClass}>
@@ -198,11 +235,11 @@ export default function AdminFinance() {
             <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.revenue.fees)}</p>
           </div>
           <div className={cardClass}>
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Orcado em areas</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Orçado em áreas</p>
             <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.budgets.allocated_total)}</p>
           </div>
           <div className={cardClass}>
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Ainda distribuivel</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Ainda distribuível</p>
             <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.budgets.remaining_to_allocate)}</p>
           </div>
         </section>
@@ -210,7 +247,7 @@ export default function AdminFinance() {
         <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className={cardClass}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black text-gray-950">Areas</h2>
+              <h2 className="text-lg font-black text-gray-950">Áreas</h2>
               <span className="text-sm text-gray-500">{areas.length} cadastradas</span>
             </div>
             <div className="mt-4 space-y-3">
@@ -219,25 +256,43 @@ export default function AdminFinance() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="font-bold text-gray-950">{area.name}</p>
-                      <p className="text-sm text-gray-500">{area.leader?.name || 'Sem lider definido'}</p>
+                      <p className="text-sm text-gray-500">{area.leader?.name || 'Sem líder definido'}</p>
+                      {area.leader && area.leader_is_eligible === false && (
+                        <p className="mt-1 text-sm text-amber-700">
+                          O líder atual não pertence mais ao grupo <code>area_leaders</code>. Atualize o vínculo para salvar alterações nesta área.
+                        </p>
+                      )}
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => startAreaEdit(area)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Editar orcamento</button>
+                      <button onClick={() => startAreaEdit(area)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Editar área</button>
                       <button onClick={async () => { await deleteFinanceArea(area.id); await loadData(); }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
                     </div>
                   </div>
                   {editingAreaId === area.id && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <div className="mt-3 space-y-3">
                       <input className={`${inputClass} max-w-[220px]`} value={editingAreaAmount} onChange={(e) => setEditingAreaAmount(e.target.value)} />
-                      <button onClick={() => saveAreaEdit(area.id)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
-                      <button onClick={() => { setEditingAreaId(null); setEditingAreaAmount(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                      <select className={`${inputClass} max-w-[420px]`} value={editingAreaLeaderId} onChange={(e) => setEditingAreaLeaderId(e.target.value)}>
+                        <option value="">Sem líder principal</option>
+                        {area.leader && area.leader_is_eligible === false && (
+                          <option value={area.leader.id}>
+                            {area.leader.name} ({area.leader.email}) - fora do grupo
+                          </option>
+                        )}
+                        {leaders.map((leader) => (
+                          <option key={leader.id} value={leader.id}>{leader.name} ({leader.email})</option>
+                        ))}
+                      </select>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button onClick={() => saveAreaEdit(area.id)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
+                        <button onClick={() => { setEditingAreaId(null); setEditingAreaAmount(''); setEditingAreaLeaderId(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                      </div>
                     </div>
                   )}
                   <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                    <div><p className="text-xs text-gray-500">Orcado</p><p className="font-semibold text-gray-900">R$ {formatCurrency(area.summary.allocated_amount)}</p></div>
+                    <div><p className="text-xs text-gray-500">Orçado</p><p className="font-semibold text-gray-900">R$ {formatCurrency(area.summary.allocated_amount)}</p></div>
                     <div><p className="text-xs text-gray-500">Pendente</p><p className="font-semibold text-gray-900">R$ {formatCurrency(area.summary.pending_amount)}</p></div>
                     <div><p className="text-xs text-gray-500">Comprometido</p><p className="font-semibold text-gray-900">R$ {formatCurrency(area.summary.committed_amount)}</p></div>
-                    <div><p className="text-xs text-gray-500">Disponivel</p><p className="font-semibold text-gray-900">R$ {formatCurrency(area.summary.available_amount)}</p></div>
+                    <div><p className="text-xs text-gray-500">Disponível</p><p className="font-semibold text-gray-900">R$ {formatCurrency(area.summary.available_amount)}</p></div>
                   </div>
                 </div>
               ))}
@@ -245,18 +300,18 @@ export default function AdminFinance() {
           </div>
 
           <div className={cardClass}>
-            <h2 className="text-lg font-black text-gray-950">Nova area</h2>
+            <h2 className="text-lg font-black text-gray-950">Nova área</h2>
             <form onSubmit={handleCreateArea} className="mt-4 space-y-3">
-              <input className={inputClass} placeholder="Nome da area" value={areaForm.name} onChange={(e) => setAreaForm((current) => ({ ...current, name: e.target.value }))} />
-              <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descricao" value={areaForm.description} onChange={(e) => setAreaForm((current) => ({ ...current, description: e.target.value }))} />
-              <input className={inputClass} placeholder="Valor orcado da area" value={areaForm.allocated_amount} onChange={(e) => setAreaForm((current) => ({ ...current, allocated_amount: e.target.value }))} />
+              <input className={inputClass} placeholder="Nome da área" value={areaForm.name} onChange={(e) => setAreaForm((current) => ({ ...current, name: e.target.value }))} />
+              <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descrição" value={areaForm.description} onChange={(e) => setAreaForm((current) => ({ ...current, description: e.target.value }))} />
+              <input className={inputClass} placeholder="Valor orçado da área" value={areaForm.allocated_amount} onChange={(e) => setAreaForm((current) => ({ ...current, allocated_amount: e.target.value }))} />
               <select className={inputClass} value={areaForm.leader_id} onChange={(e) => setAreaForm((current) => ({ ...current, leader_id: e.target.value }))}>
-                <option value="">Selecione o lider principal</option>
+                <option value="">Selecione o líder principal</option>
                 {leaders.map((leader) => (
                   <option key={leader.id} value={leader.id}>{leader.name} ({leader.email})</option>
                 ))}
               </select>
-              <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Criar area</button>
+              <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Criar área</button>
             </form>
           </div>
         </section>
@@ -288,10 +343,10 @@ export default function AdminFinance() {
                     </div>
                   )}
                   <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                    <div><p className="text-xs text-gray-500">Orcado</p><p className="font-semibold text-gray-900">R$ {formatCurrency(rubric.summary.allocated_amount)}</p></div>
+                    <div><p className="text-xs text-gray-500">Orçado</p><p className="font-semibold text-gray-900">R$ {formatCurrency(rubric.summary.allocated_amount)}</p></div>
                     <div><p className="text-xs text-gray-500">Pendente</p><p className="font-semibold text-gray-900">R$ {formatCurrency(rubric.summary.pending_amount)}</p></div>
                     <div><p className="text-xs text-gray-500">Comprometido</p><p className="font-semibold text-gray-900">R$ {formatCurrency(rubric.summary.committed_amount)}</p></div>
-                    <div><p className="text-xs text-gray-500">Disponivel</p><p className="font-semibold text-gray-900">R$ {formatCurrency(rubric.summary.available_amount)}</p></div>
+                    <div><p className="text-xs text-gray-500">Disponível</p><p className="font-semibold text-gray-900">R$ {formatCurrency(rubric.summary.available_amount)}</p></div>
                   </div>
                 </div>
               ))}
@@ -301,14 +356,14 @@ export default function AdminFinance() {
             <h2 className="text-lg font-black text-gray-950">Nova rubrica</h2>
             <form onSubmit={handleCreateRubric} className="mt-4 space-y-3">
               <select className={inputClass} value={rubricForm.area} onChange={(e) => setRubricForm((current) => ({ ...current, area: e.target.value }))}>
-                <option value="">Selecione a area</option>
+                <option value="">Selecione a área</option>
                 {areas.map((area) => (
                   <option key={area.id} value={area.id}>{area.name}</option>
                 ))}
               </select>
               <input className={inputClass} placeholder="Nome da rubrica" value={rubricForm.name} onChange={(e) => setRubricForm((current) => ({ ...current, name: e.target.value }))} />
-              <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descricao" value={rubricForm.description} onChange={(e) => setRubricForm((current) => ({ ...current, description: e.target.value }))} />
-              <input className={inputClass} placeholder="Valor orcado da rubrica" value={rubricForm.allocated_amount} onChange={(e) => setRubricForm((current) => ({ ...current, allocated_amount: e.target.value }))} />
+              <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descrição" value={rubricForm.description} onChange={(e) => setRubricForm((current) => ({ ...current, description: e.target.value }))} />
+              <input className={inputClass} placeholder="Valor orçado da rubrica" value={rubricForm.allocated_amount} onChange={(e) => setRubricForm((current) => ({ ...current, allocated_amount: e.target.value }))} />
               <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Criar rubrica</button>
             </form>
           </div>
@@ -328,7 +383,7 @@ export default function AdminFinance() {
                     <p className="text-sm text-gray-500">{item.requester_email}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {item.status === 'PENDING' && <button onClick={async () => { await reviewFinanceRequest(item.id, 'Em analise'); await loadData(); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">Em analise</button>}
+                    {item.status === 'PENDING' && <button onClick={async () => { await reviewFinanceRequest(item.id, 'Em análise'); await loadData(); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">Em análise</button>}
                     {['PENDING', 'UNDER_REVIEW'].includes(item.status) && <button onClick={async () => { await approveFinanceRequest(item.id); await loadData(); }} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Aprovar</button>}
                     {['PENDING', 'UNDER_REVIEW'].includes(item.status) && <button onClick={() => { setRejectingRequestId(item.id); setRejectionReason(''); }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Rejeitar</button>}
                     {item.status === 'APPROVED' && item.execution?.status === 'NOT_EXECUTED' && <button onClick={() => { setExecutingRequestId(item.id); setExecutionType('ADVANCE'); setExecutionNotes(''); setExecutionFile(null); }} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Executar</button>}
@@ -351,17 +406,17 @@ export default function AdminFinance() {
                 </div>
                 {rejectingRequestId === item.id && (
                   <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">
-                    <p className="text-sm font-semibold text-red-700">Justificativa da rejeicao</p>
+                    <p className="text-sm font-semibold text-red-700">Justificativa da rejeição</p>
                     <textarea className={`${inputClass} mt-2 min-h-[100px] bg-white`} value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
                     <div className="mt-3 flex gap-2">
-                      <button onClick={() => submitRejection(item.id)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Confirmar rejeicao</button>
+                      <button onClick={() => submitRejection(item.id)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Confirmar rejeição</button>
                       <button onClick={() => { setRejectingRequestId(null); setRejectionReason(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
                     </div>
                   </div>
                 )}
                 {executingRequestId === item.id && (
                   <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                    <p className="text-sm font-semibold text-emerald-700">Executar solicitacao</p>
+                    <p className="text-sm font-semibold text-emerald-700">Executar solicitação</p>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       <select className={inputClass} value={executionType} onChange={(e) => setExecutionType(e.target.value as 'ADVANCE' | 'REIMBURSEMENT')}>
                         <option value="ADVANCE">Adiantamento</option>
@@ -369,9 +424,9 @@ export default function AdminFinance() {
                       </select>
                       <input type="file" className={inputClass} onChange={(e) => setExecutionFile(e.target.files?.[0] || null)} />
                     </div>
-                    <textarea className={`${inputClass} mt-3 min-h-[100px] bg-white`} placeholder="Observacoes da execucao" value={executionNotes} onChange={(e) => setExecutionNotes(e.target.value)} />
+                    <textarea className={`${inputClass} mt-3 min-h-[100px] bg-white`} placeholder="Observações da execução" value={executionNotes} onChange={(e) => setExecutionNotes(e.target.value)} />
                     <div className="mt-3 flex gap-2">
-                      <button onClick={() => submitExecution(item.id)} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Confirmar execucao</button>
+                      <button onClick={() => submitExecution(item.id)} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Confirmar execução</button>
                       <button onClick={() => { setExecutingRequestId(null); setExecutionType('ADVANCE'); setExecutionNotes(''); setExecutionFile(null); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
                     </div>
                     {executionType === 'REIMBURSEMENT' && (
@@ -387,15 +442,15 @@ export default function AdminFinance() {
 
         {report && (
           <section className={cardClass}>
-            <h2 className="text-lg font-black text-gray-950">Relatorio consolidado</h2>
+            <h2 className="text-lg font-black text-gray-950">Relatório consolidado</h2>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               <div>
-                <p className="mb-3 text-sm font-semibold text-gray-700">Por area</p>
+                <p className="mb-3 text-sm font-semibold text-gray-700">Por área</p>
                 <div className="space-y-2">
                   {report.report.areas.map((item) => (
                     <div key={item.id} className="flex items-center justify-between rounded-2xl border border-gray-100 px-4 py-3">
                       <span className="font-medium text-gray-900">{item.name}</span>
-                      <span className="text-sm text-gray-600">Disponivel R$ {formatCurrency(item.available_amount)}</span>
+                      <span className="text-sm text-gray-600">Disponível R$ {formatCurrency(item.available_amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -406,7 +461,7 @@ export default function AdminFinance() {
                   {report.report.rubrics.map((item) => (
                     <div key={item.id} className="flex items-center justify-between rounded-2xl border border-gray-100 px-4 py-3">
                       <span className="font-medium text-gray-900">{item.name} <span className="text-xs text-gray-500">({item.area_name})</span></span>
-                      <span className="text-sm text-gray-600">Disponivel R$ {formatCurrency(item.available_amount)}</span>
+                      <span className="text-sm text-gray-600">Disponível R$ {formatCurrency(item.available_amount)}</span>
                     </div>
                   ))}
                 </div>

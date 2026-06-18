@@ -36,6 +36,7 @@ from .serializers import (
     ExpenseRequestRejectSerializer,
     ExpenseRequestReviewSerializer,
     ExpenseRequestSerializer,
+    get_eligible_area_leaders_queryset,
 )
 from .services import build_finance_report, get_area_summary, get_realized_net_revenue, get_rubric_summary
 
@@ -387,7 +388,7 @@ def finance_reports_csv(request):
 @permission_classes([permissions.IsAuthenticated, IsAdminUser])
 def finance_leader_candidates(request):
     search = request.query_params.get('search', '').strip()
-    queryset = User.objects.all().order_by('email')
+    queryset = get_eligible_area_leaders_queryset().order_by('email')
     if search:
         queryset = queryset.filter(
             Q(email__icontains=search)

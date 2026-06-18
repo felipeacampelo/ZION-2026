@@ -14,6 +14,7 @@ from .models import (
     ExpenseExecution,
     ExpenseRequest,
 )
+from .constants import AREA_LEADERS_GROUP_NAME
 from .services import (
     get_area_summary,
     get_realized_net_revenue,
@@ -24,6 +25,10 @@ from .services import (
 
 
 User = get_user_model()
+
+
+def get_eligible_area_leaders_queryset():
+    return User.objects.filter(is_active=True, groups__name=AREA_LEADERS_GROUP_NAME).distinct()
 
 
 class ExpenseAttachmentSerializer(serializers.ModelSerializer):
@@ -63,12 +68,13 @@ class ExpenseExecutionSerializer(serializers.ModelSerializer):
 class AreaSerializer(serializers.ModelSerializer):
     leader_id = serializers.PrimaryKeyRelatedField(
         source='leader_assignment.user',
-        queryset=User.objects.all(),
+        queryset=get_eligible_area_leaders_queryset(),
         write_only=True,
         required=False,
         allow_null=True,
     )
     leader = serializers.SerializerMethodField()
+    leader_is_eligible = serializers.SerializerMethodField()
     allocated_amount = serializers.DecimalField(max_digits=12, decimal_places=2, write_only=True, required=False)
     budget = serializers.SerializerMethodField()
     summary = serializers.SerializerMethodField()
@@ -82,6 +88,7 @@ class AreaSerializer(serializers.ModelSerializer):
             'is_active',
             'leader_id',
             'leader',
+            'leader_is_eligible',
             'allocated_amount',
             'budget',
             'summary',
@@ -106,11 +113,33 @@ class AreaSerializer(serializers.ModelSerializer):
             return {'allocated_amount': '0.00'}
         return {'allocated_amount': str(budget.allocated_amount)}
 
+    def get_leader_is_eligible(self, obj):
+        assignment = getattr(obj, 'leader_assignment', None)
+        if not assignment or not assignment.user_id:
+            return None
+        return get_eligible_area_leaders_queryset().filter(pk=assignment.user_id).exists()
+
     def get_summary(self, obj):
         summary = get_area_summary(obj)
         return {key: str(value) for key, value in summary.items()}
 
     def validate(self, attrs):
+        leader_payload = attrs.get('leader_assignment')
+        leader_user = leader_payload.get('user') if leader_payload is not None else None
+        existing_assignment = getattr(self.instance, 'leader_assignment', None)
+
+        if leader_payload is not None and leader_user is not None:
+            if not get_eligible_area_leaders_queryset().filter(pk=leader_user.pk).exists():
+                raise serializers.ValidationError({
+                    'leader_id': 'O líder principal precisa pertencer ao grupo area_leaders e estar ativo.'
+                })
+
+        if self.instance is not None and leader_payload is None and existing_assignment and existing_assignment.user_id:
+            if not get_eligible_area_leaders_queryset().filter(pk=existing_assignment.user_id).exists():
+                raise serializers.ValidationError({
+                    'leader_id': 'A área possui um líder principal fora do grupo area_leaders. Atualize o líder para salvar alterações.'
+                })
+
         allocated_amount = attrs.pop('allocated_amount', None)
         if allocated_amount is not None:
             current_budget_id = getattr(getattr(self.instance, 'budget', None), 'id', None)
