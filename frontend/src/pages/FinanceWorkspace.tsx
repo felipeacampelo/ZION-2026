@@ -12,12 +12,35 @@ import {
 const formatCurrency = (value?: string) =>
   Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const getErrorMessage = (error: any) => {
+  const payload = error?.response?.data;
+  if (!payload) {
+    return error?.message || 'Não foi possível concluir a operação.';
+  }
+  if (typeof payload === 'string') {
+    return payload;
+  }
+  if (payload.detail) {
+    return payload.detail;
+  }
+  const firstEntry = Object.entries(payload)[0];
+  if (!firstEntry) {
+    return 'Não foi possível concluir a operação.';
+  }
+  const [field, value] = firstEntry;
+  if (Array.isArray(value)) {
+    return `${field}: ${value.join(' ')}`;
+  }
+  return `${field}: ${String(value)}`;
+};
+
 const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]';
 const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
 
 export default function FinanceWorkspace() {
   const [dashboard, setDashboard] = useState<FinanceMyDashboardResponse | null>(null);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ rubric: '', amount: '', description: '', justification: '' });
   const [attachmentFiles, setAttachmentFiles] = useState<Record<number, File | null>>({});
@@ -41,6 +64,7 @@ export default function FinanceWorkspace() {
   const handleCreateRequest = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
+      setError('');
       await createFinanceRequest({
         rubric: Number(form.rubric),
         amount: form.amount,
@@ -48,9 +72,11 @@ export default function FinanceWorkspace() {
         justification: form.justification,
       });
       setForm({ rubric: '', amount: '', description: '', justification: '' });
+      setSuccessMessage('Solicitação enviada com sucesso.');
       await loadData();
     } catch (submitError: any) {
-      setError(JSON.stringify(submitError.response?.data || submitError.message));
+      setSuccessMessage('');
+      setError(getErrorMessage(submitError));
     }
   };
 
@@ -107,11 +133,21 @@ export default function FinanceWorkspace() {
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-dark/70">Meu Financeiro</p>
             <h1 className="mt-2 text-3xl font-black text-gray-950">Solicitações da sua área</h1>
+            {dashboard && (
+              <p className="mt-2 text-sm text-gray-600">
+                Área vinculada: <span className="font-semibold text-gray-900">{dashboard.area.name}</span>
+              </p>
+            )}
           </div>
           <Link to="/" className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm">Voltar ao site</Link>
         </div>
 
         {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        {successMessage && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {successMessage}
+          </div>
+        )}
 
         {dashboard && (
           <>
@@ -126,7 +162,7 @@ export default function FinanceWorkspace() {
               <div className={cardClass}>
                 <h2 className="text-lg font-black text-gray-950">Nova solicitação</h2>
                 <form onSubmit={handleCreateRequest} className="mt-4 space-y-3">
-                  <select className={inputClass} value={form.rubric} onChange={(e) => setForm((current) => ({ ...current, rubric: e.target.value }))}>
+                  <select className={inputClass} value={form.rubric} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, rubric: e.target.value })); }}>
                     <option value="">Selecione a rubrica</option>
                     {dashboard.rubrics.map((rubric) => (
                       <option key={rubric.id} value={rubric.id}>
@@ -134,9 +170,9 @@ export default function FinanceWorkspace() {
                       </option>
                     ))}
                   </select>
-                  <input className={inputClass} placeholder="Valor da solicitação" value={form.amount} onChange={(e) => setForm((current) => ({ ...current, amount: e.target.value }))} />
-                  <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descrição detalhada" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} />
-                  <textarea className={`${inputClass} min-h-[120px]`} placeholder="Justificativa obrigatória" value={form.justification} onChange={(e) => setForm((current) => ({ ...current, justification: e.target.value }))} />
+                  <input className={inputClass} placeholder="Valor da solicitação" value={form.amount} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, amount: e.target.value })); }} />
+                  <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descrição detalhada" value={form.description} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, description: e.target.value })); }} />
+                  <textarea className={`${inputClass} min-h-[120px]`} placeholder="Justificativa obrigatória" value={form.justification} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, justification: e.target.value })); }} />
                   <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Enviar solicitação</button>
                 </form>
               </div>
