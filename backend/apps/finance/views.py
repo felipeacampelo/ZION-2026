@@ -410,11 +410,10 @@ def finance_leader_candidates(request):
 @permission_classes([permissions.IsAuthenticated, IsFinanceLeaderOrAdmin])
 def my_finance_dashboard(request):
     user = request.user
-    if user.is_staff or user.is_superuser:
-        return Response({'detail': 'Use o dashboard administrativo para administradores.'}, status=status.HTTP_400_BAD_REQUEST)
-
     assignment = AreaLeaderAssignment.objects.select_related('area', 'area__budget', 'user').filter(user=user).first()
     if not assignment:
+        if user.is_staff or user.is_superuser:
+            return Response({'detail': 'Use o dashboard administrativo para administradores.'}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'detail': 'Nenhuma área financeira vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
 
     area = assignment.area

@@ -121,6 +121,19 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(len(response.data['rubrics']), 1)
         self.assertEqual(response.data['rubrics'][0]['id'], rubric.id)
 
+    def test_staff_user_with_area_assignment_can_access_leader_dashboard(self):
+        area, rubric = self._create_area_and_rubric()
+        self.leader.is_staff = True
+        self.leader.save(update_fields=['is_staff'])
+
+        self.client.force_authenticate(self.leader)
+        response = self.client.get(reverse('finance:my-dashboard'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['area']['id'], area.id)
+        self.assertEqual(len(response.data['rubrics']), 1)
+        self.assertEqual(response.data['rubrics'][0]['id'], rubric.id)
+
     def test_inactive_rubric_cannot_receive_new_request(self):
         _, rubric = self._create_area_and_rubric()
         rubric.is_active = False
