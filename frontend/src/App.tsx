@@ -23,6 +23,7 @@ import AdminEmailSettings from './pages/AdminEmailSettings'
 import AdminSocialQuota from './pages/AdminSocialQuota'
 import AdminWaitlist from './pages/AdminWaitlist'
 import AdminFinance from './pages/AdminFinance'
+import AdminFinanceApprovals from './pages/AdminFinanceApprovals'
 import WaitlistSignup from './pages/WaitlistSignup'
 import WaitlistConfirmation from './pages/WaitlistConfirmation'
 import WaitlistInvite from './pages/WaitlistInvite'
@@ -135,6 +136,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminFinance />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/finance/approvals"
+            element={
+              <AdminRoute>
+                <AdminFinanceApprovals />
               </AdminRoute>
             }
           />

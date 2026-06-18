@@ -1,31 +1,24 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import AdminShell from '../components/AdminShell';
 import {
-  approveFinanceRequest,
   createExtraContribution,
   createFinanceArea,
   createFinanceRubric,
   deleteExtraContribution,
   deleteFinanceArea,
   deleteFinanceRubric,
-  executeFinanceRequest,
   exportAdminFinanceReportCsv,
   getAdminFinanceReports,
   getAdminFinanceSummary,
   getExtraContributions,
   getFinanceAreas,
   getFinanceLeaderCandidates,
-  getFinanceRequests,
   getFinanceRubrics,
-  rejectFinanceRequest,
-  reviewFinanceRequest,
   updateFinanceArea,
   updateFinanceRubric,
-  type FinanceAttachment,
-  type FinanceAuditLog,
   type ExtraContribution,
   type FinanceArea,
-  type FinanceExpenseRequest,
   type FinanceGlobalSummary,
   type FinanceReportResponse,
   type FinanceRubric,
@@ -34,38 +27,6 @@ import {
 
 const formatCurrency = (value?: string) =>
   Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const formatDateTime = (value?: string | null) =>
-  value ? new Date(value).toLocaleString('pt-BR') : 'Sem data';
-
-const getAttachmentName = (fileUrl: string) => {
-  const lastSegment = fileUrl.split('/').pop() || 'arquivo';
-  return decodeURIComponent(lastSegment.split('?')[0]);
-};
-
-const getRequestReceipt = (request: FinanceExpenseRequest) =>
-  request.execution?.attachments.find((attachment) => attachment.category === 'RECEIPT') || null;
-
-const getSupportingAttachments = (request: FinanceExpenseRequest) =>
-  request.attachments.filter((attachment) => attachment.category !== 'RECEIPT');
-
-const getAttachmentMap = (request: FinanceExpenseRequest) =>
-  new Map(
-    [...request.attachments, ...(request.execution?.attachments || [])].map((attachment) => [attachment.id, attachment]),
-  );
-
-const getAuditLabel = (log: FinanceAuditLog) => {
-  const labels: Record<string, string> = {
-    CREATED: 'Solicitação criada',
-    UNDER_REVIEW: 'Solicitação em análise',
-    APPROVED: 'Solicitação aprovada',
-    REJECTED: 'Solicitação rejeitada',
-    CANCELLED: 'Solicitação cancelada',
-    EXECUTED: 'Solicitação executada',
-    ATTACHMENT_ADDED: 'Arquivo anexado',
-  };
-  return labels[log.action] || log.action;
-};
 
 const normalizeAmountInput = (value: string) => value.replace(/\./g, '').replace(',', '.').trim();
 
@@ -104,7 +65,6 @@ export default function AdminFinance() {
   const [report, setReport] = useState<FinanceReportResponse | null>(null);
   const [areas, setAreas] = useState<FinanceArea[]>([]);
   const [rubrics, setRubrics] = useState<FinanceRubric[]>([]);
-  const [requests, setRequests] = useState<FinanceExpenseRequest[]>([]);
   const [leaders, setLeaders] = useState<FinanceUserOption[]>([]);
   const [contributions, setContributions] = useState<ExtraContribution[]>([]);
   const [contributionForm, setContributionForm] = useState({ label: '', amount: '', source_type: 'OTHER' as ExtraContribution['source_type'], date: '', notes: '' });
@@ -122,23 +82,15 @@ export default function AdminFinance() {
   const [editingRubricName, setEditingRubricName] = useState('');
   const [editingRubricDescription, setEditingRubricDescription] = useState('');
   const [editingRubricAmount, setEditingRubricAmount] = useState('');
-  const [rejectingRequestId, setRejectingRequestId] = useState<number | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [executingRequestId, setExecutingRequestId] = useState<number | null>(null);
-  const [executionType, setExecutionType] = useState<'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT'>('ADVANCE');
-  const [executionNotes, setExecutionNotes] = useState('');
-  const [executionFile, setExecutionFile] = useState<File | null>(null);
-  const [executionFeedback, setExecutionFeedback] = useState('');
 
   const loadData = async () => {
     setError('');
     try {
-      const [summaryRes, reportRes, areasRes, rubricsRes, requestsRes, leadersRes, contributionsRes] = await Promise.all([
+      const [summaryRes, reportRes, areasRes, rubricsRes, leadersRes, contributionsRes] = await Promise.all([
         getAdminFinanceSummary(),
         getAdminFinanceReports(),
         getFinanceAreas(),
         getFinanceRubrics(),
-        getFinanceRequests(),
         getFinanceLeaderCandidates(),
         getExtraContributions(),
       ]);
@@ -146,7 +98,6 @@ export default function AdminFinance() {
       setReport(reportRes.data);
       setAreas(areasRes.data);
       setRubrics(rubricsRes.data);
-      setRequests(requestsRes.data);
       setLeaders(leadersRes.data.results);
       setContributions(contributionsRes.data);
     } catch (loadError: any) {
@@ -240,36 +191,6 @@ export default function AdminFinance() {
       setEditingRubricAmount('');
       await loadData();
     } catch (submitError: any) {
-      setError(getErrorMessage(submitError));
-    }
-  };
-
-  const submitRejection = async (requestId: number) => {
-    await rejectFinanceRequest(requestId, rejectionReason);
-    setSuccessMessage('Solicitação rejeitada com sucesso.');
-    setRejectingRequestId(null);
-    setRejectionReason('');
-    await loadData();
-  };
-
-  const submitExecution = async (requestId: number) => {
-    try {
-      setError('');
-      setExecutionFeedback('Enviando execução...');
-      await executeFinanceRequest(requestId, {
-        execution_type: executionType,
-        notes: executionNotes,
-        file: executionFile,
-      });
-      setSuccessMessage(executionFile ? 'Execução registrada e comprovante anexado com sucesso.' : 'Execução registrada com sucesso.');
-      setExecutingRequestId(null);
-      setExecutionType('ADVANCE');
-      setExecutionNotes('');
-      setExecutionFile(null);
-      setExecutionFeedback('');
-      await loadData();
-    } catch (submitError: any) {
-      setExecutionFeedback('');
       setError(getErrorMessage(submitError));
     }
   };
@@ -553,155 +474,19 @@ export default function AdminFinance() {
         </section>
 
         <section className={cardClass}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-gray-950">Solicitacoes</h2>
-            <span className="text-sm text-gray-500">{requests.length} registros</span>
-          </div>
-          <div className="mt-4 space-y-3">
-            {requests.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-bold text-gray-950">{item.rubric_name} • {item.area_name}</p>
-                    <p className="text-sm text-gray-500">{item.requester_email}</p>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{item.request_type_display}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {item.status === 'PENDING' && <button onClick={async () => { await reviewFinanceRequest(item.id, 'Em análise'); await loadData(); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">Em análise</button>}
-                    {['PENDING', 'UNDER_REVIEW'].includes(item.status) && <button onClick={async () => { await approveFinanceRequest(item.id); await loadData(); }} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Aprovar</button>}
-                    {['PENDING', 'UNDER_REVIEW'].includes(item.status) && <button onClick={() => { setRejectingRequestId(item.id); setRejectionReason(''); }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Rejeitar</button>}
-                    {item.status === 'APPROVED' && item.execution?.status === 'NOT_EXECUTED' && <button onClick={() => { setExecutingRequestId(item.id); setExecutionType(item.execution?.execution_type || item.request_type); setExecutionNotes(''); setExecutionFile(null); }} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Executar</button>}
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-3 lg:grid-cols-[120px_1fr_1fr]">
-                  <div>
-                    <p className="text-xs text-gray-500">Valor</p>
-                    <p className="font-semibold text-gray-900">R$ {formatCurrency(item.amount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Descricao</p>
-                    <p className="text-sm text-gray-700">{item.description}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Status</p>
-                    <p className="text-sm font-semibold text-gray-900">{item.status}</p>
-                    {item.rejection_reason && <p className="mt-1 text-xs text-red-600">{item.rejection_reason}</p>}
-                  </div>
-                </div>
-                <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
-                  <p><span className="font-semibold text-gray-900">Favorecido:</span> {item.recipient_name || 'Não informado'}</p>
-                  <p className="mt-1"><span className="font-semibold text-gray-900">Chave PIX:</span> {item.pix_key || 'Não informada'}</p>
-                </div>
-                {getRequestReceipt(item) ? (
-                  <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-                    <p className="text-sm font-semibold text-emerald-900">Comprovante</p>
-                    <p className="mt-1 text-sm text-emerald-800">
-                      {getAttachmentName((getRequestReceipt(item) as FinanceAttachment).file)} • enviado em {formatDateTime((getRequestReceipt(item) as FinanceAttachment).created_at)}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <a href={(getRequestReceipt(item) as FinanceAttachment).file} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">
-                        Ver comprovante
-                      </a>
-                      <a href={(getRequestReceipt(item) as FinanceAttachment).file} download className="rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800">
-                        Baixar comprovante
-                      </a>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-                    <p className="text-sm font-semibold text-emerald-900">Comprovante</p>
-                    <p className="mt-1 text-sm text-emerald-800">Nenhum comprovante de execução anexado ainda.</p>
-                  </div>
-                )}
-                {getSupportingAttachments(item).length > 0 && (
-                  <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
-                    <p className="text-sm font-semibold text-gray-900">Anexos de suporte</p>
-                    <div className="mt-3 space-y-2">
-                      {getSupportingAttachments(item).map((attachment) => (
-                        <div key={attachment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 px-3 py-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{getAttachmentName(attachment.file)}</p>
-                            <p className="text-xs text-gray-500">Anexado em {formatDateTime(attachment.created_at)}</p>
-                          </div>
-                          <a href={attachment.file} target="_blank" rel="noreferrer" className="text-xs font-semibold text-dark">
-                            Abrir anexo
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
-                  <p className="text-sm font-semibold text-gray-900">Histórico de ações</p>
-                  <div className="mt-3 space-y-3">
-                    {item.audit_logs.map((log) => {
-                      const linkedAttachment = log.action === 'ATTACHMENT_ADDED'
-                        ? getAttachmentMap(item).get(Number(log.metadata?.attachment_id))
-                        : null;
-                      return (
-                        <div key={log.id} className="rounded-xl border border-gray-100 px-3 py-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-sm font-semibold text-gray-900">{getAuditLabel(log)}</p>
-                            <p className="text-xs text-gray-500">{formatDateTime(log.created_at)}</p>
-                          </div>
-                          <p className="mt-1 text-xs text-gray-500">{log.actor_email || 'Sistema'}</p>
-                          {log.note && <p className="mt-2 text-sm text-gray-700">{log.note}</p>}
-                          {linkedAttachment && (
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                              <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700">
-                                {linkedAttachment.category === 'RECEIPT' ? 'Comprovante' : 'Anexo de suporte'}
-                              </span>
-                              <a href={linkedAttachment.file} target="_blank" rel="noreferrer" className="font-semibold text-dark">
-                                {getAttachmentName(linkedAttachment.file)}
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                {rejectingRequestId === item.id && (
-                  <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">
-                    <p className="text-sm font-semibold text-red-700">Justificativa da rejeição</p>
-                    <textarea className={`${inputClass} mt-2 min-h-[100px] bg-white`} value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} />
-                    <div className="mt-3 flex gap-2">
-                      <button onClick={() => submitRejection(item.id)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Confirmar rejeição</button>
-                      <button onClick={() => { setRejectingRequestId(null); setRejectionReason(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
-                    </div>
-                  </div>
-                )}
-                {executingRequestId === item.id && (
-                  <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                    <p className="text-sm font-semibold text-emerald-700">Executar solicitação</p>
-                    <p className="mt-1 text-xs text-emerald-700">
-                      {executionType === 'REIMBURSEMENT'
-                        ? 'Reembolso exige comprovante no momento da execução.'
-                        : 'Anexe um comprovante se quiser deixar a transferência ou o pagamento documentado.'}
-                    </p>
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <select className={inputClass} value={executionType} onChange={(e) => setExecutionType(e.target.value as 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT')}>
-                        <option value="ADVANCE">Adiantamento</option>
-                        <option value="REIMBURSEMENT">Reembolso</option>
-                        <option value="DIRECT_PAYMENT">Pagamento direto</option>
-                      </select>
-                      <input type="file" className={inputClass} onChange={(e) => setExecutionFile(e.target.files?.[0] || null)} />
-                    </div>
-                    {executionFile && <p className="mt-2 text-xs text-emerald-700">Arquivo selecionado: {executionFile.name}</p>}
-                    {executionFeedback && <p className="mt-2 text-xs text-emerald-700">{executionFeedback}</p>}
-                    <textarea className={`${inputClass} mt-3 min-h-[100px] bg-white`} placeholder="Observações da execução" value={executionNotes} onChange={(e) => setExecutionNotes(e.target.value)} />
-                    <div className="mt-3 flex gap-2">
-                      <button onClick={() => submitExecution(item.id)} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Confirmar execução</button>
-                      <button onClick={() => { setExecutingRequestId(null); setExecutionType('ADVANCE'); setExecutionNotes(''); setExecutionFile(null); setExecutionFeedback(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
-                    </div>
-                    {executionType === 'REIMBURSEMENT' && (
-                      <p className="mt-2 text-xs text-emerald-700">Reembolso exige comprovante anexado no envio.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-            {!loading && requests.length === 0 && <p className="text-sm text-gray-500">Nenhuma solicitacao registrada.</p>}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-gray-950">Aprovações e execuções</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                As solicitações financeiras agora ficam em uma página dedicada, com separação por área e rubrica.
+              </p>
+            </div>
+            <Link
+              to="/admin/finance/approvals"
+              className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white"
+            >
+              Abrir aprovações
+            </Link>
           </div>
         </section>
 
