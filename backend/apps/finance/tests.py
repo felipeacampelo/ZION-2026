@@ -243,6 +243,27 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(response.data['recipient_name'], 'Lider Financeiro')
         self.assertEqual(response.data['pix_key'], 'lider@pix.test')
 
+    def test_leader_can_define_direct_payment_request_type(self):
+        _, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '18.00',
+                'request_type': 'DIRECT_PAYMENT',
+                'description': 'Pagamento para fornecedor',
+                'justification': 'Compra com pagamento direto',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['request_type'], 'DIRECT_PAYMENT')
+        self.assertEqual(response.data['request_type_display'], 'Pagamento direto')
+        self.assertEqual(response.data['recipient_name'], '')
+        self.assertEqual(response.data['pix_key'], '')
+
     def test_approval_commits_budget_and_reimbursement_requires_receipt(self):
         area, rubric = self._create_area_and_rubric()
         self.client.force_authenticate(self.leader)
@@ -283,6 +304,31 @@ class FinanceFlowTests(APITestCase):
         )
         self.assertEqual(execute_fail.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('file', execute_fail.data)
+
+    def test_approval_copies_direct_payment_type_to_execution(self):
+        area, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '12.00',
+                'request_type': 'DIRECT_PAYMENT',
+                'description': 'Fornecedor',
+                'justification': 'Pagamento direto',
+            },
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(self.admin)
+        approve_response = self.client.post(
+            reverse('finance:finance-request-approve', args=[create_response.data['id']]),
+            {},
+            format='json',
+        )
+        self.assertEqual(approve_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(approve_response.data['execution']['execution_type'], 'DIRECT_PAYMENT')
 
     def test_advance_can_be_executed_without_receipt_and_creates_audit(self):
         area, rubric = self._create_area_and_rubric()

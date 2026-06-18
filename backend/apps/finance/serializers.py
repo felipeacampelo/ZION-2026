@@ -238,6 +238,8 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
     area_name = serializers.CharField(source='area.name', read_only=True)
     rubric_name = serializers.CharField(source='rubric.name', read_only=True)
     requester_email = serializers.EmailField(source='requester.email', read_only=True)
+    recipient_name = serializers.CharField(required=False, allow_blank=True)
+    pix_key = serializers.CharField(required=False, allow_blank=True)
     execution = ExpenseExecutionSerializer(read_only=True)
     attachments = ExpenseAttachmentSerializer(many=True, read_only=True)
     audit_logs = ExpenseAuditLogSerializer(many=True, read_only=True)
@@ -311,18 +313,21 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
         area_summary = get_area_summary(rubric.area)
         rubric_summary = get_rubric_summary(rubric)
         amount = Decimal(str(attrs['amount']))
+        request_type = attrs.get('request_type')
+        recipient_name = str(attrs.get('recipient_name', '')).strip()
+        pix_key = str(attrs.get('pix_key', '')).strip()
         if amount > area_summary['available_amount']:
             raise serializers.ValidationError({'amount': 'O valor solicitado excede o saldo disponível da área.'})
         if amount > rubric_summary['available_amount']:
             raise serializers.ValidationError({'amount': 'O valor solicitado excede o saldo disponível da rubrica.'})
-        if not str(attrs.get('recipient_name', '')).strip():
+        if request_type != ExpenseExecution.TYPE_DIRECT_PAYMENT and not recipient_name:
             raise serializers.ValidationError({'recipient_name': 'Informe o nome do favorecido.'})
-        if not str(attrs.get('pix_key', '')).strip():
+        if request_type != ExpenseExecution.TYPE_DIRECT_PAYMENT and not pix_key:
             raise serializers.ValidationError({'pix_key': 'Informe a chave PIX.'})
 
         attrs['area'] = rubric.area
-        attrs['recipient_name'] = attrs['recipient_name'].strip()
-        attrs['pix_key'] = attrs['pix_key'].strip()
+        attrs['recipient_name'] = recipient_name
+        attrs['pix_key'] = pix_key
         return attrs
 
     @transaction.atomic

@@ -78,7 +78,7 @@ export default function AdminFinance() {
   const [rejectingRequestId, setRejectingRequestId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [executingRequestId, setExecutingRequestId] = useState<number | null>(null);
-  const [executionType, setExecutionType] = useState<'ADVANCE' | 'REIMBURSEMENT'>('ADVANCE');
+  const [executionType, setExecutionType] = useState<'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT'>('ADVANCE');
   const [executionNotes, setExecutionNotes] = useState('');
   const [executionFile, setExecutionFile] = useState<File | null>(null);
 
@@ -423,9 +423,10 @@ export default function AdminFinance() {
                   <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                     <p className="text-sm font-semibold text-emerald-700">Executar solicitação</p>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <select className={inputClass} value={executionType} onChange={(e) => setExecutionType(e.target.value as 'ADVANCE' | 'REIMBURSEMENT')}>
+                      <select className={inputClass} value={executionType} onChange={(e) => setExecutionType(e.target.value as 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT')}>
                         <option value="ADVANCE">Adiantamento</option>
                         <option value="REIMBURSEMENT">Reembolso</option>
+                        <option value="DIRECT_PAYMENT">Pagamento direto</option>
                       </select>
                       <input type="file" className={inputClass} onChange={(e) => setExecutionFile(e.target.files?.[0] || null)} />
                     </div>

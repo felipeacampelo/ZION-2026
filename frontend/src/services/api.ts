@@ -379,7 +379,7 @@ export interface FinanceAuditLog {
 
 export interface FinanceExecution {
   id: number;
-  execution_type: 'ADVANCE' | 'REIMBURSEMENT' | null;
+  execution_type: 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT' | null;
   status: 'NOT_EXECUTED' | 'EXECUTED';
   amount: string;
   notes: string;
@@ -397,7 +397,7 @@ export interface FinanceExpenseRequest {
   requester: number;
   requester_email: string;
   amount: string;
-  request_type: 'ADVANCE' | 'REIMBURSEMENT';
+  request_type: 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT';
   request_type_display: string;
   recipient_name: string;
   pix_key: string;
@@ -861,7 +861,7 @@ export const getFinanceRequests = (params?: { area?: number; status?: string }) 
 export const createFinanceRequest = (data: {
   rubric: number;
   amount: string;
-  request_type: 'ADVANCE' | 'REIMBURSEMENT';
+  request_type: 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT';
   recipient_name: string;
   pix_key: string;
   description: string;
@@ -882,7 +882,7 @@ export const cancelFinanceRequest = (id: number) =>
 
 export const executeFinanceRequest = (
   id: number,
-  data: { execution_type: 'ADVANCE' | 'REIMBURSEMENT'; notes?: string; file?: File | null }
+  data: { execution_type: 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT'; notes?: string; file?: File | null }
 ) => {
   const formData = new FormData();
   formData.append('execution_type', data.execution_type);

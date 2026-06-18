@@ -45,13 +45,14 @@ export default function FinanceWorkspace() {
   const [form, setForm] = useState({
     rubric: '',
     amount: '',
-    request_type: 'ADVANCE' as 'ADVANCE' | 'REIMBURSEMENT',
+    request_type: 'ADVANCE' as 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT',
     recipient_name: '',
     pix_key: '',
     description: '',
     justification: '',
   });
   const [attachmentFiles, setAttachmentFiles] = useState<Record<number, File | null>>({});
+  const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
   const loadData = async () => {
     setError('');
@@ -194,9 +195,6 @@ export default function FinanceWorkspace() {
                       </option>
                     ))}
                   </select>
-                  <input className={inputClass} placeholder="Valor da solicitação" value={form.amount} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, amount: e.target.value })); }} />
-                  <input className={inputClass} placeholder="Nome do favorecido" value={form.recipient_name} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, recipient_name: e.target.value })); }} />
-                  <input className={inputClass} placeholder="Chave PIX" value={form.pix_key} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, pix_key: e.target.value })); }} />
                   <div className="space-y-2 rounded-2xl border border-gray-200 bg-white px-4 py-3">
                     <p className="text-sm font-semibold text-gray-900">Tipo de Solicitação</p>
                     <label className="flex items-center gap-3 text-sm text-gray-700">
@@ -219,7 +217,24 @@ export default function FinanceWorkspace() {
                       />
                       Solicitação de transferência
                     </label>
+                    <label className="flex items-center gap-3 text-sm text-gray-700">
+                      <input
+                        type="radio"
+                        name="request_type"
+                        value="DIRECT_PAYMENT"
+                        checked={form.request_type === 'DIRECT_PAYMENT'}
+                        onChange={() => { setSuccessMessage(''); setForm((current) => ({ ...current, request_type: 'DIRECT_PAYMENT' })); }}
+                      />
+                      Pagamento direto
+                    </label>
                   </div>
+                  <input className={inputClass} placeholder="Valor da solicitação" value={form.amount} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, amount: e.target.value })); }} />
+                  {needsBankDetails && (
+                    <>
+                      <input className={inputClass} placeholder="Nome do favorecido" value={form.recipient_name} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, recipient_name: e.target.value })); }} />
+                      <input className={inputClass} placeholder="Chave PIX" value={form.pix_key} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, pix_key: e.target.value })); }} />
+                    </>
+                  )}
                   <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descrição detalhada" value={form.description} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, description: e.target.value })); }} />
                   <textarea className={`${inputClass} min-h-[120px]`} placeholder="Justificativa obrigatória" value={form.justification} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, justification: e.target.value })); }} />
                   <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Enviar solicitação</button>
