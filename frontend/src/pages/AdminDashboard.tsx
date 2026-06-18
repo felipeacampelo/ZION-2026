@@ -59,6 +59,8 @@ interface DashboardStats {
     credit_received_net: number;
     credit_pending_settlement: number;
     credit_pending_settlement_net: number;
+    extra_contributions_total: number;
+    combined_total: number;
   };
   members: {
     yes: number;
@@ -376,6 +378,28 @@ export default function AdminDashboard() {
                     </p>
                     <p className="mt-2 text-2xl font-bold text-gray-950">{confirmedRate}%</p>
                     <p className="text-sm text-gray-600">inscrições já confirmadas</p>
+                  </div>
+                </div>
+              )}
+
+              {stats && stats.revenue.extra_contributions_total > 0 && (
+                <div className="mt-3">
+                  <div
+                    className="rounded-2xl border px-4 py-3 shadow-sm"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(220,253,97,0.22) 0%, rgba(255,255,255,0.98) 100%)',
+                      borderColor: 'rgba(132, 204, 22, 0.22)',
+                    }}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-700">
+                      Receita total (líquida + aportes)
+                    </p>
+                    <p className="mt-2 text-2xl font-bold text-gray-950">
+                      R$ {formatCurrency(stats.revenue.combined_total)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Inclui R$ {formatCurrency(stats.revenue.extra_contributions_total)} em aportes (ofertas, investidores, doações)
+                    </p>
                   </div>
                 </div>
               )}

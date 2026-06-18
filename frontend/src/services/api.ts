@@ -416,6 +416,18 @@ export interface FinanceExpenseRequest {
   audit_logs: FinanceAuditLog[];
 }
 
+export interface ExtraContribution {
+  id: number;
+  label: string;
+  amount: string;
+  source_type: 'OFFERING' | 'INVESTOR' | 'DONATION' | 'OTHER';
+  source_type_display: string;
+  date: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FinanceGlobalSummary {
   revenue: {
     total: string;
@@ -426,6 +438,10 @@ export interface FinanceGlobalSummary {
   budgets: {
     allocated_total: string;
     remaining_to_allocate: string;
+  };
+  extra_contributions: {
+    total: string;
+    combined_with_net: string;
   };
 }
 
@@ -904,5 +920,19 @@ export const addFinanceRequestAttachment = (id: number, data: { file: File; cate
 
 export const getMyFinanceDashboard = () =>
   api.get<FinanceMyDashboardResponse>('/finance/my/dashboard/');
+
+export const getExtraContributions = () =>
+  api.get<ExtraContribution[]>('/finance/contributions/');
+
+export const createExtraContribution = (data: {
+  label: string;
+  amount: string;
+  source_type: 'OFFERING' | 'INVESTOR' | 'DONATION' | 'OTHER';
+  date: string;
+  notes?: string;
+}) => api.post<ExtraContribution>('/finance/contributions/', data);
+
+export const deleteExtraContribution = (id: number) =>
+  api.delete(`/finance/contributions/${id}/`);
 
 export default api;

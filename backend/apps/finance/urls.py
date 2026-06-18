@@ -5,6 +5,7 @@ from .views import (
     AreaViewSet,
     BudgetRubricViewSet,
     ExpenseRequestViewSet,
+    ExtraContributionViewSet,
     admin_finance_summary,
     finance_leader_candidates,
     finance_reports,
@@ -19,6 +20,7 @@ router = DefaultRouter()
 router.register(r'areas', AreaViewSet, basename='finance-area')
 router.register(r'rubrics', BudgetRubricViewSet, basename='finance-rubric')
 router.register(r'requests', ExpenseRequestViewSet, basename='finance-request')
+router.register(r'contributions', ExtraContributionViewSet, basename='extra-contribution')
 
 urlpatterns = [
     path('admin/summary/', admin_finance_summary, name='admin-summary'),

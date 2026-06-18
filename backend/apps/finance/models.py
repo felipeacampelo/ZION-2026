@@ -306,6 +306,45 @@ class ExpenseAttachment(models.Model):
         return self.file.name
 
 
+class ExtraContribution(models.Model):
+    SOURCE_OFFERING = 'OFFERING'
+    SOURCE_INVESTOR = 'INVESTOR'
+    SOURCE_DONATION = 'DONATION'
+    SOURCE_OTHER = 'OTHER'
+    SOURCE_CHOICES = [
+        (SOURCE_OFFERING, _('Oferta')),
+        (SOURCE_INVESTOR, _('Investidor')),
+        (SOURCE_DONATION, _('Doação')),
+        (SOURCE_OTHER, _('Outro')),
+    ]
+
+    label = models.CharField(_('Descrição'), max_length=200)
+    amount = models.DecimalField(
+        _('Valor'),
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)],
+    )
+    source_type = models.CharField(
+        _('Origem'),
+        max_length=20,
+        choices=SOURCE_CHOICES,
+        default=SOURCE_OTHER,
+    )
+    date = models.DateField(_('Data'))
+    notes = models.TextField(_('Observações'), blank=True)
+    created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Aporte Financeiro')
+        verbose_name_plural = _('Aportes Financeiros')
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'{self.label} - {self.amount}'
+
+
 class ExpenseAuditLog(models.Model):
     ACTION_CREATED = 'CREATED'
     ACTION_UNDER_REVIEW = 'UNDER_REVIEW'

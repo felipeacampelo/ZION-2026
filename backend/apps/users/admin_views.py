@@ -38,6 +38,7 @@ from apps.enrollments.waitlist_service import (
     remove_waitlist_entry,
     reorder_waitlist,
 )
+from apps.finance.services import get_extra_contributions_total
 from apps.payments.models import Payment
 from apps.payments.services.asaas_service import AsaasService, AsaasAPIException
 from apps.products.models import Product, Batch
@@ -1212,6 +1213,8 @@ def admin_dashboard_stats(request):
             'credit_received_net': float(credit_received_net_revenue),
             'credit_pending_settlement': float(credit_pending_settlement_revenue),
             'credit_pending_settlement_net': float(credit_pending_settlement_net_revenue),
+            'extra_contributions_total': float(get_extra_contributions_total()),
+            'combined_total': float(net_revenue) + float(get_extra_contributions_total()),
         },
         'members': {
             'yes': members_count,

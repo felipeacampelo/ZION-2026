@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import AdminShell from '../components/AdminShell';
 import {
   approveFinanceRequest,
+  createExtraContribution,
   createFinanceArea,
   createFinanceRubric,
+  deleteExtraContribution,
   deleteFinanceArea,
   deleteFinanceRubric,
   executeFinanceRequest,
   exportAdminFinanceReportCsv,
   getAdminFinanceReports,
   getAdminFinanceSummary,
+  getExtraContributions,
   getFinanceAreas,
   getFinanceLeaderCandidates,
   getFinanceRequests,
@@ -18,6 +21,7 @@ import {
   reviewFinanceRequest,
   updateFinanceArea,
   updateFinanceRubric,
+  type ExtraContribution,
   type FinanceArea,
   type FinanceExpenseRequest,
   type FinanceGlobalSummary,
@@ -66,6 +70,8 @@ export default function AdminFinance() {
   const [rubrics, setRubrics] = useState<FinanceRubric[]>([]);
   const [requests, setRequests] = useState<FinanceExpenseRequest[]>([]);
   const [leaders, setLeaders] = useState<FinanceUserOption[]>([]);
+  const [contributions, setContributions] = useState<ExtraContribution[]>([]);
+  const [contributionForm, setContributionForm] = useState({ label: '', amount: '', source_type: 'OTHER' as ExtraContribution['source_type'], date: '', notes: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [areaForm, setAreaForm] = useState({ name: '', description: '', allocated_amount: '', leader_id: '' });
@@ -89,13 +95,14 @@ export default function AdminFinance() {
   const loadData = async () => {
     setError('');
     try {
-      const [summaryRes, reportRes, areasRes, rubricsRes, requestsRes, leadersRes] = await Promise.all([
+      const [summaryRes, reportRes, areasRes, rubricsRes, requestsRes, leadersRes, contributionsRes] = await Promise.all([
         getAdminFinanceSummary(),
         getAdminFinanceReports(),
         getFinanceAreas(),
         getFinanceRubrics(),
         getFinanceRequests(),
         getFinanceLeaderCandidates(),
+        getExtraContributions(),
       ]);
       setSummary(summaryRes.data);
       setReport(reportRes.data);
@@ -103,6 +110,7 @@ export default function AdminFinance() {
       setRubrics(rubricsRes.data);
       setRequests(requestsRes.data);
       setLeaders(leadersRes.data.results);
+      setContributions(contributionsRes.data);
     } catch (loadError: any) {
       setError('Não foi possível carregar o módulo financeiro.');
       console.error(loadError);
@@ -216,6 +224,32 @@ export default function AdminFinance() {
     await loadData();
   };
 
+  const handleCreateContribution = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      await createExtraContribution({
+        label: contributionForm.label,
+        amount: contributionForm.amount,
+        source_type: contributionForm.source_type,
+        date: contributionForm.date,
+        notes: contributionForm.notes,
+      });
+      setContributionForm({ label: '', amount: '', source_type: 'OTHER', date: '', notes: '' });
+      await loadData();
+    } catch (submitError: any) {
+      setError(getErrorMessage(submitError));
+    }
+  };
+
+  const handleDeleteContribution = async (id: number) => {
+    try {
+      await deleteExtraContribution(id);
+      await loadData();
+    } catch (submitError: any) {
+      setError(getErrorMessage(submitError));
+    }
+  };
+
   const handleExportCsv = async () => {
     const response = await exportAdminFinanceReportCsv();
     const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
@@ -263,6 +297,62 @@ export default function AdminFinance() {
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Ainda distribuível</p>
             <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.budgets.remaining_to_allocate)}</p>
+          </div>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-2">
+          <div className={cardClass}>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Total de aportes</p>
+            <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.extra_contributions.total)}</p>
+            <p className="mt-1 text-xs text-gray-500">Ofertas, investidores, doações — não contam como receita líquida</p>
+          </div>
+          <div className="rounded-3xl border border-lime-200 bg-lime-50/80 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]">
+            <p className="text-xs uppercase tracking-[0.2em] text-lime-700">Receita total (líquida + aportes)</p>
+            <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.extra_contributions.combined_with_net)}</p>
+            <p className="mt-1 text-xs text-gray-500">Receita líquida + aportes registrados</p>
+          </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className={cardClass}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-black text-gray-950">Aportes</h2>
+              <span className="text-sm text-gray-500">{contributions.length} registros</span>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Valores recebidos de ofertas, investidores, doações etc. Não contam como receita líquida operacional.</p>
+            <div className="mt-4 space-y-3">
+              {contributions.map((item) => (
+                <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
+                  <div>
+                    <p className="font-bold text-gray-950">{item.label}</p>
+                    <p className="text-xs text-gray-500">{item.source_type_display} • {item.date}</p>
+                    {item.notes && <p className="mt-1 text-xs text-gray-500">{item.notes}</p>}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-lg font-black text-gray-950">R$ {formatCurrency(item.amount)}</p>
+                    <button onClick={() => handleDeleteContribution(item.id)} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
+                  </div>
+                </div>
+              ))}
+              {!loading && contributions.length === 0 && <p className="text-sm text-gray-500">Nenhum aporte registrado.</p>}
+            </div>
+          </div>
+
+          <div className={cardClass}>
+            <h2 className="text-lg font-black text-gray-950">Novo aporte</h2>
+            <form onSubmit={handleCreateContribution} className="mt-4 space-y-3">
+              <input className={inputClass} placeholder="Descrição (ex: Oferta do culto de domingo)" value={contributionForm.label} onChange={(e) => setContributionForm((c) => ({ ...c, label: e.target.value }))} required />
+              <input className={inputClass} placeholder="Valor (ex: 1500.00)" value={contributionForm.amount} onChange={(e) => setContributionForm((c) => ({ ...c, amount: e.target.value }))} required />
+              <select className={inputClass} value={contributionForm.source_type} onChange={(e) => setContributionForm((c) => ({ ...c, source_type: e.target.value as ExtraContribution['source_type'] }))}>
+                <option value="OFFERING">Oferta</option>
+                <option value="INVESTOR">Investidor</option>
+                <option value="DONATION">Doação</option>
+                <option value="OTHER">Outro</option>
+              </select>
+              <input type="date" className={inputClass} value={contributionForm.date} onChange={(e) => setContributionForm((c) => ({ ...c, date: e.target.value }))} required />
+              <textarea className={`${inputClass} min-h-[80px]`} placeholder="Observações (opcional)" value={contributionForm.notes} onChange={(e) => setContributionForm((c) => ({ ...c, notes: e.target.value }))} />
+              <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Registrar aporte</button>
+            </form>
           </div>
         </section>
 

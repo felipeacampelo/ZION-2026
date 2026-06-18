@@ -13,6 +13,7 @@ from .models import (
     ExpenseAuditLog,
     ExpenseExecution,
     ExpenseRequest,
+    ExtraContribution,
 )
 from .constants import AREA_LEADERS_GROUP_NAME
 from .services import (
@@ -20,6 +21,7 @@ from .services import (
     get_rubric_summary,
     sum_allocated_rubrics,
 )
+
 
 
 User = get_user_model()
@@ -351,3 +353,12 @@ class ExpenseRequestExecuteSerializer(serializers.Serializer):
         if attrs['execution_type'] == ExpenseExecution.TYPE_REIMBURSEMENT and not attrs.get('file'):
             raise serializers.ValidationError({'file': 'Reembolso exige comprovante.'})
         return attrs
+
+
+class ExtraContributionSerializer(serializers.ModelSerializer):
+    source_type_display = serializers.CharField(source='get_source_type_display', read_only=True)
+
+    class Meta:
+        model = ExtraContribution
+        fields = ['id', 'label', 'amount', 'source_type', 'source_type_display', 'date', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'source_type_display']

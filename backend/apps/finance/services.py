@@ -4,7 +4,7 @@ from django.db.models import Sum
 
 from apps.payments.models import Payment
 
-from .models import Area, AreaBudget, BudgetRubric, ExpenseExecution, ExpenseRequest
+from .models import Area, AreaBudget, BudgetRubric, ExpenseExecution, ExpenseRequest, ExtraContribution
 
 
 def calculate_asaas_fee(payment_amount, payment_method, installments):
@@ -164,6 +164,10 @@ def get_rubric_summary(rubric):
         'executed_amount': executed,
         'available_amount': allocated - committed - executed,
     }
+
+
+def get_extra_contributions_total():
+    return ExtraContribution.objects.aggregate(total=Sum('amount'))['total'] or Decimal('0')
 
 
 def build_finance_report():

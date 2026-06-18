@@ -22,6 +22,7 @@ from .models import (
     ExpenseAuditLog,
     ExpenseExecution,
     ExpenseRequest,
+    ExtraContribution,
 )
 from .email_service import (
     send_finance_request_approved_notification,
@@ -37,15 +38,17 @@ from .serializers import (
     ExpenseRequestRejectSerializer,
     ExpenseRequestReviewSerializer,
     ExpenseRequestSerializer,
+    ExtraContributionSerializer,
     get_eligible_area_leaders_queryset,
 )
-from .services import build_finance_report, get_area_summary, get_realized_net_revenue, get_rubric_summary
+from .services import build_finance_report, get_area_summary, get_extra_contributions_total, get_realized_net_revenue, get_rubric_summary
 
 User = get_user_model()
 
 
 def _build_global_summary():
     revenue = get_realized_net_revenue()
+    extra_total = get_extra_contributions_total()
     allocated_total = sum(
         (
             Decimal(str(getattr(getattr(area, 'budget', None), 'allocated_amount', Decimal('0'))))
@@ -63,6 +66,10 @@ def _build_global_summary():
         'budgets': {
             'allocated_total': str(allocated_total),
             'remaining_to_allocate': str(revenue['net_revenue'] - allocated_total),
+        },
+        'extra_contributions': {
+            'total': str(extra_total),
+            'combined_with_net': str(revenue['net_revenue'] + extra_total),
         },
     }
 
@@ -356,6 +363,13 @@ class ExpenseRequestViewSet(
             metadata={'attachment_id': attachment.id},
         )
         return Response(ExpenseAttachmentSerializer(attachment).data, status=status.HTTP_201_CREATED)
+
+
+class ExtraContributionViewSet(viewsets.ModelViewSet):
+    queryset = ExtraContribution.objects.all()
+    serializer_class = ExtraContributionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+    pagination_class = None
 
 
 @api_view(['GET'])
