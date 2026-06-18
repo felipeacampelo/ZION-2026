@@ -73,7 +73,7 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(response.data['revenue']['fees'], '1.99')
         self.assertEqual(response.data['revenue']['net'], '98.01')
 
-    def test_area_budget_cannot_exceed_realized_net_revenue(self):
+    def test_area_budget_can_exceed_realized_net_revenue(self):
         self.client.force_authenticate(self.admin)
         response = self.client.post(
             reverse('finance:finance-area-list'),
@@ -85,8 +85,8 @@ class FinanceFlowTests(APITestCase):
             },
             format='json',
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('allocated_amount', response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['budget']['allocated_amount'], '120.00')
 
     def test_leader_candidates_only_return_active_group_members(self):
         inactive_leader = User.objects.create_user(

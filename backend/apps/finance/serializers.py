@@ -17,9 +17,7 @@ from .models import (
 from .constants import AREA_LEADERS_GROUP_NAME
 from .services import (
     get_area_summary,
-    get_realized_net_revenue,
     get_rubric_summary,
-    sum_allocated_area_budgets,
     sum_allocated_rubrics,
 )
 
@@ -142,13 +140,6 @@ class AreaSerializer(serializers.ModelSerializer):
 
         allocated_amount = attrs.pop('allocated_amount', None)
         if allocated_amount is not None:
-            current_budget_id = getattr(getattr(self.instance, 'budget', None), 'id', None)
-            net_revenue = get_realized_net_revenue()['net_revenue']
-            allocated_total = sum_allocated_area_budgets(excluding_budget_id=current_budget_id) + Decimal(str(allocated_amount))
-            if allocated_total > net_revenue:
-                raise serializers.ValidationError({
-                    'allocated_amount': 'A soma dos orçamentos das áreas não pode ultrapassar a receita líquida realizada.'
-                })
             if self.instance is not None:
                 allocated_rubrics_total = sum_allocated_rubrics(self.instance)
                 if allocated_rubrics_total > Decimal(str(allocated_amount)):

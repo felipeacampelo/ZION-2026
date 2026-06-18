@@ -3,6 +3,7 @@ import csv
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
@@ -72,6 +73,16 @@ class AreaViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsAdminUser]
     pagination_class = None
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'Não é possível excluir a área porque ela possui solicitações vinculadas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 
 class BudgetRubricViewSet(viewsets.ModelViewSet):
     serializer_class = BudgetRubricSerializer
@@ -96,6 +107,16 @@ class BudgetRubricViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsAdminUser()]
         return super().get_permissions()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {'detail': 'Não é possível excluir a rubrica porque ela possui solicitações vinculadas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class ExpenseRequestViewSet(

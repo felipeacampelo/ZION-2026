@@ -71,9 +71,13 @@ export default function AdminFinance() {
   const [areaForm, setAreaForm] = useState({ name: '', description: '', allocated_amount: '', leader_id: '' });
   const [rubricForm, setRubricForm] = useState({ area: '', name: '', description: '', allocated_amount: '' });
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
+  const [editingAreaName, setEditingAreaName] = useState('');
+  const [editingAreaDescription, setEditingAreaDescription] = useState('');
   const [editingAreaAmount, setEditingAreaAmount] = useState('');
   const [editingAreaLeaderId, setEditingAreaLeaderId] = useState('');
   const [editingRubricId, setEditingRubricId] = useState<number | null>(null);
+  const [editingRubricName, setEditingRubricName] = useState('');
+  const [editingRubricDescription, setEditingRubricDescription] = useState('');
   const [editingRubricAmount, setEditingRubricAmount] = useState('');
   const [rejectingRequestId, setRejectingRequestId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -143,6 +147,8 @@ export default function AdminFinance() {
 
   const startAreaEdit = (area: FinanceArea) => {
     setEditingAreaId(area.id);
+    setEditingAreaName(area.name);
+    setEditingAreaDescription(area.description || '');
     setEditingAreaAmount(area.budget.allocated_amount);
     setEditingAreaLeaderId(area.leader ? String(area.leader.id) : '');
   };
@@ -150,10 +156,14 @@ export default function AdminFinance() {
   const saveAreaEdit = async (areaId: number) => {
     try {
       await updateFinanceArea(areaId, {
+        name: editingAreaName,
+        description: editingAreaDescription,
         allocated_amount: editingAreaAmount,
         leader_id: editingAreaLeaderId ? Number(editingAreaLeaderId) : null,
       });
       setEditingAreaId(null);
+      setEditingAreaName('');
+      setEditingAreaDescription('');
       setEditingAreaAmount('');
       setEditingAreaLeaderId('');
       await loadData();
@@ -164,14 +174,26 @@ export default function AdminFinance() {
 
   const startRubricEdit = (rubric: FinanceRubric) => {
     setEditingRubricId(rubric.id);
+    setEditingRubricName(rubric.name);
+    setEditingRubricDescription(rubric.description || '');
     setEditingRubricAmount(rubric.allocated_amount);
   };
 
   const saveRubricEdit = async (rubricId: number) => {
-    await updateFinanceRubric(rubricId, { allocated_amount: editingRubricAmount });
-    setEditingRubricId(null);
-    setEditingRubricAmount('');
-    await loadData();
+    try {
+      await updateFinanceRubric(rubricId, {
+        name: editingRubricName,
+        description: editingRubricDescription,
+        allocated_amount: editingRubricAmount,
+      });
+      setEditingRubricId(null);
+      setEditingRubricName('');
+      setEditingRubricDescription('');
+      setEditingRubricAmount('');
+      await loadData();
+    } catch (submitError: any) {
+      setError(getErrorMessage(submitError));
+    }
   };
 
   const submitRejection = async (requestId: number) => {
@@ -214,7 +236,7 @@ export default function AdminFinance() {
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-dark/70">Controle Financeiro</p>
           <h1 className="mt-2 text-3xl font-black text-gray-950">Receita líquida, orçamento e execução</h1>
           <p className="mt-2 max-w-3xl text-sm text-gray-600">
-            O teto do módulo vem da receita líquida das inscrições. A distribuição por área é manual, mas nunca pode ultrapassar o total já realizado.
+            O módulo usa a receita líquida das inscrições como referência, mas o orçamento por área é configurado manualmente.
           </p>
         </div>
         <div className="flex justify-end">
@@ -265,11 +287,13 @@ export default function AdminFinance() {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => startAreaEdit(area)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Editar área</button>
-                      <button onClick={async () => { await deleteFinanceArea(area.id); await loadData(); }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
+                      <button onClick={async () => { try { await deleteFinanceArea(area.id); await loadData(); } catch (submitError: any) { setError(getErrorMessage(submitError)); } }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
                     </div>
                   </div>
                   {editingAreaId === area.id && (
                     <div className="mt-3 space-y-3">
+                      <input className={`${inputClass} max-w-[420px]`} placeholder="Nome da área" value={editingAreaName} onChange={(e) => setEditingAreaName(e.target.value)} />
+                      <textarea className={`${inputClass} min-h-[100px] max-w-[520px]`} placeholder="Descrição" value={editingAreaDescription} onChange={(e) => setEditingAreaDescription(e.target.value)} />
                       <input className={`${inputClass} max-w-[220px]`} value={editingAreaAmount} onChange={(e) => setEditingAreaAmount(e.target.value)} />
                       <select className={`${inputClass} max-w-[420px]`} value={editingAreaLeaderId} onChange={(e) => setEditingAreaLeaderId(e.target.value)}>
                         <option value="">Sem líder principal</option>
@@ -284,7 +308,7 @@ export default function AdminFinance() {
                       </select>
                       <div className="flex flex-wrap items-center gap-2">
                         <button onClick={() => saveAreaEdit(area.id)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
-                        <button onClick={() => { setEditingAreaId(null); setEditingAreaAmount(''); setEditingAreaLeaderId(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                        <button onClick={() => { setEditingAreaId(null); setEditingAreaName(''); setEditingAreaDescription(''); setEditingAreaAmount(''); setEditingAreaLeaderId(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
                       </div>
                     </div>
                   )}
@@ -332,14 +356,18 @@ export default function AdminFinance() {
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => startRubricEdit(rubric)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Editar</button>
-                      <button onClick={async () => { await deleteFinanceRubric(rubric.id); await loadData(); }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
+                      <button onClick={async () => { try { await deleteFinanceRubric(rubric.id); await loadData(); } catch (submitError: any) { setError(getErrorMessage(submitError)); } }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
                     </div>
                   </div>
                   {editingRubricId === rubric.id && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <div className="mt-3 space-y-3">
+                      <input className={`${inputClass} max-w-[420px]`} placeholder="Nome da rubrica" value={editingRubricName} onChange={(e) => setEditingRubricName(e.target.value)} />
+                      <textarea className={`${inputClass} min-h-[100px] max-w-[520px]`} placeholder="Descrição" value={editingRubricDescription} onChange={(e) => setEditingRubricDescription(e.target.value)} />
                       <input className={`${inputClass} max-w-[220px]`} value={editingRubricAmount} onChange={(e) => setEditingRubricAmount(e.target.value)} />
-                      <button onClick={() => saveRubricEdit(rubric.id)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
-                      <button onClick={() => { setEditingRubricId(null); setEditingRubricAmount(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button onClick={() => saveRubricEdit(rubric.id)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
+                        <button onClick={() => { setEditingRubricId(null); setEditingRubricName(''); setEditingRubricDescription(''); setEditingRubricAmount(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                      </div>
                     </div>
                   )}
                   <div className="mt-3 grid gap-3 sm:grid-cols-4">
