@@ -405,6 +405,10 @@ export default function AdminFinance() {
                     {item.rejection_reason && <p className="mt-1 text-xs text-red-600">{item.rejection_reason}</p>}
                   </div>
                 </div>
+                <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+                  <p><span className="font-semibold text-gray-900">Favorecido:</span> {item.recipient_name}</p>
+                  <p className="mt-1"><span className="font-semibold text-gray-900">Chave PIX:</span> {item.pix_key}</p>
+                </div>
                 {rejectingRequestId === item.id && (
                   <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4">
                     <p className="text-sm font-semibold text-red-700">Justificativa da rejeição</p>

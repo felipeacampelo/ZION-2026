@@ -229,6 +229,8 @@ class FinanceFlowTests(APITestCase):
                 'rubric': rubric.id,
                 'amount': '15.00',
                 'request_type': 'REIMBURSEMENT',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
                 'description': 'Compra já realizada',
                 'justification': 'Pagamento com recurso próprio',
             },
@@ -238,6 +240,8 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['request_type'], 'REIMBURSEMENT')
         self.assertEqual(response.data['request_type_display'], 'Reembolso')
+        self.assertEqual(response.data['recipient_name'], 'Lider Financeiro')
+        self.assertEqual(response.data['pix_key'], 'lider@pix.test')
 
     def test_approval_commits_budget_and_reimbursement_requires_receipt(self):
         area, rubric = self._create_area_and_rubric()
@@ -247,6 +251,8 @@ class FinanceFlowTests(APITestCase):
             {
                 'rubric': rubric.id,
                 'amount': '30.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
                 'description': 'Cabos novos',
                 'justification': 'Substituição urgente',
             },
@@ -286,6 +292,8 @@ class FinanceFlowTests(APITestCase):
             {
                 'rubric': rubric.id,
                 'amount': '20.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
                 'description': 'Frete',
                 'justification': 'Entrega',
             },

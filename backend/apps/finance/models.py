@@ -161,6 +161,8 @@ class ExpenseRequest(models.Model):
         choices=REQUEST_TYPE_CHOICES,
         default=REQUEST_TYPE_ADVANCE,
     )
+    recipient_name = models.CharField(_('Nome do Favorecido'), max_length=160)
+    pix_key = models.CharField(_('Chave PIX'), max_length=160)
     description = models.TextField(_('Descrição'))
     justification = models.TextField(_('Justificativa'))
     status = models.CharField(_('Status'), max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)

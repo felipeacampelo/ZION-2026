@@ -399,6 +399,8 @@ export interface FinanceExpenseRequest {
   amount: string;
   request_type: 'ADVANCE' | 'REIMBURSEMENT';
   request_type_display: string;
+  recipient_name: string;
+  pix_key: string;
   description: string;
   justification: string;
   status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
@@ -860,6 +862,8 @@ export const createFinanceRequest = (data: {
   rubric: number;
   amount: string;
   request_type: 'ADVANCE' | 'REIMBURSEMENT';
+  recipient_name: string;
+  pix_key: string;
   description: string;
   justification: string;
 }) => api.post<FinanceExpenseRequest>('/finance/requests/', data);

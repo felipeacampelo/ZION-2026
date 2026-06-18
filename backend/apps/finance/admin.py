@@ -39,9 +39,9 @@ class BudgetRubricAdmin(admin.ModelAdmin):
 
 @admin.register(ExpenseRequest)
 class ExpenseRequestAdmin(admin.ModelAdmin):
-    list_display = ['id', 'area', 'rubric', 'requester', 'request_type', 'amount', 'status', 'created_at']
+    list_display = ['id', 'area', 'rubric', 'requester', 'request_type', 'recipient_name', 'amount', 'status', 'created_at']
     list_filter = ['status', 'request_type', 'area', 'rubric']
-    search_fields = ['requester__email', 'description', 'justification']
+    search_fields = ['requester__email', 'recipient_name', 'pix_key', 'description', 'justification']
 
 
 @admin.register(ExpenseExecution)

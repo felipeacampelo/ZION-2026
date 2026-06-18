@@ -256,6 +256,8 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
             'amount',
             'request_type',
             'request_type_display',
+            'recipient_name',
+            'pix_key',
             'description',
             'justification',
             'status',
@@ -313,8 +315,14 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'amount': 'O valor solicitado excede o saldo disponível da área.'})
         if amount > rubric_summary['available_amount']:
             raise serializers.ValidationError({'amount': 'O valor solicitado excede o saldo disponível da rubrica.'})
+        if not str(attrs.get('recipient_name', '')).strip():
+            raise serializers.ValidationError({'recipient_name': 'Informe o nome do favorecido.'})
+        if not str(attrs.get('pix_key', '')).strip():
+            raise serializers.ValidationError({'pix_key': 'Informe a chave PIX.'})
 
         attrs['area'] = rubric.area
+        attrs['recipient_name'] = attrs['recipient_name'].strip()
+        attrs['pix_key'] = attrs['pix_key'].strip()
         return attrs
 
     @transaction.atomic

@@ -46,6 +46,8 @@ export default function FinanceWorkspace() {
     rubric: '',
     amount: '',
     request_type: 'ADVANCE' as 'ADVANCE' | 'REIMBURSEMENT',
+    recipient_name: '',
+    pix_key: '',
     description: '',
     justification: '',
   });
@@ -75,10 +77,20 @@ export default function FinanceWorkspace() {
         rubric: Number(form.rubric),
         amount: form.amount,
         request_type: form.request_type,
+        recipient_name: form.recipient_name,
+        pix_key: form.pix_key,
         description: form.description,
         justification: form.justification,
       });
-      setForm({ rubric: '', amount: '', request_type: 'ADVANCE', description: '', justification: '' });
+      setForm({
+        rubric: '',
+        amount: '',
+        request_type: 'ADVANCE',
+        recipient_name: '',
+        pix_key: '',
+        description: '',
+        justification: '',
+      });
       setSuccessMessage('Solicitação enviada com sucesso.');
       await loadData();
     } catch (submitError: any) {
@@ -109,6 +121,10 @@ export default function FinanceWorkspace() {
         </div>
       </div>
       <p className="mt-3 text-sm text-gray-700">{request.justification}</p>
+      <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+        <p><span className="font-semibold text-gray-900">Favorecido:</span> {request.recipient_name}</p>
+        <p className="mt-1"><span className="font-semibold text-gray-900">Chave PIX:</span> {request.pix_key}</p>
+      </div>
       {request.rejection_reason && <p className="mt-2 text-sm font-medium text-red-600">{request.rejection_reason}</p>}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {['PENDING', 'UNDER_REVIEW'].includes(request.status) && (
@@ -179,6 +195,8 @@ export default function FinanceWorkspace() {
                     ))}
                   </select>
                   <input className={inputClass} placeholder="Valor da solicitação" value={form.amount} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, amount: e.target.value })); }} />
+                  <input className={inputClass} placeholder="Nome do favorecido" value={form.recipient_name} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, recipient_name: e.target.value })); }} />
+                  <input className={inputClass} placeholder="Chave PIX" value={form.pix_key} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, pix_key: e.target.value })); }} />
                   <div className="space-y-2 rounded-2xl border border-gray-200 bg-white px-4 py-3">
                     <p className="text-sm font-semibold text-gray-900">Tipo de Solicitação</p>
                     <label className="flex items-center gap-3 text-sm text-gray-700">
