@@ -33,6 +33,8 @@ import {
 const formatCurrency = (value?: string) =>
   Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const normalizeAmountInput = (value: string) => value.replace(/\./g, '').replace(',', '.').trim();
+
 const getErrorMessage = (error: any) => {
   const payload = error?.response?.data;
   if (!payload) {
@@ -163,10 +165,11 @@ export default function AdminFinance() {
 
   const saveAreaEdit = async (areaId: number) => {
     try {
+      setError('');
       await updateFinanceArea(areaId, {
         name: editingAreaName,
         description: editingAreaDescription,
-        allocated_amount: editingAreaAmount,
+        allocated_amount: normalizeAmountInput(editingAreaAmount),
         leader_id: editingAreaLeaderId ? Number(editingAreaLeaderId) : null,
       });
       setEditingAreaId(null);
@@ -189,10 +192,11 @@ export default function AdminFinance() {
 
   const saveRubricEdit = async (rubricId: number) => {
     try {
+      setError('');
       await updateFinanceRubric(rubricId, {
         name: editingRubricName,
         description: editingRubricDescription,
-        allocated_amount: editingRubricAmount,
+        allocated_amount: normalizeAmountInput(editingRubricAmount),
       });
       setEditingRubricId(null);
       setEditingRubricName('');
@@ -376,12 +380,18 @@ export default function AdminFinance() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => startAreaEdit(area)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Editar área</button>
-                      <button onClick={async () => { try { await deleteFinanceArea(area.id); await loadData(); } catch (submitError: any) { setError(getErrorMessage(submitError)); } }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
+                      <button type="button" onClick={() => startAreaEdit(area)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Editar área</button>
+                      <button type="button" onClick={async () => { try { await deleteFinanceArea(area.id); await loadData(); } catch (submitError: any) { setError(getErrorMessage(submitError)); } }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
                     </div>
                   </div>
                   {editingAreaId === area.id && (
-                    <div className="mt-3 space-y-3">
+                    <form
+                      className="mt-3 space-y-3"
+                      onSubmit={async (event) => {
+                        event.preventDefault();
+                        await saveAreaEdit(area.id);
+                      }}
+                    >
                       <input className={`${inputClass} max-w-[420px]`} placeholder="Nome da área" value={editingAreaName} onChange={(e) => setEditingAreaName(e.target.value)} />
                       <textarea className={`${inputClass} min-h-[100px] max-w-[520px]`} placeholder="Descrição" value={editingAreaDescription} onChange={(e) => setEditingAreaDescription(e.target.value)} />
                       <input className={`${inputClass} max-w-[220px]`} value={editingAreaAmount} onChange={(e) => setEditingAreaAmount(e.target.value)} />
@@ -397,10 +407,10 @@ export default function AdminFinance() {
                         ))}
                       </select>
                       <div className="flex flex-wrap items-center gap-2">
-                        <button onClick={() => saveAreaEdit(area.id)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
-                        <button onClick={() => { setEditingAreaId(null); setEditingAreaName(''); setEditingAreaDescription(''); setEditingAreaAmount(''); setEditingAreaLeaderId(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                        <button type="submit" className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
+                        <button type="button" onClick={() => { setEditingAreaId(null); setEditingAreaName(''); setEditingAreaDescription(''); setEditingAreaAmount(''); setEditingAreaLeaderId(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
                       </div>
-                    </div>
+                    </form>
                   )}
                   <div className="mt-3 grid gap-3 sm:grid-cols-4">
                     <div><p className="text-xs text-gray-500">Orçado</p><p className="font-semibold text-gray-900">R$ {formatCurrency(area.summary.allocated_amount)}</p></div>
@@ -445,20 +455,26 @@ export default function AdminFinance() {
                       <p className="text-sm text-gray-500">{rubric.area_name}</p>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => startRubricEdit(rubric)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Editar</button>
-                      <button onClick={async () => { try { await deleteFinanceRubric(rubric.id); await loadData(); } catch (submitError: any) { setError(getErrorMessage(submitError)); } }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
+                      <button type="button" onClick={() => startRubricEdit(rubric)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Editar</button>
+                      <button type="button" onClick={async () => { try { await deleteFinanceRubric(rubric.id); await loadData(); } catch (submitError: any) { setError(getErrorMessage(submitError)); } }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
                     </div>
                   </div>
                   {editingRubricId === rubric.id && (
-                    <div className="mt-3 space-y-3">
+                    <form
+                      className="mt-3 space-y-3"
+                      onSubmit={async (event) => {
+                        event.preventDefault();
+                        await saveRubricEdit(rubric.id);
+                      }}
+                    >
                       <input className={`${inputClass} max-w-[420px]`} placeholder="Nome da rubrica" value={editingRubricName} onChange={(e) => setEditingRubricName(e.target.value)} />
                       <textarea className={`${inputClass} min-h-[100px] max-w-[520px]`} placeholder="Descrição" value={editingRubricDescription} onChange={(e) => setEditingRubricDescription(e.target.value)} />
                       <input className={`${inputClass} max-w-[220px]`} value={editingRubricAmount} onChange={(e) => setEditingRubricAmount(e.target.value)} />
                       <div className="flex flex-wrap items-center gap-2">
-                        <button onClick={() => saveRubricEdit(rubric.id)} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
-                        <button onClick={() => { setEditingRubricId(null); setEditingRubricName(''); setEditingRubricDescription(''); setEditingRubricAmount(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                        <button type="submit" className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
+                        <button type="button" onClick={() => { setEditingRubricId(null); setEditingRubricName(''); setEditingRubricDescription(''); setEditingRubricAmount(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
                       </div>
-                    </div>
+                    </form>
                   )}
                   <div className="mt-3 grid gap-3 sm:grid-cols-4">
                     <div><p className="text-xs text-gray-500">Orçado</p><p className="font-semibold text-gray-900">R$ {formatCurrency(rubric.summary.allocated_amount)}</p></div>
