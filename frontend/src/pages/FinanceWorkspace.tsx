@@ -28,7 +28,7 @@ export default function FinanceWorkspace() {
       const response = await getMyFinanceDashboard();
       setDashboard(response.data);
     } catch (loadError: any) {
-      setError(loadError.response?.data?.detail || 'Voce ainda nao possui area financeira vinculada.');
+      setError(loadError.response?.data?.detail || 'Você ainda não possui área financeira vinculada.');
     } finally {
       setLoading(false);
     }
@@ -106,7 +106,7 @@ export default function FinanceWorkspace() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-dark/70">Meu Financeiro</p>
-            <h1 className="mt-2 text-3xl font-black text-gray-950">Solicitacoes da sua area</h1>
+            <h1 className="mt-2 text-3xl font-black text-gray-950">Solicitações da sua área</h1>
           </div>
           <Link to="/" className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm">Voltar ao site</Link>
         </div>
@@ -116,44 +116,44 @@ export default function FinanceWorkspace() {
         {dashboard && (
           <>
             <section className="grid gap-4 lg:grid-cols-4">
-              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Area</p><p className="mt-3 text-2xl font-black text-gray-950">{dashboard.area.name}</p></div>
-              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Disponivel</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.available_amount)}</p></div>
-              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Em analise</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.pending_amount)}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Área</p><p className="mt-3 text-2xl font-black text-gray-950">{dashboard.area.name}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Disponível</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.available_amount)}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Em análise</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.pending_amount)}</p></div>
               <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Comprometido</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.committed_amount)}</p></div>
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
               <div className={cardClass}>
-                <h2 className="text-lg font-black text-gray-950">Nova solicitacao</h2>
+                <h2 className="text-lg font-black text-gray-950">Nova solicitação</h2>
                 <form onSubmit={handleCreateRequest} className="mt-4 space-y-3">
                   <select className={inputClass} value={form.rubric} onChange={(e) => setForm((current) => ({ ...current, rubric: e.target.value }))}>
                     <option value="">Selecione a rubrica</option>
                     {dashboard.rubrics.map((rubric) => (
                       <option key={rubric.id} value={rubric.id}>
-                        {rubric.name} • disponivel R$ {formatCurrency(rubric.summary.available_amount)}
+                        {rubric.name} • disponível R$ {formatCurrency(rubric.summary.available_amount)}
                       </option>
                     ))}
                   </select>
-                  <input className={inputClass} placeholder="Valor da solicitacao" value={form.amount} onChange={(e) => setForm((current) => ({ ...current, amount: e.target.value }))} />
-                  <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descricao detalhada" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} />
-                  <textarea className={`${inputClass} min-h-[120px]`} placeholder="Justificativa obrigatoria" value={form.justification} onChange={(e) => setForm((current) => ({ ...current, justification: e.target.value }))} />
-                  <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Enviar solicitacao</button>
+                  <input className={inputClass} placeholder="Valor da solicitação" value={form.amount} onChange={(e) => setForm((current) => ({ ...current, amount: e.target.value }))} />
+                  <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descrição detalhada" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} />
+                  <textarea className={`${inputClass} min-h-[120px]`} placeholder="Justificativa obrigatória" value={form.justification} onChange={(e) => setForm((current) => ({ ...current, justification: e.target.value }))} />
+                  <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Enviar solicitação</button>
                 </form>
               </div>
 
               <div className={cardClass}>
-                <h2 className="text-lg font-black text-gray-950">Rubricas da area</h2>
+                <h2 className="text-lg font-black text-gray-950">Rubricas da área</h2>
                 <div className="mt-4 space-y-3">
                   {dashboard.rubrics.map((rubric) => (
                     <div key={rubric.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="font-bold text-gray-950">{rubric.name}</p>
-                          <p className="text-sm text-gray-500">{rubric.description || 'Sem descricao'}</p>
+                          <p className="text-sm text-gray-500">{rubric.description || 'Sem descrição'}</p>
                         </div>
                         <div className="text-right text-sm">
                           <p className="font-semibold text-gray-950">R$ {formatCurrency(rubric.summary.available_amount)}</p>
-                          <p className="text-gray-500">Disponivel</p>
+                          <p className="text-gray-500">Disponível</p>
                         </div>
                       </div>
                     </div>
@@ -163,10 +163,10 @@ export default function FinanceWorkspace() {
             </section>
 
             <section className={cardClass}>
-              <h2 className="text-lg font-black text-gray-950">Historico</h2>
+              <h2 className="text-lg font-black text-gray-950">Histórico</h2>
               <div className="mt-4 space-y-3">
                 {dashboard.requests.map(renderRequest)}
-                {!loading && dashboard.requests.length === 0 && <p className="text-sm text-gray-500">Nenhuma solicitacao registrada para a sua area.</p>}
+                {!loading && dashboard.requests.length === 0 && <p className="text-sm text-gray-500">Nenhuma solicitação registrada para a sua área.</p>}
               </div>
             </section>
           </>
@@ -175,4 +175,3 @@ export default function FinanceWorkspace() {
     </div>
   );
 }
-

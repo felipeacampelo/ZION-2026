@@ -23,7 +23,7 @@ def _build_html(title, intro, details, cta=None):
     <p style="color:#374151;font-size:15px;line-height:1.6;">{intro}</p>
     <ul style="color:#4b5563;line-height:1.7;">{detail_items}</ul>
     {cta_html}
-    <p style="margin-top:28px;color:#9ca3af;font-size:12px;">Email automatico do modulo financeiro.</p>
+    <p style="margin-top:28px;color:#9ca3af;font-size:12px;">Email automático do módulo financeiro.</p>
   </div>
 </body>
 </html>
@@ -50,41 +50,41 @@ def send_finance_request_created_notifications(expense_request):
     requester_email = expense_request.requester.email
     admin_emails = [email for email in _get_admin_emails() if email != requester_email]
 
-    subject_requester = f'Solicitacao recebida: {expense_request.rubric.name}'
+    subject_requester = f'Solicitação recebida: {expense_request.rubric.name}'
     html_requester = _build_html(
-        'Solicitacao registrada',
-        'Sua solicitacao de despesa foi registrada e entrou na fila de analise.',
+        'Solicitação registrada',
+        'Sua solicitação de despesa foi registrada e entrou na fila de análise.',
         [
-            f'Area: {expense_request.area.name}',
+            f'Área: {expense_request.area.name}',
             f'Rubrica: {expense_request.rubric.name}',
             f'Valor: R$ {expense_request.amount}',
-            f'Descricao: {expense_request.description}',
+            f'Descrição: {expense_request.description}',
         ],
     )
     text_requester = (
-        'Sua solicitacao de despesa foi registrada.\n'
-        f'Area: {expense_request.area.name}\n'
+        'Sua solicitação de despesa foi registrada.\n'
+        f'Área: {expense_request.area.name}\n'
         f'Rubrica: {expense_request.rubric.name}\n'
         f'Valor: R$ {expense_request.amount}\n'
     )
     _notify([requester_email], subject_requester, html_requester, text_requester)
 
     if admin_emails:
-        subject_admin = f'Nova solicitacao financeira: {expense_request.area.name}'
+        subject_admin = f'Nova solicitação financeira: {expense_request.area.name}'
         html_admin = _build_html(
-            'Nova solicitacao para analise',
+            'Nova solicitação para análise',
             'Uma nova solicitacao financeira foi criada e aguarda tratamento no painel administrativo.',
             [
                 f'Solicitante: {requester_email}',
-                f'Area: {expense_request.area.name}',
+                f'Área: {expense_request.area.name}',
                 f'Rubrica: {expense_request.rubric.name}',
                 f'Valor: R$ {expense_request.amount}',
             ],
         )
         text_admin = (
-            'Nova solicitacao financeira criada.\n'
+            'Nova solicitação financeira criada.\n'
             f'Solicitante: {requester_email}\n'
-            f'Area: {expense_request.area.name}\n'
+            f'Área: {expense_request.area.name}\n'
             f'Rubrica: {expense_request.rubric.name}\n'
             f'Valor: R$ {expense_request.amount}\n'
         )
@@ -92,19 +92,19 @@ def send_finance_request_created_notifications(expense_request):
 
 
 def send_finance_request_approved_notification(expense_request):
-    subject = f'Solicitacao aprovada: {expense_request.rubric.name}'
+    subject = f'Solicitação aprovada: {expense_request.rubric.name}'
     html = _build_html(
-        'Solicitacao aprovada',
-        'Sua solicitacao foi aprovada e a verba ficou comprometida para execucao.',
+        'Solicitação aprovada',
+        'Sua solicitação foi aprovada e a verba ficou comprometida para execução.',
         [
-            f'Area: {expense_request.area.name}',
+            f'Área: {expense_request.area.name}',
             f'Rubrica: {expense_request.rubric.name}',
             f'Valor: R$ {expense_request.amount}',
         ],
     )
     text = (
-        'Sua solicitacao foi aprovada.\n'
-        f'Area: {expense_request.area.name}\n'
+        'Sua solicitação foi aprovada.\n'
+        f'Área: {expense_request.area.name}\n'
         f'Rubrica: {expense_request.rubric.name}\n'
         f'Valor: R$ {expense_request.amount}\n'
     )
@@ -112,23 +112,22 @@ def send_finance_request_approved_notification(expense_request):
 
 
 def send_finance_request_rejected_notification(expense_request):
-    subject = f'Solicitacao rejeitada: {expense_request.rubric.name}'
+    subject = f'Solicitação rejeitada: {expense_request.rubric.name}'
     html = _build_html(
-        'Solicitacao rejeitada',
-        'Sua solicitacao foi rejeitada. Consulte a justificativa abaixo antes de abrir um novo pedido.',
+        'Solicitação rejeitada',
+        'Sua solicitação foi rejeitada. Consulte a justificativa abaixo antes de abrir um novo pedido.',
         [
-            f'Area: {expense_request.area.name}',
+            f'Área: {expense_request.area.name}',
             f'Rubrica: {expense_request.rubric.name}',
             f'Valor: R$ {expense_request.amount}',
             f'Justificativa: {expense_request.rejection_reason}',
         ],
     )
     text = (
-        'Sua solicitacao foi rejeitada.\n'
-        f'Area: {expense_request.area.name}\n'
+        'Sua solicitação foi rejeitada.\n'
+        f'Área: {expense_request.area.name}\n'
         f'Rubrica: {expense_request.rubric.name}\n'
         f'Valor: R$ {expense_request.amount}\n'
         f'Justificativa: {expense_request.rejection_reason}\n'
     )
     _notify([expense_request.requester.email], subject, html, text)
-
