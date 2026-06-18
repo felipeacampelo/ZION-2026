@@ -318,6 +318,144 @@ export interface EmailCampaign {
   recipients: EmailCampaignRecipient[];
 }
 
+export interface FinanceUserOption {
+  id: number;
+  email: string;
+  name: string;
+}
+
+export interface FinanceBudgetSummary {
+  allocated_amount: string;
+  pending_amount: string;
+  committed_amount: string;
+  executed_amount: string;
+  available_amount: string;
+}
+
+export interface FinanceArea {
+  id: number;
+  name: string;
+  description: string;
+  is_active: boolean;
+  leader: FinanceUserOption | null;
+  budget: {
+    allocated_amount: string;
+  };
+  summary: FinanceBudgetSummary;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinanceRubric {
+  id: number;
+  area: number;
+  area_name: string;
+  name: string;
+  description: string;
+  allocated_amount: string;
+  is_active: boolean;
+  summary: FinanceBudgetSummary;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinanceAttachment {
+  id: number;
+  category: 'SUPPORTING' | 'RECEIPT';
+  file: string;
+  uploaded_by_email: string;
+  created_at: string;
+}
+
+export interface FinanceAuditLog {
+  id: number;
+  action: string;
+  note: string;
+  metadata: Record<string, any>;
+  actor_email: string;
+  created_at: string;
+}
+
+export interface FinanceExecution {
+  id: number;
+  execution_type: 'ADVANCE' | 'REIMBURSEMENT' | null;
+  status: 'NOT_EXECUTED' | 'EXECUTED';
+  amount: string;
+  notes: string;
+  executed_by_email: string;
+  executed_at: string | null;
+  attachments: FinanceAttachment[];
+}
+
+export interface FinanceExpenseRequest {
+  id: number;
+  area: number;
+  area_name: string;
+  rubric: number;
+  rubric_name: string;
+  requester: number;
+  requester_email: string;
+  amount: string;
+  description: string;
+  justification: string;
+  status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  rejection_reason: string;
+  reviewed_at: string | null;
+  approved_at: string | null;
+  rejected_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  execution: FinanceExecution | null;
+  attachments: FinanceAttachment[];
+  audit_logs: FinanceAuditLog[];
+}
+
+export interface FinanceGlobalSummary {
+  revenue: {
+    total: string;
+    fees: string;
+    net: string;
+    payments_count: number;
+  };
+  budgets: {
+    allocated_total: string;
+    remaining_to_allocate: string;
+  };
+}
+
+export interface FinanceReportResponse extends FinanceGlobalSummary {
+  report: {
+    areas: Array<{
+      id: number;
+      name: string;
+      allocated_amount: string;
+      pending_amount: string;
+      committed_amount: string;
+      executed_amount: string;
+      available_amount: string;
+    }>;
+    rubrics: Array<{
+      id: number;
+      name: string;
+      area_id: number;
+      area_name: string;
+      allocated_amount: string;
+      pending_amount: string;
+      committed_amount: string;
+      executed_amount: string;
+      available_amount: string;
+    }>;
+  };
+}
+
+export interface FinanceMyDashboardResponse {
+  area: FinanceArea;
+  summary: FinanceBudgetSummary;
+  requests: FinanceExpenseRequest[];
+  rubrics: FinanceRubric[];
+}
+
 // Auth (old - to be removed or migrated)
 // export const login = (email: string, password: string) =>
 //   api.post('/auth/login/', { email, password });
@@ -653,5 +791,110 @@ export const sendAdminEmailCampaignDraftTest = (data: {
 
 export const sendAdminEmailCampaign = (id: number) =>
   api.post<{ detail: string; recipient_count: number }>(`/users/admin/email-campaigns/${id}/send/`, {});
+
+export const getAdminFinanceSummary = () =>
+  api.get<FinanceGlobalSummary>('/finance/admin/summary/');
+
+export const getAdminFinanceReports = () =>
+  api.get<FinanceReportResponse>('/finance/admin/reports/');
+
+export const exportAdminFinanceReportCsv = () =>
+  api.get('/finance/admin/reports/export.csv', {
+    responseType: 'blob',
+  });
+
+export const getFinanceLeaderCandidates = (search?: string) =>
+  api.get<{ results: FinanceUserOption[] }>('/finance/admin/leader-candidates/', { params: { search } });
+
+export const getFinanceAreas = () =>
+  api.get<FinanceArea[]>('/finance/areas/');
+
+export const createFinanceArea = (data: {
+  name: string;
+  description?: string;
+  allocated_amount: string;
+  leader_id?: number | null;
+  is_active?: boolean;
+}) => api.post<FinanceArea>('/finance/areas/', data);
+
+export const updateFinanceArea = (id: number, data: Partial<{
+  name: string;
+  description: string;
+  allocated_amount: string;
+  leader_id: number | null;
+  is_active: boolean;
+}>) => api.patch<FinanceArea>(`/finance/areas/${id}/`, data);
+
+export const deleteFinanceArea = (id: number) =>
+  api.delete(`/finance/areas/${id}/`);
+
+export const getFinanceRubrics = (area?: number) =>
+  api.get<FinanceRubric[]>('/finance/rubrics/', { params: area ? { area } : undefined });
+
+export const createFinanceRubric = (data: {
+  area: number;
+  name: string;
+  description?: string;
+  allocated_amount: string;
+  is_active?: boolean;
+}) => api.post<FinanceRubric>('/finance/rubrics/', data);
+
+export const updateFinanceRubric = (id: number, data: Partial<{
+  area: number;
+  name: string;
+  description: string;
+  allocated_amount: string;
+  is_active: boolean;
+}>) => api.patch<FinanceRubric>(`/finance/rubrics/${id}/`, data);
+
+export const deleteFinanceRubric = (id: number) =>
+  api.delete(`/finance/rubrics/${id}/`);
+
+export const getFinanceRequests = (params?: { area?: number; status?: string }) =>
+  api.get<FinanceExpenseRequest[]>('/finance/requests/', { params });
+
+export const createFinanceRequest = (data: {
+  rubric: number;
+  amount: string;
+  description: string;
+  justification: string;
+}) => api.post<FinanceExpenseRequest>('/finance/requests/', data);
+
+export const reviewFinanceRequest = (id: number, note?: string) =>
+  api.post<FinanceExpenseRequest>(`/finance/requests/${id}/review/`, { note });
+
+export const approveFinanceRequest = (id: number) =>
+  api.post<FinanceExpenseRequest>(`/finance/requests/${id}/approve/`, {});
+
+export const rejectFinanceRequest = (id: number, rejection_reason: string) =>
+  api.post<FinanceExpenseRequest>(`/finance/requests/${id}/reject/`, { rejection_reason });
+
+export const cancelFinanceRequest = (id: number) =>
+  api.post<FinanceExpenseRequest>(`/finance/requests/${id}/cancel/`, {});
+
+export const executeFinanceRequest = (
+  id: number,
+  data: { execution_type: 'ADVANCE' | 'REIMBURSEMENT'; notes?: string; file?: File | null }
+) => {
+  const formData = new FormData();
+  formData.append('execution_type', data.execution_type);
+  if (data.notes) formData.append('notes', data.notes);
+  if (data.file) formData.append('file', data.file);
+  return api.post<FinanceExpenseRequest>(`/finance/requests/${id}/execute/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const addFinanceRequestAttachment = (id: number, data: { file: File; category?: 'SUPPORTING' | 'RECEIPT' }) => {
+  const formData = new FormData();
+  formData.append('file', data.file);
+  if (data.category) formData.append('category', data.category);
+  return api.post<FinanceAttachment>(`/finance/requests/${id}/attachments/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const getMyFinanceDashboard = () =>
+  api.get<FinanceMyDashboardResponse>('/finance/my/dashboard/');
 
 export default api;

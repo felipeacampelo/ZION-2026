@@ -1,0 +1,178 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  addFinanceRequestAttachment,
+  cancelFinanceRequest,
+  createFinanceRequest,
+  getMyFinanceDashboard,
+  type FinanceExpenseRequest,
+  type FinanceMyDashboardResponse,
+} from '../services/api';
+
+const formatCurrency = (value?: string) =>
+  Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]';
+const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
+
+export default function FinanceWorkspace() {
+  const [dashboard, setDashboard] = useState<FinanceMyDashboardResponse | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ rubric: '', amount: '', description: '', justification: '' });
+  const [attachmentFiles, setAttachmentFiles] = useState<Record<number, File | null>>({});
+
+  const loadData = async () => {
+    setError('');
+    try {
+      const response = await getMyFinanceDashboard();
+      setDashboard(response.data);
+    } catch (loadError: any) {
+      setError(loadError.response?.data?.detail || 'Voce ainda nao possui area financeira vinculada.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleCreateRequest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      await createFinanceRequest({
+        rubric: Number(form.rubric),
+        amount: form.amount,
+        description: form.description,
+        justification: form.justification,
+      });
+      setForm({ rubric: '', amount: '', description: '', justification: '' });
+      await loadData();
+    } catch (submitError: any) {
+      setError(JSON.stringify(submitError.response?.data || submitError.message));
+    }
+  };
+
+  const handleUpload = async (requestId: number) => {
+    const file = attachmentFiles[requestId];
+    if (!file) return;
+    await addFinanceRequestAttachment(requestId, { file });
+    setAttachmentFiles((current) => ({ ...current, [requestId]: null }));
+    await loadData();
+  };
+
+  const renderRequest = (request: FinanceExpenseRequest) => (
+    <div key={request.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-bold text-gray-950">{request.rubric_name}</p>
+          <p className="text-sm text-gray-500">{request.description}</p>
+        </div>
+        <div className="text-right">
+          <p className="font-semibold text-gray-950">R$ {formatCurrency(request.amount)}</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{request.status}</p>
+        </div>
+      </div>
+      <p className="mt-3 text-sm text-gray-700">{request.justification}</p>
+      {request.rejection_reason && <p className="mt-2 text-sm font-medium text-red-600">{request.rejection_reason}</p>}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {['PENDING', 'UNDER_REVIEW'].includes(request.status) && (
+          <button
+            onClick={async () => { await cancelFinanceRequest(request.id); await loadData(); }}
+            className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+          >
+            Cancelar
+          </button>
+        )}
+        <input
+          type="file"
+          onChange={(event) => setAttachmentFiles((current) => ({ ...current, [request.id]: event.target.files?.[0] || null }))}
+          className="text-sm text-gray-600"
+        />
+        <button
+          onClick={() => handleUpload(request.id)}
+          className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white"
+        >
+          Anexar arquivo
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(220,253,97,0.25),_transparent_32%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-8 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-dark/70">Meu Financeiro</p>
+            <h1 className="mt-2 text-3xl font-black text-gray-950">Solicitacoes da sua area</h1>
+          </div>
+          <Link to="/" className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm">Voltar ao site</Link>
+        </div>
+
+        {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+        {dashboard && (
+          <>
+            <section className="grid gap-4 lg:grid-cols-4">
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Area</p><p className="mt-3 text-2xl font-black text-gray-950">{dashboard.area.name}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Disponivel</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.available_amount)}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Em analise</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.pending_amount)}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Comprometido</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.committed_amount)}</p></div>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+              <div className={cardClass}>
+                <h2 className="text-lg font-black text-gray-950">Nova solicitacao</h2>
+                <form onSubmit={handleCreateRequest} className="mt-4 space-y-3">
+                  <select className={inputClass} value={form.rubric} onChange={(e) => setForm((current) => ({ ...current, rubric: e.target.value }))}>
+                    <option value="">Selecione a rubrica</option>
+                    {dashboard.rubrics.map((rubric) => (
+                      <option key={rubric.id} value={rubric.id}>
+                        {rubric.name} • disponivel R$ {formatCurrency(rubric.summary.available_amount)}
+                      </option>
+                    ))}
+                  </select>
+                  <input className={inputClass} placeholder="Valor da solicitacao" value={form.amount} onChange={(e) => setForm((current) => ({ ...current, amount: e.target.value }))} />
+                  <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descricao detalhada" value={form.description} onChange={(e) => setForm((current) => ({ ...current, description: e.target.value }))} />
+                  <textarea className={`${inputClass} min-h-[120px]`} placeholder="Justificativa obrigatoria" value={form.justification} onChange={(e) => setForm((current) => ({ ...current, justification: e.target.value }))} />
+                  <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Enviar solicitacao</button>
+                </form>
+              </div>
+
+              <div className={cardClass}>
+                <h2 className="text-lg font-black text-gray-950">Rubricas da area</h2>
+                <div className="mt-4 space-y-3">
+                  {dashboard.rubrics.map((rubric) => (
+                    <div key={rubric.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-gray-950">{rubric.name}</p>
+                          <p className="text-sm text-gray-500">{rubric.description || 'Sem descricao'}</p>
+                        </div>
+                        <div className="text-right text-sm">
+                          <p className="font-semibold text-gray-950">R$ {formatCurrency(rubric.summary.available_amount)}</p>
+                          <p className="text-gray-500">Disponivel</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className={cardClass}>
+              <h2 className="text-lg font-black text-gray-950">Historico</h2>
+              <div className="mt-4 space-y-3">
+                {dashboard.requests.map(renderRequest)}
+                {!loading && dashboard.requests.length === 0 && <p className="text-sm text-gray-500">Nenhuma solicitacao registrada para a sua area.</p>}
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+

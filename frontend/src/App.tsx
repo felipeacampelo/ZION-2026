@@ -22,9 +22,11 @@ import AdminCouponSettings from './pages/AdminCouponSettings'
 import AdminEmailSettings from './pages/AdminEmailSettings'
 import AdminSocialQuota from './pages/AdminSocialQuota'
 import AdminWaitlist from './pages/AdminWaitlist'
+import AdminFinance from './pages/AdminFinance'
 import WaitlistSignup from './pages/WaitlistSignup'
 import WaitlistConfirmation from './pages/WaitlistConfirmation'
 import WaitlistInvite from './pages/WaitlistInvite'
+import FinanceWorkspace from './pages/FinanceWorkspace'
 
 function App() {
   return (
@@ -78,6 +80,14 @@ function App() {
               </PrivateRoute>
             } 
           />
+          <Route 
+            path="/finance" 
+            element={
+              <PrivateRoute>
+                <FinanceWorkspace />
+              </PrivateRoute>
+            } 
+          />
           
           {/* Admin Routes */}
           <Route 
@@ -117,6 +127,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminWaitlist />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/finance"
+            element={
+              <AdminRoute>
+                <AdminFinance />
               </AdminRoute>
             }
           />
