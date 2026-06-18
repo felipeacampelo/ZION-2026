@@ -5,12 +5,52 @@ import {
   cancelFinanceRequest,
   createFinanceRequest,
   getMyFinanceDashboard,
+  type FinanceAttachment,
+  type FinanceAuditLog,
   type FinanceExpenseRequest,
   type FinanceMyDashboardResponse,
 } from '../services/api';
 
 const formatCurrency = (value?: string) =>
   Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const formatDateTime = (value?: string | null) =>
+  value ? new Date(value).toLocaleString('pt-BR') : 'Sem data';
+
+const getAttachmentName = (fileUrl: string) => {
+  const lastSegment = fileUrl.split('/').pop() || 'arquivo';
+  return decodeURIComponent(lastSegment.split('?')[0]);
+};
+
+const getRequestReceipt = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.find((attachment) => attachment.category === 'RECEIPT') || null;
+
+const getSupportingAttachments = (request: FinanceExpenseRequest) =>
+  request.attachments.filter((attachment) => attachment.category !== 'RECEIPT');
+
+const getAttachmentMap = (request: FinanceExpenseRequest) =>
+  new Map(
+    [...request.attachments, ...(request.execution?.attachments || [])].map((attachment) => [attachment.id, attachment]),
+  );
+
+const getAuditLabel = (log: FinanceAuditLog) => {
+  const labels: Record<string, string> = {
+    CREATED: 'Solicitação criada',
+    UNDER_REVIEW: 'Solicitação em análise',
+    APPROVED: 'Solicitação aprovada',
+    REJECTED: 'Solicitação rejeitada',
+    CANCELLED: 'Solicitação cancelada',
+    EXECUTED: 'Solicitação executada',
+    ATTACHMENT_ADDED: 'Arquivo anexado',
+  };
+  return labels[log.action] || log.action;
+};
+
+type UploadState = {
+  status: 'idle' | 'uploading' | 'success' | 'error';
+  message: string;
+  fileName: string;
+};
 
 const getErrorMessage = (error: any) => {
   const payload = error?.response?.data;
@@ -52,6 +92,8 @@ export default function FinanceWorkspace() {
     justification: '',
   });
   const [attachmentFiles, setAttachmentFiles] = useState<Record<number, File | null>>({});
+  const [attachmentStates, setAttachmentStates] = useState<Record<number, UploadState>>({});
+  const [attachmentInputKeys, setAttachmentInputKeys] = useState<Record<number, number>>({});
   const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
   const loadData = async () => {
@@ -103,53 +145,202 @@ export default function FinanceWorkspace() {
   const handleUpload = async (requestId: number) => {
     const file = attachmentFiles[requestId];
     if (!file) return;
-    await addFinanceRequestAttachment(requestId, { file });
-    setAttachmentFiles((current) => ({ ...current, [requestId]: null }));
-    await loadData();
+    setAttachmentStates((current) => ({
+      ...current,
+      [requestId]: {
+        status: 'uploading',
+        message: 'Enviando arquivo...',
+        fileName: file.name,
+      },
+    }));
+    try {
+      await addFinanceRequestAttachment(requestId, { file });
+      setAttachmentFiles((current) => ({ ...current, [requestId]: null }));
+      setAttachmentStates((current) => ({
+        ...current,
+        [requestId]: {
+          status: 'success',
+          message: 'Arquivo anexado com sucesso.',
+          fileName: file.name,
+        },
+      }));
+      setAttachmentInputKeys((current) => ({ ...current, [requestId]: (current[requestId] || 0) + 1 }));
+      await loadData();
+    } catch (uploadError: any) {
+      setAttachmentStates((current) => ({
+        ...current,
+        [requestId]: {
+          status: 'error',
+          message: getErrorMessage(uploadError),
+          fileName: file.name,
+        },
+      }));
+    }
   };
 
-  const renderRequest = (request: FinanceExpenseRequest) => (
-    <div key={request.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-bold text-gray-950">{request.rubric_name}</p>
-          <p className="text-sm text-gray-500">{request.description}</p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{request.request_type_display}</p>
+  const renderRequest = (request: FinanceExpenseRequest) => {
+    const receipt = getRequestReceipt(request);
+    const supportingAttachments = getSupportingAttachments(request);
+    const attachmentMap = getAttachmentMap(request);
+    const uploadState = attachmentStates[request.id];
+    const selectedFile = attachmentFiles[request.id];
+
+    return (
+      <div key={request.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-bold text-gray-950">{request.rubric_name}</p>
+            <p className="text-sm text-gray-500">{request.description}</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{request.request_type_display}</p>
+          </div>
+          <div className="text-right">
+            <p className="font-semibold text-gray-950">R$ {formatCurrency(request.amount)}</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{request.status}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="font-semibold text-gray-950">R$ {formatCurrency(request.amount)}</p>
-          <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{request.status}</p>
+        <p className="mt-3 text-sm text-gray-700">{request.justification}</p>
+        <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+          <p><span className="font-semibold text-gray-900">Favorecido:</span> {request.recipient_name || 'Não informado'}</p>
+          <p className="mt-1"><span className="font-semibold text-gray-900">Chave PIX:</span> {request.pix_key || 'Não informada'}</p>
         </div>
-      </div>
-      <p className="mt-3 text-sm text-gray-700">{request.justification}</p>
-      <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
-        <p><span className="font-semibold text-gray-900">Favorecido:</span> {request.recipient_name}</p>
-        <p className="mt-1"><span className="font-semibold text-gray-900">Chave PIX:</span> {request.pix_key}</p>
-      </div>
-      {request.rejection_reason && <p className="mt-2 text-sm font-medium text-red-600">{request.rejection_reason}</p>}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        {['PENDING', 'UNDER_REVIEW'].includes(request.status) && (
-          <button
-            onClick={async () => { await cancelFinanceRequest(request.id); await loadData(); }}
-            className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
-          >
-            Cancelar
-          </button>
+        {request.rejection_reason && <p className="mt-2 text-sm font-medium text-red-600">{request.rejection_reason}</p>}
+
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+          <p className="text-sm font-semibold text-emerald-900">Comprovante</p>
+          {receipt ? (
+            <>
+              <p className="mt-1 text-sm text-emerald-800">
+                {getAttachmentName(receipt.file)} • enviado em {formatDateTime(receipt.created_at)}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a href={receipt.file} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">
+                  Ver comprovante
+                </a>
+                <a href={receipt.file} download className="rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800">
+                  Baixar comprovante
+                </a>
+              </div>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-emerald-800">Nenhum comprovante de execução anexado ainda.</p>
+          )}
+        </div>
+
+        {supportingAttachments.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-sm font-semibold text-gray-900">Anexos de suporte</p>
+            <div className="mt-3 space-y-2">
+              {supportingAttachments.map((attachment) => (
+                <div key={attachment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{getAttachmentName(attachment.file)}</p>
+                    <p className="text-xs text-gray-500">Anexado em {formatDateTime(attachment.created_at)}</p>
+                  </div>
+                  <a href={attachment.file} target="_blank" rel="noreferrer" className="text-xs font-semibold text-dark">
+                    Abrir anexo
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
-        <input
-          type="file"
-          onChange={(event) => setAttachmentFiles((current) => ({ ...current, [request.id]: event.target.files?.[0] || null }))}
-          className="text-sm text-gray-600"
-        />
-        <button
-          onClick={() => handleUpload(request.id)}
-          className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white"
-        >
-          Anexar arquivo
-        </button>
+
+        <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-4">
+          <p className="text-sm font-semibold text-gray-900">Anexar arquivo</p>
+          <p className="mt-1 text-xs text-gray-500">
+            {request.request_type === 'REIMBURSEMENT'
+              ? 'Reembolso exige comprovante. Selecione o arquivo e envie por aqui.'
+              : 'Você pode anexar comprovantes ou arquivos de suporte para facilitar a conferência.'}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <input
+              key={`${request.id}-${attachmentInputKeys[request.id] || 0}`}
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0] || null;
+                setAttachmentFiles((current) => ({ ...current, [request.id]: file }));
+                setAttachmentStates((current) => ({
+                  ...current,
+                  [request.id]: {
+                    status: 'idle',
+                    message: file ? 'Arquivo pronto para envio.' : '',
+                    fileName: file?.name || '',
+                  },
+                }));
+              }}
+              className="text-sm text-gray-600"
+            />
+            <button
+              type="button"
+              onClick={() => handleUpload(request.id)}
+              disabled={!selectedFile || uploadState?.status === 'uploading'}
+              className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {uploadState?.status === 'uploading' ? 'Enviando...' : 'Anexar arquivo'}
+            </button>
+            {['PENDING', 'UNDER_REVIEW'].includes(request.status) && (
+              <button
+                type="button"
+                onClick={async () => { await cancelFinanceRequest(request.id); await loadData(); }}
+                className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+          {(selectedFile || uploadState?.message) && (
+            <div className="mt-3 text-xs">
+              {selectedFile && <p className="text-gray-600">Arquivo selecionado: {selectedFile.name}</p>}
+              {uploadState?.message && (
+                <p
+                  className={
+                    uploadState.status === 'error'
+                      ? 'text-red-600'
+                      : uploadState.status === 'success'
+                        ? 'text-emerald-700'
+                        : 'text-gray-600'
+                  }
+                >
+                  {uploadState.message}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+          <p className="text-sm font-semibold text-gray-900">Histórico de ações</p>
+          <div className="mt-3 space-y-3">
+            {request.audit_logs.map((log) => {
+              const linkedAttachment = log.action === 'ATTACHMENT_ADDED'
+                ? attachmentMap.get(Number(log.metadata?.attachment_id))
+                : null;
+              return (
+                <div key={log.id} className="rounded-xl border border-gray-100 px-3 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-gray-900">{getAuditLabel(log)}</p>
+                    <p className="text-xs text-gray-500">{formatDateTime(log.created_at)}</p>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">{log.actor_email || 'Sistema'}</p>
+                  {log.note && <p className="mt-2 text-sm text-gray-700">{log.note}</p>}
+                  {linkedAttachment && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700">
+                        {linkedAttachment.category === 'RECEIPT' ? 'Comprovante' : 'Anexo de suporte'}
+                      </span>
+                      <a href={linkedAttachment.file} target="_blank" rel="noreferrer" className="font-semibold text-dark">
+                        {getAttachmentName(linkedAttachment.file)}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(220,253,97,0.25),_transparent_32%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-8 lg:px-8">
