@@ -395,18 +395,6 @@ export default function AdminDashboard() {
                       grossValue: stats.revenue.credit_total,
                       helper: 'Cartão pago pelo cliente',
                     },
-                    {
-                      label: 'Crédito liquidado estimado',
-                      value: stats.revenue.credit_received_net,
-                      grossValue: stats.revenue.credit_received,
-                      helper: 'Estimativa de parcelas já liquidadas com regra de 32 dias corridos',
-                    },
-                    {
-                      label: 'Crédito a liquidar estimado',
-                      value: stats.revenue.credit_pending_settlement_net,
-                      grossValue: stats.revenue.credit_pending_settlement,
-                      helper: 'Estimativa de saldo ainda aguardando liquidação por parcela',
-                    },
                   ].map((item) => (
                     <div key={item.label} className="rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
