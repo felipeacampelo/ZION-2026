@@ -33,10 +33,16 @@ def get_eligible_area_leaders_queryset():
 
 class ExpenseAttachmentSerializer(serializers.ModelSerializer):
     uploaded_by_email = serializers.EmailField(source='uploaded_by.email', read_only=True)
+    file = serializers.SerializerMethodField()
 
     class Meta:
         model = ExpenseAttachment
         fields = ['id', 'category', 'file', 'uploaded_by_email', 'created_at']
+
+    def get_file(self, obj):
+        if not obj.file:
+            return ''
+        return obj.file.url
 
 
 class ExpenseAuditLogSerializer(serializers.ModelSerializer):

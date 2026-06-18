@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.contrib.auth.models import Group
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -363,3 +364,31 @@ class FinanceFlowTests(APITestCase):
                 action=ExpenseAuditLog.ACTION_EXECUTED,
             ).exists()
         )
+
+    def test_attachment_file_url_is_relative_media_path(self):
+        _, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '10.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Anexo',
+                'justification': 'Teste de comprovante',
+            },
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        attachment_response = self.client.post(
+            reverse('finance:finance-request-attachments', args=[create_response.data['id']]),
+            {
+                'file': SimpleUploadedFile('comprovante.pdf', b'%PDF-1.4 test file', content_type='application/pdf'),
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(attachment_response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(attachment_response.data['file'].startswith('/media/finance/'))
