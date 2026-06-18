@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import AttachmentPreviewModal from '../components/AttachmentPreviewModal';
 import AdminShell from '../components/AdminShell';
 import {
   approveFinanceRequest,
@@ -8,6 +9,7 @@ import {
   getFinanceRequests,
   getFinanceRubrics,
   rejectFinanceRequest,
+  resolveMediaUrl,
   reviewFinanceRequest,
   type FinanceArea,
   type FinanceAttachment,
@@ -101,6 +103,7 @@ export default function AdminFinanceApprovals() {
   const [executionNotes, setExecutionNotes] = useState('');
   const [executionFile, setExecutionFile] = useState<File | null>(null);
   const [executionFeedback, setExecutionFeedback] = useState('');
+  const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
 
   const loadData = async () => {
     setError('');
@@ -211,6 +214,12 @@ export default function AdminFinanceApprovals() {
 
   return (
     <AdminShell>
+      <AttachmentPreviewModal
+        isOpen={Boolean(previewFile)}
+        fileName={previewFile?.name || ''}
+        fileUrl={previewFile?.url || ''}
+        onClose={() => setPreviewFile(null)}
+      />
       <div className="space-y-6">
         {/* Header */}
         <div>
@@ -391,8 +400,15 @@ export default function AdminFinanceApprovals() {
                                     <>
                                       <p className="mt-1 text-sm text-emerald-800">{getAttachmentName(receipt.file)} • {formatDateTime(receipt.created_at)}</p>
                                       <div className="mt-2 flex flex-wrap gap-2">
-                                        <a href={receipt.file} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white">Ver comprovante</a>
-                                        <a href={receipt.file} download className="rounded-xl border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800">Baixar</a>
+                                        <button
+                                          type="button"
+                                          onClick={() => setPreviewFile({ name: getAttachmentName(receipt.file), url: resolveMediaUrl(receipt.file) })}
+                                          className="rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
+                                        >
+                                          Visualizar
+                                        </button>
+                                        <a href={resolveMediaUrl(receipt.file)} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700">Nova aba</a>
+                                        <a href={resolveMediaUrl(receipt.file)} download className="rounded-xl border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800">Baixar</a>
                                       </div>
                                     </>
                                   ) : (
@@ -411,7 +427,16 @@ export default function AdminFinanceApprovals() {
                                             <p className="text-sm font-medium text-gray-900">{getAttachmentName(attachment.file)}</p>
                                             <p className="text-xs text-gray-400">Anexado em {formatDateTime(attachment.created_at)}</p>
                                           </div>
-                                          <a href={attachment.file} target="_blank" rel="noreferrer" className="text-xs font-semibold text-dark">Abrir</a>
+                                          <div className="flex flex-wrap gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => setPreviewFile({ name: getAttachmentName(attachment.file), url: resolveMediaUrl(attachment.file) })}
+                                              className="text-xs font-semibold text-dark"
+                                            >
+                                              Visualizar
+                                            </button>
+                                            <a href={resolveMediaUrl(attachment.file)} target="_blank" rel="noreferrer" className="text-xs font-semibold text-gray-500">Nova aba</a>
+                                          </div>
                                         </div>
                                       ))}
                                     </div>
@@ -439,7 +464,13 @@ export default function AdminFinanceApprovals() {
                                               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">
                                                 {linkedAttachment.category === 'RECEIPT' ? 'Comprovante' : 'Anexo'}
                                               </span>
-                                              <a href={linkedAttachment.file} target="_blank" rel="noreferrer" className="font-semibold text-dark">{getAttachmentName(linkedAttachment.file)}</a>
+                                              <button
+                                                type="button"
+                                                onClick={() => setPreviewFile({ name: getAttachmentName(linkedAttachment.file), url: resolveMediaUrl(linkedAttachment.file) })}
+                                                className="font-semibold text-dark"
+                                              >
+                                                {getAttachmentName(linkedAttachment.file)}
+                                              </button>
                                             </div>
                                           )}
                                         </div>

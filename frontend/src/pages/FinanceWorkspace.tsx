@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import AttachmentPreviewModal from '../components/AttachmentPreviewModal';
 import {
   addFinanceRequestAttachment,
   cancelFinanceRequest,
   createFinanceRequest,
   getMyFinanceDashboard,
+  resolveMediaUrl,
   type FinanceAttachment,
   type FinanceAuditLog,
   type FinanceExpenseRequest,
@@ -94,6 +96,7 @@ export default function FinanceWorkspace() {
   const [attachmentFiles, setAttachmentFiles] = useState<Record<number, File | null>>({});
   const [attachmentStates, setAttachmentStates] = useState<Record<number, UploadState>>({});
   const [attachmentInputKeys, setAttachmentInputKeys] = useState<Record<number, number>>({});
+  const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
   const loadData = async () => {
@@ -184,6 +187,7 @@ export default function FinanceWorkspace() {
     const attachmentMap = getAttachmentMap(request);
     const uploadState = attachmentStates[request.id];
     const selectedFile = attachmentFiles[request.id];
+    const receiptUrl = receipt ? resolveMediaUrl(receipt.file) : '';
 
     return (
       <div key={request.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
@@ -213,10 +217,17 @@ export default function FinanceWorkspace() {
                 {getAttachmentName(receipt.file)} • enviado em {formatDateTime(receipt.created_at)}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <a href={receipt.file} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white">
-                  Ver comprovante
+                <button
+                  type="button"
+                  onClick={() => setPreviewFile({ name: getAttachmentName(receipt.file), url: receiptUrl })}
+                  className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white"
+                >
+                  Visualizar
+                </button>
+                <a href={receiptUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">
+                  Nova aba
                 </a>
-                <a href={receipt.file} download className="rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800">
+                <a href={receiptUrl} download className="rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800">
                   Baixar comprovante
                 </a>
               </div>
@@ -236,9 +247,18 @@ export default function FinanceWorkspace() {
                     <p className="text-sm font-medium text-gray-900">{getAttachmentName(attachment.file)}</p>
                     <p className="text-xs text-gray-500">Anexado em {formatDateTime(attachment.created_at)}</p>
                   </div>
-                  <a href={attachment.file} target="_blank" rel="noreferrer" className="text-xs font-semibold text-dark">
-                    Abrir anexo
-                  </a>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewFile({ name: getAttachmentName(attachment.file), url: resolveMediaUrl(attachment.file) })}
+                      className="text-xs font-semibold text-dark"
+                    >
+                      Visualizar
+                    </button>
+                    <a href={resolveMediaUrl(attachment.file)} target="_blank" rel="noreferrer" className="text-xs font-semibold text-gray-500">
+                      Nova aba
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>
@@ -328,9 +348,13 @@ export default function FinanceWorkspace() {
                       <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700">
                         {linkedAttachment.category === 'RECEIPT' ? 'Comprovante' : 'Anexo de suporte'}
                       </span>
-                      <a href={linkedAttachment.file} target="_blank" rel="noreferrer" className="font-semibold text-dark">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewFile({ name: getAttachmentName(linkedAttachment.file), url: resolveMediaUrl(linkedAttachment.file) })}
+                        className="font-semibold text-dark"
+                      >
                         {getAttachmentName(linkedAttachment.file)}
-                      </a>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -344,6 +368,12 @@ export default function FinanceWorkspace() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(220,253,97,0.25),_transparent_32%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] px-4 py-8 lg:px-8">
+      <AttachmentPreviewModal
+        isOpen={Boolean(previewFile)}
+        fileName={previewFile?.name || ''}
+        fileUrl={previewFile?.url || ''}
+        onClose={() => setPreviewFile(null)}
+      />
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

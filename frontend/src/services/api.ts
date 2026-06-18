@@ -4,6 +4,13 @@ import type { AxiosProgressEvent } from 'axios';
 // API base URL: configurable via environment (VITE_API_URL) for Railway/production
 // Falls back to localhost for local development
 export const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
+export const API_ORIGIN = API_URL.replace(/\/api\/?$/, '');
+
+export const resolveMediaUrl = (value?: string | null) => {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  return new URL(value, `${API_ORIGIN}/`).toString();
+};
 
 // Função para obter o CSRF token do cookie
 function getCookie(name: string): string | null {
