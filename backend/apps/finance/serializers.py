@@ -34,15 +34,23 @@ def get_eligible_area_leaders_queryset():
 class ExpenseAttachmentSerializer(serializers.ModelSerializer):
     uploaded_by_email = serializers.EmailField(source='uploaded_by.email', read_only=True)
     file = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
 
     class Meta:
         model = ExpenseAttachment
-        fields = ['id', 'category', 'file', 'uploaded_by_email', 'created_at']
+        fields = ['id', 'category', 'file', 'uploaded_by_email', 'can_manage', 'created_at']
 
     def get_file(self, obj):
         if not obj.file:
             return ''
         return obj.file.url
+
+    def get_can_manage(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return bool(obj.uploaded_by_id and obj.uploaded_by_id == user.id and obj.execution_id is None)
 
 
 class ExpenseAuditLogSerializer(serializers.ModelSerializer):

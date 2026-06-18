@@ -169,6 +169,24 @@ class ExpenseRequestViewSet(
         expense_request = serializer.save()
         send_finance_request_created_notifications(expense_request)
 
+    def _get_manageable_request_attachment(self, expense_request, attachment_id, user):
+        try:
+            attachment = ExpenseAttachment.objects.get(
+                id=attachment_id,
+                expense_request=expense_request,
+                execution__isnull=True,
+            )
+        except ExpenseAttachment.DoesNotExist:
+            return None, Response({'detail': 'Anexo não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not attachment.uploaded_by_id or attachment.uploaded_by_id != user.id:
+            return None, Response(
+                {'detail': 'Apenas quem enviou o anexo pode substituí-lo ou excluí-lo.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return attachment, None
+
     def _ensure_admin(self, request):
         if not (request.user.is_staff or request.user.is_superuser):
             return Response({'detail': 'Acesso restrito ao administrativo.'}, status=status.HTTP_403_FORBIDDEN)
@@ -363,6 +381,55 @@ class ExpenseRequestViewSet(
             metadata={'attachment_id': attachment.id},
         )
         return Response(ExpenseAttachmentSerializer(attachment).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch'], url_path=r'attachments/(?P<attachment_id>[^/.]+)')
+    @transaction.atomic
+    def replace_attachment(self, request, pk=None, attachment_id=None):
+        expense_request = self.get_object()
+        attachment, forbidden = self._get_manageable_request_attachment(expense_request, attachment_id, request.user)
+        if forbidden:
+            return forbidden
+
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return Response({'file': ['Arquivo obrigatório.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        old_name = attachment.file.name
+        if attachment.file:
+            attachment.file.delete(save=False)
+        attachment.file = uploaded_file
+        attachment.save(update_fields=['file'])
+
+        ExpenseAuditLog.objects.create(
+            expense_request=expense_request,
+            actor=request.user,
+            action=ExpenseAuditLog.ACTION_ATTACHMENT_REPLACED,
+            note='Anexo substituído na solicitação.',
+            metadata={'attachment_id': attachment.id, 'old_file_name': old_name},
+        )
+        return Response(ExpenseAttachmentSerializer(attachment, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=['delete'], url_path=r'attachments/(?P<attachment_id>[^/.]+)')
+    @transaction.atomic
+    def delete_attachment(self, request, pk=None, attachment_id=None):
+        expense_request = self.get_object()
+        attachment, forbidden = self._get_manageable_request_attachment(expense_request, attachment_id, request.user)
+        if forbidden:
+            return forbidden
+
+        removed_file_name = attachment.file.name
+        if attachment.file:
+            attachment.file.delete(save=False)
+        attachment.delete()
+
+        ExpenseAuditLog.objects.create(
+            expense_request=expense_request,
+            actor=request.user,
+            action=ExpenseAuditLog.ACTION_ATTACHMENT_REMOVED,
+            note='Anexo removido da solicitação.',
+            metadata={'removed_file_name': removed_file_name},
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ExtraContributionViewSet(viewsets.ModelViewSet):

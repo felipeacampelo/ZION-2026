@@ -353,6 +353,8 @@ class ExpenseAuditLog(models.Model):
     ACTION_CANCELLED = 'CANCELLED'
     ACTION_EXECUTED = 'EXECUTED'
     ACTION_ATTACHMENT_ADDED = 'ATTACHMENT_ADDED'
+    ACTION_ATTACHMENT_REPLACED = 'ATTACHMENT_REPLACED'
+    ACTION_ATTACHMENT_REMOVED = 'ATTACHMENT_REMOVED'
     ACTION_CHOICES = [
         (ACTION_CREATED, _('Criada')),
         (ACTION_UNDER_REVIEW, _('Em análise')),
@@ -361,6 +363,8 @@ class ExpenseAuditLog(models.Model):
         (ACTION_CANCELLED, _('Cancelada')),
         (ACTION_EXECUTED, _('Executada')),
         (ACTION_ATTACHMENT_ADDED, _('Anexo adicionado')),
+        (ACTION_ATTACHMENT_REPLACED, _('Anexo substituído')),
+        (ACTION_ATTACHMENT_REMOVED, _('Anexo removido')),
     ]
 
     expense_request = models.ForeignKey(

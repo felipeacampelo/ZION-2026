@@ -372,6 +372,7 @@ export interface FinanceAttachment {
   category: 'SUPPORTING' | 'RECEIPT';
   file: string;
   uploaded_by_email: string;
+  can_manage: boolean;
   created_at: string;
 }
 
@@ -924,6 +925,17 @@ export const addFinanceRequestAttachment = (id: number, data: { file: File; cate
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
+
+export const replaceFinanceRequestAttachment = (requestId: number, attachmentId: number, data: { file: File }) => {
+  const formData = new FormData();
+  formData.append('file', data.file);
+  return api.patch<FinanceAttachment>(`/finance/requests/${requestId}/attachments/${attachmentId}/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const deleteFinanceRequestAttachment = (requestId: number, attachmentId: number) =>
+  api.delete(`/finance/requests/${requestId}/attachments/${attachmentId}/`);
 
 export const getMyFinanceDashboard = () =>
   api.get<FinanceMyDashboardResponse>('/finance/my/dashboard/');

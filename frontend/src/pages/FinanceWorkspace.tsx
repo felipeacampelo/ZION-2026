@@ -5,7 +5,9 @@ import {
   addFinanceRequestAttachment,
   cancelFinanceRequest,
   createFinanceRequest,
+  deleteFinanceRequestAttachment,
   getMyFinanceDashboard,
+  replaceFinanceRequestAttachment,
   resolveMediaUrl,
   type FinanceAttachment,
   type FinanceAuditLog,
@@ -96,6 +98,9 @@ export default function FinanceWorkspace() {
   const [attachmentFiles, setAttachmentFiles] = useState<Record<number, File | null>>({});
   const [attachmentStates, setAttachmentStates] = useState<Record<number, UploadState>>({});
   const [attachmentInputKeys, setAttachmentInputKeys] = useState<Record<number, number>>({});
+  const [replacementFiles, setReplacementFiles] = useState<Record<number, File | null>>({});
+  const [replacementStates, setReplacementStates] = useState<Record<number, UploadState>>({});
+  const [replacementInputKeys, setReplacementInputKeys] = useState<Record<number, number>>({});
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
@@ -181,6 +186,70 @@ export default function FinanceWorkspace() {
     }
   };
 
+  const handleReplaceAttachment = async (requestId: number, attachment: FinanceAttachment) => {
+    const file = replacementFiles[attachment.id];
+    if (!file) return;
+
+    setReplacementStates((current) => ({
+      ...current,
+      [attachment.id]: {
+        status: 'uploading',
+        message: 'Substituindo arquivo...',
+        fileName: file.name,
+      },
+    }));
+
+    try {
+      await replaceFinanceRequestAttachment(requestId, attachment.id, { file });
+      setReplacementFiles((current) => ({ ...current, [attachment.id]: null }));
+      setReplacementStates((current) => ({
+        ...current,
+        [attachment.id]: {
+          status: 'success',
+          message: 'Arquivo substituído com sucesso.',
+          fileName: file.name,
+        },
+      }));
+      setReplacementInputKeys((current) => ({ ...current, [attachment.id]: (current[attachment.id] || 0) + 1 }));
+      await loadData();
+    } catch (replaceError: any) {
+      setReplacementStates((current) => ({
+        ...current,
+        [attachment.id]: {
+          status: 'error',
+          message: getErrorMessage(replaceError),
+          fileName: file.name,
+        },
+      }));
+    }
+  };
+
+  const handleDeleteAttachment = async (requestId: number, attachment: FinanceAttachment) => {
+    try {
+      await deleteFinanceRequestAttachment(requestId, attachment.id);
+      setReplacementFiles((current) => ({ ...current, [attachment.id]: null }));
+      setReplacementStates((current) => ({
+        ...current,
+        [attachment.id]: {
+          status: 'success',
+          message: 'Anexo excluído com sucesso.',
+          fileName: '',
+        },
+      }));
+      setReplacementInputKeys((current) => ({ ...current, [attachment.id]: (current[attachment.id] || 0) + 1 }));
+      await loadData();
+    } catch (deleteError: any) {
+      setReplacementStates((current) => ({
+        ...current,
+        [attachment.id]: {
+          status: 'error',
+          message: getErrorMessage(deleteError),
+          fileName: '',
+        },
+      }));
+    }
+  };
+
   const renderRequest = (request: FinanceExpenseRequest) => {
     const receipt = getRequestReceipt(request);
     const supportingAttachments = getSupportingAttachments(request);
@@ -247,7 +316,7 @@ export default function FinanceWorkspace() {
                     <p className="text-sm font-medium text-gray-900">{getAttachmentName(attachment.file)}</p>
                     <p className="text-xs text-gray-500">Anexado em {formatDateTime(attachment.created_at)}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setPreviewFile({ name: getAttachmentName(attachment.file), url: resolveMediaUrl(attachment.file) })}
@@ -258,7 +327,63 @@ export default function FinanceWorkspace() {
                     <a href={resolveMediaUrl(attachment.file)} target="_blank" rel="noreferrer" className="text-xs font-semibold text-gray-500">
                       Nova aba
                     </a>
+                    {attachment.can_manage && (
+                      <>
+                        <input
+                          key={`${attachment.id}-${replacementInputKeys[attachment.id] || 0}`}
+                          type="file"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] || null;
+                            setReplacementFiles((current) => ({ ...current, [attachment.id]: file }));
+                            setReplacementStates((current) => ({
+                              ...current,
+                              [attachment.id]: {
+                                status: 'idle',
+                                message: file ? 'Arquivo pronto para substituição.' : '',
+                                fileName: file?.name || '',
+                              },
+                            }));
+                          }}
+                          className="text-xs text-gray-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleReplaceAttachment(request.id, attachment)}
+                          disabled={!replacementFiles[attachment.id] || replacementStates[attachment.id]?.status === 'uploading'}
+                          className="text-xs font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Substituir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAttachment(request.id, attachment)}
+                          className="text-xs font-semibold text-red-600"
+                        >
+                          Excluir
+                        </button>
+                      </>
+                    )}
                   </div>
+                  {attachment.can_manage && replacementStates[attachment.id]?.message && (
+                    <div className="w-full text-xs">
+                      <p
+                        className={
+                          replacementStates[attachment.id]?.status === 'error'
+                            ? 'text-red-600'
+                            : replacementStates[attachment.id]?.status === 'success'
+                              ? 'text-emerald-700'
+                              : 'text-gray-600'
+                        }
+                      >
+                        {replacementStates[attachment.id]?.message}
+                      </p>
+                    </div>
+                  )}
+                  {!attachment.can_manage && attachment.uploaded_by_email && (
+                    <div className="w-full text-xs text-gray-400">
+                      Enviado por {attachment.uploaded_by_email}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
