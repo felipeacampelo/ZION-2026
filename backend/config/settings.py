@@ -38,6 +38,9 @@ INSTALLED_APPS = [
     'dj_rest_auth',
     'dj_rest_auth.registration',
     
+    # Storage
+    'storages',
+
     # Local apps
     'apps.users',
     'apps.products',
@@ -117,8 +120,39 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATIC_URL = '/static/'
 
 # Media files
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# In production, files are stored on Cloudflare R2 (S3-compatible).
+# Set R2_* env vars in Railway to enable. Without them, falls back to local disk.
+R2_ACCOUNT_ID = config('R2_ACCOUNT_ID', default='')
+R2_ACCESS_KEY_ID = config('R2_ACCESS_KEY_ID', default='')
+R2_SECRET_ACCESS_KEY = config('R2_SECRET_ACCESS_KEY', default='')
+R2_BUCKET_NAME = config('R2_BUCKET_NAME', default='')
+R2_PUBLIC_URL = config('R2_PUBLIC_URL', default='')  # e.g. https://files.zion.com.br or https://pub-xxx.r2.dev
+
+if R2_ACCOUNT_ID and R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+    AWS_S3_ENDPOINT_URL = f'https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com'
+    AWS_ACCESS_KEY_ID = R2_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY = R2_SECRET_ACCESS_KEY
+    AWS_STORAGE_BUCKET_NAME = R2_BUCKET_NAME
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_REGION_NAME = 'auto'
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_QUERYSTRING_AUTH = False  # URLs diretas sem token (bucket público)
+    if R2_PUBLIC_URL:
+        AWS_S3_CUSTOM_DOMAIN = R2_PUBLIC_URL.removeprefix('https://').removeprefix('http://')
+    MEDIA_URL = f'{R2_PUBLIC_URL}/' if R2_PUBLIC_URL else f'https://{R2_BUCKET_NAME}.{R2_ACCOUNT_ID}.r2.cloudflarestorage.com/'
+    MEDIA_ROOT = ''
+else:
+    # Local development fallback
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
