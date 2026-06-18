@@ -241,6 +241,7 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
     execution = ExpenseExecutionSerializer(read_only=True)
     attachments = ExpenseAttachmentSerializer(many=True, read_only=True)
     audit_logs = ExpenseAuditLogSerializer(many=True, read_only=True)
+    request_type_display = serializers.SerializerMethodField()
 
     class Meta:
         model = ExpenseRequest
@@ -253,6 +254,8 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
             'requester',
             'requester_email',
             'amount',
+            'request_type',
+            'request_type_display',
             'description',
             'justification',
             'status',
@@ -284,6 +287,9 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
             'attachments',
             'audit_logs',
         ]
+
+    def get_request_type_display(self, obj):
+        return obj.get_request_type_display()
 
     def validate(self, attrs):
         request = self.context['request']

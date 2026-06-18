@@ -220,6 +220,25 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('amount', response.data)
 
+    def test_leader_can_define_request_type_on_creation(self):
+        _, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '15.00',
+                'request_type': 'REIMBURSEMENT',
+                'description': 'Compra já realizada',
+                'justification': 'Pagamento com recurso próprio',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['request_type'], 'REIMBURSEMENT')
+        self.assertEqual(response.data['request_type_display'], 'Reembolso')
+
     def test_approval_commits_budget_and_reimbursement_requires_receipt(self):
         area, rubric = self._create_area_and_rubric()
         self.client.force_authenticate(self.leader)
@@ -241,6 +260,7 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(approve_response.status_code, status.HTTP_200_OK)
         self.assertEqual(approve_response.data['status'], 'APPROVED')
         self.assertEqual(approve_response.data['execution']['status'], 'NOT_EXECUTED')
+        self.assertEqual(approve_response.data['execution']['execution_type'], 'ADVANCE')
 
         dashboard_response = self.client.get(reverse('finance:admin-summary'))
         self.assertEqual(dashboard_response.status_code, status.HTTP_200_OK)

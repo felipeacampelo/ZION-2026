@@ -194,6 +194,7 @@ class ExpenseRequestViewSet(
         ExpenseExecution.objects.update_or_create(
             expense_request=expense_request,
             defaults={
+                'execution_type': expense_request.request_type,
                 'amount': expense_request.amount,
                 'status': ExpenseExecution.STATUS_NOT_EXECUTED,
             },

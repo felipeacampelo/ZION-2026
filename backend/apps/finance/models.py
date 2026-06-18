@@ -9,6 +9,14 @@ def attachment_upload_to(instance, filename):
     return f'finance/{request_id}/{filename}'
 
 
+REQUEST_TYPE_ADVANCE = 'ADVANCE'
+REQUEST_TYPE_REIMBURSEMENT = 'REIMBURSEMENT'
+REQUEST_TYPE_CHOICES = [
+    (REQUEST_TYPE_ADVANCE, _('Solicitação de transferência')),
+    (REQUEST_TYPE_REIMBURSEMENT, _('Reembolso')),
+]
+
+
 class Area(models.Model):
     name = models.CharField(_('Nome'), max_length=120, unique=True)
     description = models.TextField(_('Descrição'), blank=True)
@@ -146,6 +154,12 @@ class ExpenseRequest(models.Model):
         max_digits=12,
         decimal_places=2,
         validators=[MinValueValidator(0.01)],
+    )
+    request_type = models.CharField(
+        _('Tipo de Solicitação'),
+        max_length=20,
+        choices=REQUEST_TYPE_CHOICES,
+        default=REQUEST_TYPE_ADVANCE,
     )
     description = models.TextField(_('Descrição'))
     justification = models.TextField(_('Justificativa'))
@@ -330,4 +344,3 @@ class ExpenseAuditLog(models.Model):
 
     def __str__(self):
         return f'{self.expense_request_id} - {self.action}'
-

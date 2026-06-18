@@ -39,8 +39,8 @@ class BudgetRubricAdmin(admin.ModelAdmin):
 
 @admin.register(ExpenseRequest)
 class ExpenseRequestAdmin(admin.ModelAdmin):
-    list_display = ['id', 'area', 'rubric', 'requester', 'amount', 'status', 'created_at']
-    list_filter = ['status', 'area', 'rubric']
+    list_display = ['id', 'area', 'rubric', 'requester', 'request_type', 'amount', 'status', 'created_at']
+    list_filter = ['status', 'request_type', 'area', 'rubric']
     search_fields = ['requester__email', 'description', 'justification']
 
 
@@ -61,4 +61,3 @@ class ExpenseAuditLogAdmin(admin.ModelAdmin):
     list_display = ['expense_request', 'action', 'actor', 'created_at']
     list_filter = ['action']
     search_fields = ['expense_request__id', 'actor__email', 'note']
-

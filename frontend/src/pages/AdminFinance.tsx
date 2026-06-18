@@ -381,12 +381,13 @@ export default function AdminFinance() {
                   <div>
                     <p className="font-bold text-gray-950">{item.rubric_name} • {item.area_name}</p>
                     <p className="text-sm text-gray-500">{item.requester_email}</p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{item.request_type_display}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {item.status === 'PENDING' && <button onClick={async () => { await reviewFinanceRequest(item.id, 'Em análise'); await loadData(); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">Em análise</button>}
                     {['PENDING', 'UNDER_REVIEW'].includes(item.status) && <button onClick={async () => { await approveFinanceRequest(item.id); await loadData(); }} className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Aprovar</button>}
                     {['PENDING', 'UNDER_REVIEW'].includes(item.status) && <button onClick={() => { setRejectingRequestId(item.id); setRejectionReason(''); }} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Rejeitar</button>}
-                    {item.status === 'APPROVED' && item.execution?.status === 'NOT_EXECUTED' && <button onClick={() => { setExecutingRequestId(item.id); setExecutionType('ADVANCE'); setExecutionNotes(''); setExecutionFile(null); }} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Executar</button>}
+                    {item.status === 'APPROVED' && item.execution?.status === 'NOT_EXECUTED' && <button onClick={() => { setExecutingRequestId(item.id); setExecutionType(item.execution?.execution_type || item.request_type); setExecutionNotes(''); setExecutionFile(null); }} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Executar</button>}
                   </div>
                 </div>
                 <div className="mt-3 grid gap-3 lg:grid-cols-[120px_1fr_1fr]">

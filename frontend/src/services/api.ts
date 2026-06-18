@@ -397,6 +397,8 @@ export interface FinanceExpenseRequest {
   requester: number;
   requester_email: string;
   amount: string;
+  request_type: 'ADVANCE' | 'REIMBURSEMENT';
+  request_type_display: string;
   description: string;
   justification: string;
   status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
@@ -857,6 +859,7 @@ export const getFinanceRequests = (params?: { area?: number; status?: string }) 
 export const createFinanceRequest = (data: {
   rubric: number;
   amount: string;
+  request_type: 'ADVANCE' | 'REIMBURSEMENT';
   description: string;
   justification: string;
 }) => api.post<FinanceExpenseRequest>('/finance/requests/', data);
