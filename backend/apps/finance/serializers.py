@@ -16,6 +16,7 @@ from .models import (
     ExtraContribution,
 )
 from .constants import AREA_LEADERS_GROUP_NAME
+from .permissions import can_manage_finance
 from .services import (
     get_area_summary,
     get_rubric_summary,
@@ -98,7 +99,7 @@ class ExpenseExecutionSerializer(serializers.ModelSerializer):
             return False
         if obj.execution_type != ExpenseExecution.TYPE_ADVANCE or obj.status != ExpenseExecution.STATUS_EXECUTED:
             return False
-        if user.is_staff or user.is_superuser:
+        if can_manage_finance(user):
             return True
         assignment = getattr(obj.expense_request.area, 'leader_assignment', None)
         return bool(assignment and assignment.user_id == user.id)
@@ -109,7 +110,7 @@ class ExpenseExecutionSerializer(serializers.ModelSerializer):
         if not user or not user.is_authenticated:
             return False
         return bool(
-            (user.is_staff or user.is_superuser)
+            can_manage_finance(user)
             and obj.execution_type == ExpenseExecution.TYPE_ADVANCE
             and obj.settlement_status == ExpenseExecution.SETTLEMENT_PENDING_RETURN
         )
@@ -120,7 +121,7 @@ class ExpenseExecutionSerializer(serializers.ModelSerializer):
         if not user or not user.is_authenticated:
             return False
         return bool(
-            (user.is_staff or user.is_superuser)
+            can_manage_finance(user)
             and obj.execution_type == ExpenseExecution.TYPE_ADVANCE
             and obj.status == ExpenseExecution.STATUS_EXECUTED
             and obj.settlement_status in [
@@ -361,7 +362,7 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
         if not rubric.is_active:
             raise serializers.ValidationError({'rubric': 'Não é possível criar solicitações em rubricas inativas.'})
 
-        if not (user.is_staff or user.is_superuser):
+        if not can_manage_finance(user):
             assignment = user.finance_area_assignments.select_related('area').first()
             if not assignment:
                 raise serializers.ValidationError('Você não possui área financeira vinculada.')

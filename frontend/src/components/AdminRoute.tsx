@@ -4,10 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface AdminRouteProps {
   children: React.ReactElement;
+  allowFinanceViewer?: boolean;
+  requireFinanceManage?: boolean;
 }
 
-export default function AdminRoute({ children }: AdminRouteProps) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+export default function AdminRoute({ children, allowFinanceViewer = false, requireFinanceManage = false }: AdminRouteProps) {
+  const { isAuthenticated, isAdmin, loading, canViewFinanceAdmin, canManageFinance } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -25,7 +27,13 @@ export default function AdminRoute({ children }: AdminRouteProps) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  if (!isAdmin) {
+  const hasAccess = requireFinanceManage
+    ? canManageFinance
+    : allowFinanceViewer
+      ? (isAdmin || canViewFinanceAdmin)
+      : isAdmin;
+
+  if (!hasAccess) {
     // Redirect to home if not admin
     return <Navigate to="/" replace />;
   }

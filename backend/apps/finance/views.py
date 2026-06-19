@@ -12,8 +12,6 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
-from apps.users.permissions import IsAdminUser
-
 from .models import (
     Area,
     AreaLeaderAssignment,
@@ -29,7 +27,7 @@ from .email_service import (
     send_finance_request_created_notifications,
     send_finance_request_rejected_notification,
 )
-from .permissions import IsFinanceLeaderOrAdmin
+from .permissions import CanManageFinanceAdmin, CanViewFinanceAdmin, IsFinanceLeaderOrAdmin, can_manage_finance, can_view_finance_admin
 from .serializers import (
     AreaSerializer,
     BudgetRubricSerializer,
@@ -91,8 +89,13 @@ def _build_global_summary():
 class AreaViewSet(viewsets.ModelViewSet):
     queryset = Area.objects.select_related('budget').prefetch_related('leader_assignment__user')
     serializer_class = AreaSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated, CanViewFinanceAdmin]
     pagination_class = None
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAuthenticated(), CanManageFinanceAdmin()]
+        return super().get_permissions()
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -107,13 +110,13 @@ class AreaViewSet(viewsets.ModelViewSet):
 
 class BudgetRubricViewSet(viewsets.ModelViewSet):
     serializer_class = BudgetRubricSerializer
-    permission_classes = [permissions.IsAuthenticated, IsFinanceLeaderOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, CanViewFinanceAdmin]
     pagination_class = None
 
     def get_queryset(self):
         queryset = BudgetRubric.objects.select_related('area', 'area__budget')
         user = self.request.user
-        if user.is_staff or user.is_superuser:
+        if can_view_finance_admin(user):
             area_id = self.request.query_params.get('area')
             if area_id:
                 queryset = queryset.filter(area_id=area_id)
@@ -126,7 +129,7 @@ class BudgetRubricViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), IsAdminUser()]
+            return [permissions.IsAuthenticated(), CanManageFinanceAdmin()]
         return super().get_permissions()
 
     def destroy(self, request, *args, **kwargs):
@@ -168,7 +171,7 @@ class ExpenseRequestViewSet(
         status_param = self.request.query_params.get('status')
         if status_param:
             queryset = queryset.filter(status=status_param)
-        if user.is_staff or user.is_superuser:
+        if can_manage_finance(user):
             area_id = self.request.query_params.get('area')
             if area_id:
                 queryset = queryset.filter(area_id=area_id)
@@ -202,13 +205,13 @@ class ExpenseRequestViewSet(
         return attachment, None
 
     def _ensure_admin(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
+        if not can_manage_finance(request.user):
             return Response({'detail': 'Acesso restrito ao administrativo.'}, status=status.HTTP_403_FORBIDDEN)
         return None
 
     def _ensure_area_leader_or_admin(self, request, expense_request):
         user = request.user
-        if user.is_staff or user.is_superuser:
+        if can_manage_finance(user):
             return None
         assignment = user.finance_area_assignments.select_related('area').first()
         if assignment and assignment.area_id == expense_request.area_id:
@@ -315,7 +318,7 @@ class ExpenseRequestViewSet(
     def cancel(self, request, pk=None):
         expense_request = self.get_object()
         user = request.user
-        if user != expense_request.requester and not (user.is_staff or user.is_superuser):
+        if user != expense_request.requester and not can_manage_finance(user):
             return Response({'detail': 'Sem permissão para cancelar esta solicitação.'}, status=status.HTTP_403_FORBIDDEN)
         if expense_request.status not in [ExpenseRequest.STATUS_PENDING, ExpenseRequest.STATUS_UNDER_REVIEW]:
             return Response({'detail': 'Apenas solicitações pendentes ou em análise podem ser canceladas.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -625,13 +628,13 @@ class ExtraContributionViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated, IsAdminUser])
+@permission_classes([permissions.IsAuthenticated, CanViewFinanceAdmin])
 def admin_finance_summary(request):
     return Response(_build_global_summary())
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated, IsAdminUser])
+@permission_classes([permissions.IsAuthenticated, CanViewFinanceAdmin])
 def finance_reports(request):
     payload = _build_global_summary()
     payload['report'] = build_finance_report()
@@ -639,7 +642,7 @@ def finance_reports(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated, IsAdminUser])
+@permission_classes([permissions.IsAuthenticated, CanViewFinanceAdmin])
 def finance_reports_csv(request):
     payload = build_finance_report()
     response = HttpResponse(content_type='text/csv')
@@ -673,7 +676,7 @@ def finance_reports_csv(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated, IsAdminUser])
+@permission_classes([permissions.IsAuthenticated, CanManageFinanceAdmin])
 def finance_leader_candidates(request):
     search = request.query_params.get('search', '').strip()
     queryset = get_eligible_area_leaders_queryset().order_by('email')
@@ -700,7 +703,7 @@ def my_finance_dashboard(request):
     user = request.user
     assignment = AreaLeaderAssignment.objects.select_related('area', 'area__budget', 'user').filter(user=user).first()
     if not assignment:
-        if user.is_staff or user.is_superuser:
+        if can_view_finance_admin(user):
             return Response({'detail': 'Use o dashboard administrativo para administradores.'}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'detail': 'Nenhuma área financeira vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
 

@@ -561,6 +561,8 @@ export interface User {
   last_name: string;
   is_staff: boolean;
   is_superuser: boolean;
+  can_view_finance_admin: boolean;
+  can_manage_finance: boolean;
   profile?: {
     phone: string;
     cpf: string;

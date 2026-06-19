@@ -4,6 +4,8 @@ User serializers following clean code principles.
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+
+from apps.finance.permissions import can_manage_finance, can_view_finance_admin
 from .models import User, UserProfile
 
 
@@ -20,6 +22,8 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer for user with profile."""
     
     profile = UserProfileSerializer(read_only=True)
+    can_view_finance_admin = serializers.SerializerMethodField()
+    can_manage_finance = serializers.SerializerMethodField()
     
     class Meta:
         model = User
@@ -31,9 +35,17 @@ class UserSerializer(serializers.ModelSerializer):
             'profile',
             'is_staff',
             'is_superuser',
+            'can_view_finance_admin',
+            'can_manage_finance',
             'date_joined',
         ]
-        read_only_fields = ['id', 'is_staff', 'is_superuser', 'date_joined']
+        read_only_fields = ['id', 'is_staff', 'is_superuser', 'can_view_finance_admin', 'can_manage_finance', 'date_joined']
+
+    def get_can_view_finance_admin(self, obj):
+        return can_view_finance_admin(obj)
+
+    def get_can_manage_finance(self, obj):
+        return can_manage_finance(obj)
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):

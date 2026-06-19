@@ -13,7 +13,8 @@ from apps.enrollments.models import Enrollment
 from apps.payments.models import Payment
 from apps.products.models import Batch, Product
 
-from .constants import AREA_LEADERS_GROUP_NAME
+from .constants import AREA_LEADERS_GROUP_NAME, FINANCE_NOTIFICATION_RECIPIENTS_GROUP_NAME, FINANCE_VIEWERS_GROUP_NAME
+from .email_service import _get_finance_notification_emails
 from .models import Area, AreaBudget, AreaLeaderAssignment, BudgetRubric, ExpenseAuditLog, ExpenseExecution
 
 
@@ -23,10 +24,14 @@ User = get_user_model()
 class FinanceFlowTests(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_user(email='finance-admin@example.com', password='password123', is_staff=True)
+        self.viewer = User.objects.create_user(email='finance-viewer@example.com', password='password123', is_staff=True)
         self.leader = User.objects.create_user(email='leader@example.com', password='password123', first_name='Lider')
         self.outsider = User.objects.create_user(email='outsider@example.com', password='password123')
         self.area_leaders_group = Group.objects.create(name=AREA_LEADERS_GROUP_NAME)
+        self.finance_viewers_group = Group.objects.create(name=FINANCE_VIEWERS_GROUP_NAME)
+        self.finance_notifications_group = Group.objects.create(name=FINANCE_NOTIFICATION_RECIPIENTS_GROUP_NAME)
         self.leader.groups.add(self.area_leaders_group)
+        self.viewer.groups.add(self.finance_viewers_group)
 
         self.product = Product.objects.create(
             name='Produto Financeiro',
@@ -73,6 +78,38 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(response.data['revenue']['total'], '100.00')
         self.assertEqual(response.data['revenue']['fees'], '1.99')
         self.assertEqual(response.data['revenue']['net'], '98.01')
+
+    def test_finance_viewer_can_access_summary_but_cannot_mutate(self):
+        area, _ = self._create_area_and_rubric()
+        self.client.force_authenticate(self.viewer)
+
+        summary_response = self.client.get(reverse('finance:admin-summary'))
+        self.assertEqual(summary_response.status_code, status.HTTP_200_OK)
+
+        areas_response = self.client.get(reverse('finance:finance-area-list'))
+        self.assertEqual(areas_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(areas_response.data[0]['id'], area.id)
+
+        create_response = self.client.post(
+            reverse('finance:finance-area-list'),
+            {
+                'name': 'Nova Área',
+                'description': 'Teste',
+                'allocated_amount': '10.00',
+            },
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_finance_notifications_only_include_group_members(self):
+        self.admin.groups.add(self.finance_notifications_group)
+        self.viewer.groups.add(self.finance_notifications_group)
+
+        emails = _get_finance_notification_emails()
+
+        self.assertIn(self.admin.email, emails)
+        self.assertIn(self.viewer.email, emails)
+        self.assertNotIn(self.leader.email, emails)
 
     def test_area_budget_can_exceed_realized_net_revenue(self):
         self.client.force_authenticate(self.admin)

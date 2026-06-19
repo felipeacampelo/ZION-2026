@@ -68,7 +68,7 @@ export default function AdminShell({ children }: AdminShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({ finance: true });
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin, canViewFinanceAdmin, canManageFinance } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
@@ -115,6 +115,25 @@ export default function AdminShell({ children }: AdminShellProps) {
   const userName = user
     ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email
     : '';
+
+  const navItems = NAV_ITEMS
+    .filter((item) => {
+      if (item.to !== '/admin/finance') {
+        return isAdmin;
+      }
+      return canViewFinanceAdmin;
+    })
+    .map((item) => (
+      item.to === '/admin/finance' && item.children
+        ? {
+            ...item,
+            children: item.children.filter((child) => {
+              if (child.to === '/admin/finance/approvals') return canManageFinance;
+              return true;
+            }),
+          }
+        : item
+    ));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -207,7 +226,7 @@ export default function AdminShell({ children }: AdminShellProps) {
             </div>
 
             <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
-              {NAV_ITEMS.map(({ to, label, icon: Icon, end, children }) => {
+              {navItems.map(({ to, label, icon: Icon, end, children }) => {
                 const isGroupActive = location.pathname === to || location.pathname.startsWith(`${to}/`);
 
                 if (!children || desktopCollapsed) {

@@ -11,6 +11,8 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  canViewFinanceAdmin: boolean;
+  canManageFinance: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     isAuthenticated: !!token && !!user,
     isAdmin: !!user && (user.is_staff || user.is_superuser),
+    canViewFinanceAdmin: !!user?.can_view_finance_admin,
+    canManageFinance: !!user?.can_manage_finance,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

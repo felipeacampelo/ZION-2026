@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
+import { useAuth } from '../contexts/AuthContext';
 import {
   createExtraContribution,
   createFinanceArea,
@@ -87,6 +88,7 @@ function BudgetCols({ allocated, pending, committed, executed, available, size =
 }
 
 export default function AdminFinance() {
+  const { canManageFinance } = useAuth();
   const [summary, setSummary] = useState<FinanceGlobalSummary | null>(null);
   const [areas, setAreas] = useState<FinanceArea[]>([]);
   const [rubrics, setRubrics] = useState<FinanceRubric[]>([]);
@@ -135,7 +137,7 @@ export default function AdminFinance() {
         getAdminFinanceSummary(),
         getFinanceAreas(),
         getFinanceRubrics(),
-        getFinanceLeaderCandidates(),
+        canManageFinance ? getFinanceLeaderCandidates() : Promise.resolve({ data: { results: [] } }),
         getExtraContributions(),
       ]);
       setSummary(summaryRes.data);
@@ -151,7 +153,7 @@ export default function AdminFinance() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [canManageFinance]);
 
   const toggleAreaExpand = (areaId: number) => {
     setExpandedAreaIds((prev) => {
@@ -328,6 +330,11 @@ export default function AdminFinance() {
             <p className="mt-2 max-w-2xl text-sm text-gray-600">
               Receita, orçamento por área e execução financeira.
             </p>
+            {!canManageFinance && (
+              <p className="mt-2 text-sm font-medium text-amber-700">
+                Seu acesso ao financeiro está em modo leitura.
+              </p>
+            )}
           </div>
           <button onClick={handleExportCsv} className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white">
             Exportar CSV
@@ -394,15 +401,15 @@ export default function AdminFinance() {
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="text-lg font-black text-gray-950">R$ {formatCurrency(item.amount)}</p>
-                    {deletingContributionId === item.id ? (
+                    {canManageFinance && deletingContributionId === item.id ? (
                       <div className="flex items-center gap-2">
                         <p className="text-xs font-semibold text-red-700">Confirmar exclusão?</p>
                         <button type="button" onClick={async () => { setDeletingContributionId(null); await handleDeleteContribution(item.id); }} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Sim</button>
                         <button type="button" onClick={() => setDeletingContributionId(null)} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Não</button>
                       </div>
-                    ) : (
+                    ) : canManageFinance ? (
                       <button type="button" onClick={() => setDeletingContributionId(item.id)} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -410,6 +417,7 @@ export default function AdminFinance() {
             </div>
           </div>
 
+          {canManageFinance && (
           <div className={cardClass}>
             <h2 className="text-lg font-black text-gray-950">Novo aporte</h2>
             <form onSubmit={handleCreateContribution} className="mt-4 space-y-3">
@@ -426,6 +434,7 @@ export default function AdminFinance() {
               <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Registrar aporte</button>
             </form>
           </div>
+          )}
         </section>
 
         {/* Áreas e Rubricas — unified tree */}
@@ -446,6 +455,7 @@ export default function AdminFinance() {
               >
                 {areas.every((a) => expandedAreaIds.has(a.id)) ? 'Colapsar tudo' : 'Expandir tudo'}
               </button>
+              {canManageFinance && (
               <button
                 type="button"
                 onClick={() => setShowCreateAreaForm((v) => !v)}
@@ -453,10 +463,11 @@ export default function AdminFinance() {
               >
                 {showCreateAreaForm ? 'Cancelar' : '+ Nova área'}
               </button>
+              )}
             </div>
           </div>
 
-          {showCreateAreaForm && (
+          {canManageFinance && showCreateAreaForm && (
             <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
               <p className="mb-3 text-sm font-bold text-gray-950">Nova área</p>
               <form onSubmit={handleCreateArea} className="space-y-3">
@@ -508,6 +519,7 @@ export default function AdminFinance() {
                         showBar
                       />
                     </div>
+                    {canManageFinance && (
                     <div className="flex flex-shrink-0 gap-2 pl-3" onClick={(e) => e.stopPropagation()}>
                       <button type="button" onClick={() => startAreaEdit(area)} className="rounded-xl bg-dark px-3 py-1.5 text-xs font-semibold text-white">Editar</button>
                       <button
@@ -518,6 +530,7 @@ export default function AdminFinance() {
                         Excluir
                       </button>
                     </div>
+                    )}
                   </div>
 
                   {/* Area warning */}
@@ -528,7 +541,7 @@ export default function AdminFinance() {
                   )}
 
                   {/* Area delete confirmation */}
-                  {deletingAreaId === area.id && (
+                  {canManageFinance && deletingAreaId === area.id && (
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-red-100 bg-red-50 px-4 py-3">
                       <p className="text-sm font-semibold text-red-700">Excluir <span className="font-black">"{area.name}"</span>? Esta ação não pode ser desfeita.</p>
                       <div className="flex gap-2">
@@ -539,7 +552,7 @@ export default function AdminFinance() {
                   )}
 
                   {/* Inline area edit form */}
-                  {editingAreaId === area.id && (
+                  {canManageFinance && editingAreaId === area.id && (
                     <div className="border-t border-gray-100 bg-white px-4 py-4">
                       <form
                         className="space-y-3"
@@ -589,6 +602,7 @@ export default function AdminFinance() {
                                 size="xs"
                               />
                             </div>
+                            {canManageFinance && (
                             <div className="flex flex-shrink-0 gap-2">
                               <button type="button" onClick={() => startRubricEdit(rubric)} className="rounded-xl bg-dark px-3 py-1.5 text-xs font-semibold text-white">Editar</button>
                               <button
@@ -599,6 +613,7 @@ export default function AdminFinance() {
                                 Excluir
                               </button>
                             </div>
+                            )}
                           </div>
                           {/* Mobile budget cols */}
                           <div className="mt-2 block lg:hidden">
@@ -613,7 +628,7 @@ export default function AdminFinance() {
                           </div>
 
                           {/* Inline rubric edit form */}
-                          {editingRubricId === rubric.id && (
+                          {canManageFinance && editingRubricId === rubric.id && (
                             <form
                               className="mt-3 space-y-3 border-t border-gray-100 pt-3"
                               onSubmit={async (event) => { event.preventDefault(); await saveRubricEdit(rubric.id); }}
@@ -629,7 +644,7 @@ export default function AdminFinance() {
                           )}
 
                           {/* Rubric delete confirmation */}
-                          {deletingRubricId === rubric.id && (
+                          {canManageFinance && deletingRubricId === rubric.id && (
                             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-3 py-3">
                               <p className="text-sm font-semibold text-red-700">Excluir <span className="font-black">"{rubric.name}"</span>?</p>
                               <div className="flex gap-2">
@@ -642,7 +657,7 @@ export default function AdminFinance() {
                       ))}
 
                       {/* Create rubric form */}
-                      {creatingRubricForAreaId === area.id ? (
+                      {canManageFinance && creatingRubricForAreaId === area.id ? (
                         <div className="rounded-xl border border-gray-200 bg-white px-4 py-4">
                           <p className="mb-3 text-xs font-bold text-gray-950">Nova rubrica em {area.name}</p>
                           <form onSubmit={handleCreateRubric} className="space-y-3">
@@ -655,7 +670,7 @@ export default function AdminFinance() {
                             </div>
                           </form>
                         </div>
-                      ) : (
+                      ) : canManageFinance ? (
                         <button
                           type="button"
                           onClick={() => openRubricForm(area.id)}
@@ -663,7 +678,7 @@ export default function AdminFinance() {
                         >
                           + Nova rubrica
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -676,6 +691,7 @@ export default function AdminFinance() {
         </section>
 
         {/* Approvals link */}
+        {canManageFinance && (
         <section className={cardClass}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -689,6 +705,7 @@ export default function AdminFinance() {
             </Link>
           </div>
         </section>
+        )}
 
         {/* Relatório consolidado — tree */}
         {areas.length > 0 && (

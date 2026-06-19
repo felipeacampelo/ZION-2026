@@ -134,7 +134,7 @@ function App() {
           <Route
             path="/admin/finance"
             element={
-              <AdminRoute>
+              <AdminRoute allowFinanceViewer>
                 <AdminFinance />
               </AdminRoute>
             }
@@ -142,7 +142,7 @@ function App() {
           <Route
             path="/admin/finance/approvals"
             element={
-              <AdminRoute>
+              <AdminRoute requireFinanceManage>
                 <AdminFinanceApprovals />
               </AdminRoute>
             }

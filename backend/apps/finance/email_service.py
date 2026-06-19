@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 
 from apps.enrollments.email_service import send_email_message
 
+from .constants import FINANCE_NOTIFICATION_RECIPIENTS_GROUP_NAME
+
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -38,17 +40,18 @@ def _notify(recipients, subject, html_content, text_content):
             logger.error('Erro ao enviar email financeiro para %s: %s', recipient, exc)
 
 
-def _get_admin_emails():
+def _get_finance_notification_emails():
     return list(
-        User.objects.filter(is_staff=True, is_active=True)
+        User.objects.filter(is_active=True, groups__name=FINANCE_NOTIFICATION_RECIPIENTS_GROUP_NAME)
         .exclude(email='')
+        .distinct()
         .values_list('email', flat=True)
     )
 
 
 def send_finance_request_created_notifications(expense_request):
     requester_email = expense_request.requester.email
-    admin_emails = [email for email in _get_admin_emails() if email != requester_email]
+    admin_emails = [email for email in _get_finance_notification_emails() if email != requester_email]
 
     subject_requester = f'Solicitação recebida: {expense_request.rubric.name}'
     html_requester = _build_html(
