@@ -52,6 +52,7 @@ User = get_user_model()
 def _build_global_summary():
     revenue = get_realized_net_revenue()
     extra_total = get_extra_contributions_total()
+    combined_total = revenue['net_revenue'] + extra_total
     allocated_total = sum(
         (
             Decimal(str(getattr(getattr(area, 'budget', None), 'allocated_amount', Decimal('0'))))
@@ -77,12 +78,12 @@ def _build_global_summary():
         },
         'budgets': {
             'allocated_total': str(allocated_total),
-            'remaining_to_allocate': str(revenue['net_revenue'] - allocated_total),
+            'remaining_to_allocate': str(combined_total - allocated_total),
             'awaiting_approval_total': str(awaiting_approval_total),
         },
         'extra_contributions': {
             'total': str(extra_total),
-            'combined_with_net': str(revenue['net_revenue'] + extra_total),
+            'combined_with_net': str(combined_total),
         },
     }
 
