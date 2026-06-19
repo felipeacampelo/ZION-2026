@@ -57,23 +57,24 @@ const getErrorMessage = (error: any) => {
 const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]';
 const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
 
-function BudgetCols({ allocated, pending, committed, available, size = 'sm', showBar = false }: {
-  allocated: string; pending: string; committed: string; available: string; size?: 'sm' | 'xs'; showBar?: boolean;
+function BudgetCols({ allocated, pending, committed, executed, available, size = 'sm', showBar = false }: {
+  allocated: string; pending: string; committed: string; executed: string; available: string; size?: 'sm' | 'xs'; showBar?: boolean;
 }) {
   const labelClass = size === 'xs' ? 'text-[10px]' : 'text-xs';
   const valueClass = size === 'xs' ? 'text-xs font-semibold' : 'text-sm font-semibold';
   const allocatedNum = Number(allocated || 0);
-  const usedNum = Number(committed || 0) + Number(pending || 0);
+  const usedNum = Number(pending || 0) + Number(committed || 0) + Number(executed || 0);
   const usedPct = allocatedNum > 0 ? Math.min(100, (usedNum / allocatedNum) * 100) : 0;
   const committedPct = allocatedNum > 0 ? Math.min(100, (Number(committed || 0) / allocatedNum) * 100) : 0;
   return (
-    <div className="grid grid-cols-4 gap-x-4 text-right">
+    <div className="grid grid-cols-5 gap-x-4 text-right">
       <div><p className={`${labelClass} text-gray-400`}>Orçado</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrency(allocated)}</p></div>
       <div><p className={`${labelClass} text-gray-400`}>Pendente</p><p className={`${valueClass} text-amber-700`}>R$ {formatCurrency(pending)}</p></div>
       <div><p className={`${labelClass} text-gray-400`}>Comprometido</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrency(committed)}</p></div>
+      <div><p className={`${labelClass} text-gray-400`}>Executado</p><p className={`${valueClass} text-blue-700`}>R$ {formatCurrency(executed)}</p></div>
       <div><p className={`${labelClass} text-gray-400`}>Disponível</p><p className={`${valueClass} text-gold-700`}>R$ {formatCurrency(available)}</p></div>
       {showBar && allocatedNum > 0 && (
-        <div className="col-span-4 mt-2">
+        <div className="col-span-5 mt-2">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
             <div className="h-full rounded-full bg-amber-400" style={{ width: `${usedPct}%` }}>
               <div className="h-full rounded-full bg-dark" style={{ width: committedPct > 0 ? `${(committedPct / usedPct) * 100}%` : '0%' }} />
@@ -501,6 +502,7 @@ export default function AdminFinance() {
                         allocated={area.summary.allocated_amount}
                         pending={area.summary.pending_amount}
                         committed={area.summary.committed_amount}
+                        executed={area.summary.executed_amount}
                         available={area.summary.available_amount}
                         size="xs"
                         showBar
@@ -582,6 +584,7 @@ export default function AdminFinance() {
                                 allocated={rubric.summary.allocated_amount}
                                 pending={rubric.summary.pending_amount}
                                 committed={rubric.summary.committed_amount}
+                                executed={rubric.summary.executed_amount}
                                 available={rubric.summary.available_amount}
                                 size="xs"
                               />
@@ -603,6 +606,7 @@ export default function AdminFinance() {
                               allocated={rubric.summary.allocated_amount}
                               pending={rubric.summary.pending_amount}
                               committed={rubric.summary.committed_amount}
+                              executed={rubric.summary.executed_amount}
                               available={rubric.summary.available_amount}
                               size="xs"
                             />
@@ -698,6 +702,7 @@ export default function AdminFinance() {
                     <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Orçado</th>
                     <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Pendente</th>
                     <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Comprometido</th>
+                    <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Executado</th>
                     <th className="pb-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gold-700">Disponível</th>
                   </tr>
                 </thead>
@@ -711,6 +716,7 @@ export default function AdminFinance() {
                           <td className="py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.allocated_amount)}</td>
                           <td className="py-2.5 pr-4 text-right font-semibold text-amber-700">R$ {formatCurrency(area.summary.pending_amount)}</td>
                           <td className="py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.committed_amount)}</td>
+                          <td className="py-2.5 pr-4 text-right font-semibold text-blue-700">R$ {formatCurrency(area.summary.executed_amount)}</td>
                           <td className="py-2.5 text-right font-bold text-gold-700">R$ {formatCurrency(area.summary.available_amount)}</td>
                         </tr>
                         {areaRubrics.map((rubric) => (
@@ -721,6 +727,7 @@ export default function AdminFinance() {
                             <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrency(rubric.summary.allocated_amount)}</td>
                             <td className="py-2 pr-4 text-right text-amber-600">R$ {formatCurrency(rubric.summary.pending_amount)}</td>
                             <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrency(rubric.summary.committed_amount)}</td>
+                            <td className="py-2 pr-4 text-right text-blue-600">R$ {formatCurrency(rubric.summary.executed_amount)}</td>
                             <td className="py-2 text-right font-semibold text-gold-600">R$ {formatCurrency(rubric.summary.available_amount)}</td>
                           </tr>
                         ))}
