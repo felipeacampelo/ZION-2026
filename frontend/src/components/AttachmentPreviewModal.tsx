@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 type AttachmentPreviewModalProps = {
   fileName: string;
   fileUrl: string;
@@ -22,6 +24,59 @@ export default function AttachmentPreviewModal({
   isOpen,
   onClose,
 }: AttachmentPreviewModalProps) {
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen || !fileUrl) {
+      setPreviewUrl('');
+      setLoading(false);
+      setLoadError('');
+      return;
+    }
+
+    let isMounted = true;
+    let objectUrl = '';
+
+    const loadPreview = async () => {
+      setLoading(true);
+      setLoadError('');
+
+      try {
+        const response = await fetch(fileUrl, { credentials: 'include' });
+        if (!response.ok) {
+          throw new Error('Não foi possível carregar o arquivo para visualização.');
+        }
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+
+        if (isMounted) {
+          setPreviewUrl(objectUrl);
+        }
+      } catch (error: any) {
+        if (isMounted) {
+          setPreviewUrl('');
+          setLoadError(error?.message || 'Não foi possível carregar a pré-visualização.');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadPreview();
+
+    return () => {
+      isMounted = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [fileUrl, isOpen]);
+
   if (!isOpen) return null;
 
   const extension = getFileExtension(fileUrl || fileName);
@@ -66,21 +121,34 @@ export default function AttachmentPreviewModal({
         </div>
 
         <div className="min-h-[60vh] flex-1 bg-gray-100">
-          {isImage && (
-            <div className="flex h-full items-center justify-center p-4">
-              <img src={fileUrl} alt={fileName} className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-lg" />
+          {loading && (
+            <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-sm font-semibold text-gray-900">Carregando visualização...</p>
             </div>
           )}
 
-          {isPdf && (
+          {!loading && loadError && (
+            <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-sm font-semibold text-gray-900">{loadError}</p>
+              <p className="text-sm text-gray-600">Se preferir, abra em nova aba ou faça o download.</p>
+            </div>
+          )}
+
+          {!loading && !loadError && isImage && previewUrl && (
+            <div className="flex h-full items-center justify-center p-4">
+              <img src={previewUrl} alt={fileName} className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-lg" />
+            </div>
+          )}
+
+          {!loading && !loadError && isPdf && previewUrl && (
             <iframe
               title={fileName}
-              src={fileUrl}
+              src={previewUrl}
               className="h-[78vh] w-full bg-white"
             />
           )}
 
-          {!isImage && !isPdf && (
+          {!loading && !loadError && !isImage && !isPdf && (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <p className="text-sm font-semibold text-gray-900">Pré-visualização não disponível para este tipo de arquivo.</p>
               <p className="text-sm text-gray-600">Use “Nova aba” ou “Baixar” para abrir o arquivo.</p>
