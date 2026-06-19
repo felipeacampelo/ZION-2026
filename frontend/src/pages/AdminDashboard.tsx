@@ -322,27 +322,64 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {stats && stats.revenue.extra_contributions_total > 0 && (
-                <div className="mt-3">
-                  <div
-                    className="rounded-2xl border px-4 py-3 shadow-sm"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(220,253,97,0.22) 0%, rgba(255,255,255,0.98) 100%)',
-                      borderColor: 'rgba(132, 204, 22, 0.22)',
-                    }}
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-700">
-                      Receita total (líquida + aportes)
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-gray-950">
-                      R$ {formatCurrency(stats.revenue.combined_total)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Inclui R$ {formatCurrency(stats.revenue.extra_contributions_total)} em aportes (ofertas, investidores, doações)
-                    </p>
+              {stats && (() => {
+                const projetada =
+                  stats.revenue.net +
+                  stats.revenue.pending +
+                  stats.revenue.extra_contributions_total +
+                  stats.social_quota.raised_total +
+                  stats.social_quota.remaining_total;
+
+                const lines = [
+                  { label: 'Receita líquida confirmada', value: stats.revenue.net },
+                  { label: 'Pagamentos pendentes', value: stats.revenue.pending },
+                  ...(stats.revenue.extra_contributions_total > 0
+                    ? [{ label: 'Aportes (ofertas, investidores, doações)', value: stats.revenue.extra_contributions_total }]
+                    : []),
+                  ...(stats.social_quota.raised_total > 0 || stats.social_quota.remaining_total > 0
+                    ? [
+                        { label: 'Cota social arrecadada', value: stats.social_quota.raised_total },
+                        { label: 'Cota social pendente de arrecadação', value: stats.social_quota.remaining_total },
+                      ]
+                    : []),
+                ];
+
+                return (
+                  <div className="mt-3">
+                    <div
+                      className="rounded-2xl border px-5 py-4 shadow-sm"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(220,253,97,0.28) 0%, rgba(255,255,255,0.98) 100%)',
+                        borderColor: 'rgba(132, 204, 22, 0.28)',
+                      }}
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-600">
+                            Receita total projetada
+                          </p>
+                          <p className="mt-2 text-3xl font-bold text-gray-950">
+                            R$ {formatCurrency(projetada)}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-500">
+                            Cenário completo: se tudo for pago e arrecadado
+                          </p>
+                        </div>
+                        <div className="min-w-0 shrink-0 space-y-1.5 sm:text-right">
+                          {lines.map((line) => (
+                            <div key={line.label} className="flex items-center justify-between gap-6 sm:justify-end">
+                              <span className="text-xs text-gray-500">{line.label}</span>
+                              <span className="text-xs font-semibold text-gray-800 tabular-nums">
+                                R$ {formatCurrency(line.value)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {stats && (
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
