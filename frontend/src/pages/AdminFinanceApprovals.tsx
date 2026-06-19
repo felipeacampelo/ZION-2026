@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import AttachmentPreviewModal from '../components/AttachmentPreviewModal';
 import AdminShell from '../components/AdminShell';
@@ -107,6 +108,7 @@ const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_
 const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
 
 export default function AdminFinanceApprovals() {
+  const { canManageFinance } = useAuth();
   const [areas, setAreas] = useState<FinanceArea[]>([]);
   const [rubrics, setRubrics] = useState<FinanceRubric[]>([]);
   const [requests, setRequests] = useState<FinanceExpenseRequest[]>([]);
@@ -445,7 +447,7 @@ export default function AdminFinanceApprovals() {
                               <div className="flex flex-shrink-0 flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                 <p className="text-sm font-bold text-gray-950">R$ {formatCurrency(item.amount)}</p>
                                 <StatusBadge status={item.status} isAwaitingExecution={isAwaitingExecution} />
-                                {item.status === 'PENDING' && (
+                                {canManageFinance && item.status === 'PENDING' && (
                                   <button
                                     type="button"
                                     onClick={async () => { await reviewFinanceRequest(item.id, 'Em análise'); await loadData(); }}
@@ -454,7 +456,7 @@ export default function AdminFinanceApprovals() {
                                     Em análise
                                   </button>
                                 )}
-                                {['PENDING', 'UNDER_REVIEW'].includes(item.status) && (
+                                {canManageFinance && ['PENDING', 'UNDER_REVIEW'].includes(item.status) && (
                                   <button
                                     type="button"
                                     onClick={async () => { await approveFinanceRequest(item.id); await loadData(); }}
@@ -463,7 +465,7 @@ export default function AdminFinanceApprovals() {
                                     Aprovar
                                   </button>
                                 )}
-                                {['PENDING', 'UNDER_REVIEW'].includes(item.status) && (
+                                {canManageFinance && ['PENDING', 'UNDER_REVIEW'].includes(item.status) && (
                                   <button
                                     type="button"
                                     onClick={() => { setRejectingRequestId(item.id); setRejectionReason(''); }}
@@ -472,7 +474,7 @@ export default function AdminFinanceApprovals() {
                                     Rejeitar
                                   </button>
                                 )}
-                                {isAwaitingExecution && (
+                                {canManageFinance && isAwaitingExecution && (
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -487,7 +489,7 @@ export default function AdminFinanceApprovals() {
                                     Executar
                                   </button>
                                 )}
-                                {item.execution?.can_confirm_return && (
+                                {canManageFinance && item.execution?.can_confirm_return && (
                                   <button
                                     type="button"
                                     onClick={() => submitConfirmReturn(item.id)}
@@ -496,7 +498,7 @@ export default function AdminFinanceApprovals() {
                                     Confirmar devolução
                                   </button>
                                 )}
-                                {item.execution?.can_manual_close && (
+                                {canManageFinance && item.execution?.can_manual_close && (
                                   <button
                                     type="button"
                                     onClick={() => {
