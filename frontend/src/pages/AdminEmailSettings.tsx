@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, Loader2, Mail, Save, Send, TriangleAlert } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronRight, Loader2, Mail, Save, Send, TriangleAlert } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import {
   createAdminEmailCampaign,
@@ -8,7 +8,6 @@ import {
   getAdminEnrollments,
   getAdminEmailTemplates,
   getAdminProducts,
-  previewAdminEmailCampaignRecipients,
   previewAdminEmailCampaignRecipientsByFilters,
   previewAdminEmailTemplate,
   sendAdminEmailCampaign,
@@ -23,20 +22,22 @@ import {
   type Product,
 } from '../services/api';
 
+type CampaignFilters = {
+  product?: number;
+  status?: string;
+  payment_method?: string;
+  payment_state?: string;
+  search?: string;
+  enrollment_ids?: number[];
+};
+
 type CampaignForm = {
   id?: number;
   name: string;
   subject: string;
   html_content: string;
   text_content: string;
-  filters: {
-    product?: number;
-    status?: string;
-    payment_method?: string;
-    payment_state?: string;
-    search?: string;
-    enrollment_ids?: number[];
-  };
+  filters: CampaignFilters;
   status?: EmailCampaign['status'];
 };
 
@@ -50,14 +51,15 @@ const emptyCampaignForm: CampaignForm = {
 };
 
 const CAMPAIGN_STATUS: Record<string, { label: string; className: string }> = {
-  DRAFT:   { label: 'Rascunho', className: 'bg-slate-100 text-slate-700' },
-  SENDING: { label: 'Enviando', className: 'bg-amber-100 text-amber-800' },
-  SENT:    { label: 'Enviada',  className: 'bg-green-100 text-green-800' },
+  DRAFT:   { label: 'Rascunho',   className: 'bg-slate-100 text-slate-700' },
+  SENDING: { label: 'Enviando',   className: 'bg-amber-100 text-amber-800' },
+  SENT:    { label: 'Enviada',    className: 'bg-green-100 text-green-800' },
   FAILED:  { label: 'Com falhas', className: 'bg-red-100 text-red-800' },
 };
 
-const cardClass = 'rounded-2xl border border-gray-100 bg-white p-5 shadow-sm lg:p-6';
-const inputClass = 'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-gray-400';
+const cardClass = 'rounded-2xl border border-gray-100 bg-white shadow-sm';
+const inputClass =
+  'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-gray-400';
 const labelClass = 'mb-1.5 block text-sm font-medium text-gray-700';
 
 function getApiErrorMessage(err: any, fallback: string) {
@@ -70,6 +72,13 @@ function getApiErrorMessage(err: any, fallback: string) {
     if (typeof value === 'string') return value;
   }
   return fallback;
+}
+
+function generateCampaignName(templateName: string) {
+  const now = new Date();
+  const date = now.toLocaleDateString('pt-BR');
+  const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return `${templateName} — ${date} ${time}`;
 }
 
 export default function AdminEmailSettings() {
@@ -91,25 +100,25 @@ export default function AdminEmailSettings() {
     text_content: string;
   } | null>(null);
 
-  // — Campaigns —
-  const [campaignView, setCampaignView] = useState<'list' | 'editor'>('list');
+  // — Campaign wizard —
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
   const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
-  const [selectedCampaignId, setSelectedCampaignId] = useState<number | null>(null);
   const [campaignForm, setCampaignForm] = useState<CampaignForm>(emptyCampaignForm);
-  const [campaignTemplateKey, setCampaignTemplateKey] = useState('');
+  const [campaignTemplateKey, setCampaignTemplateKey] = useState(''); // '' = nothing, '__custom__' = from scratch
   const [campaignTestEmail, setCampaignTestEmail] = useState('');
   const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [recipientPreview, setRecipientPreview] = useState<{
     count: number;
     sample: Array<{ enrollment_id: number; email: string; name: string }>;
   } | null>(null);
+  const [previewingRecipients, setPreviewingRecipients] = useState(false);
   const [recipientSearch, setRecipientSearch] = useState('');
   const [recipientOptions, setRecipientOptions] = useState<Enrollment[]>([]);
   const [selectedRecipients, setSelectedRecipients] = useState<Enrollment[]>([]);
   const [searchingRecipients, setSearchingRecipients] = useState(false);
 
-  const selectedCampaign = campaigns.find((item) => item.id === selectedCampaignId) || null;
-  const failedRecipients = selectedCampaign?.recipients?.filter((item) => item.status === 'FAILED') || [];
+  // ─── Data loading ────────────────────────────────────────────────────────────
 
   const loadData = async () => {
     setError('');
@@ -119,200 +128,128 @@ export default function AdminEmailSettings() {
       getAdminProducts(),
     ]);
 
-    const loadErrors: string[] = [];
-
     if (templatesRes.status === 'fulfilled') {
       setTemplates(templatesRes.value.data);
-      const initialTemplate =
-        templatesRes.value.data.find((item) => item.key === selectedTemplateKey) ||
+      const initial =
+        templatesRes.value.data.find((t) => t.key === selectedTemplateKey) ||
         templatesRes.value.data[0] ||
         null;
-      if (initialTemplate) {
-        setSelectedTemplateKey(initialTemplate.key);
-        setTemplateForm(initialTemplate);
+      if (initial) {
+        setSelectedTemplateKey(initial.key);
+        setTemplateForm(initial);
       }
-    } else {
-      loadErrors.push('templates');
     }
+    if (campaignsRes.status === 'fulfilled') setCampaigns(campaignsRes.value.data);
+    if (productsRes.status === 'fulfilled') setProducts(productsRes.value.data);
 
-    if (campaignsRes.status === 'fulfilled') {
-      setCampaigns(campaignsRes.value.data);
-    } else {
-      loadErrors.push('campanhas');
-    }
-
-    if (productsRes.status === 'fulfilled') {
-      setProducts(productsRes.value.data);
-    } else {
-      loadErrors.push('produtos');
-    }
-
-    if (loadErrors.length > 0) {
-      setError(
-        loadErrors.length === 3
-          ? 'Erro ao carregar configuração de emails.'
-          : `Erro ao carregar ${loadErrors.join(', ')} de emails.`,
-      );
-    }
+    const failed = [templatesRes, campaignsRes, productsRes].filter(
+      (r) => r.status === 'rejected',
+    ).length;
+    if (failed > 0) setError('Erro ao carregar alguns dados de emails.');
 
     setLoading(false);
   };
 
-  useEffect(() => {
-    void loadData();
-  }, []);
+  useEffect(() => { void loadData(); }, []);
 
   useEffect(() => {
     if (!selectedTemplateKey || templates.length === 0) return;
-    const match = templates.find((item) => item.key === selectedTemplateKey);
-    if (match) {
-      setTemplateForm(match);
-      setTemplatePreview(null);
-    }
+    const match = templates.find((t) => t.key === selectedTemplateKey);
+    if (match) { setTemplateForm(match); setTemplatePreview(null); }
   }, [selectedTemplateKey, templates]);
 
+  // Auto-preview recipients as filters change on steps 2 & 3
+  useEffect(() => {
+    if (activeTab !== 'campaigns' || wizardStep === 1) return;
+    const t = window.setTimeout(async () => {
+      setPreviewingRecipients(true);
+      try {
+        const res = await previewAdminEmailCampaignRecipientsByFilters(campaignForm.filters);
+        setRecipientPreview(res.data);
+      } catch {
+        // silent — user sees stale count
+      } finally {
+        setPreviewingRecipients(false);
+      }
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [campaignForm.filters, wizardStep, activeTab]);
+
+  // Debounced recipient search
   useEffect(() => {
     if (activeTab !== 'campaigns') return;
-    const timeoutId = window.setTimeout(async () => {
+    const t = window.setTimeout(async () => {
+      setSearchingRecipients(true);
       try {
-        setSearchingRecipients(true);
-        const response = await getAdminEnrollments({
+        const res = await getAdminEnrollments({
           search: recipientSearch.trim() || undefined,
           page: 1,
           page_size: 20,
         });
-        const results = Array.isArray(response.data) ? response.data : response.data.results || [];
-        setRecipientOptions(results);
-      } catch (err) {
-        console.error('Erro ao buscar inscritos para campanha:', err);
+        setRecipientOptions(Array.isArray(res.data) ? res.data : res.data.results || []);
+      } catch {
+        // silent
       } finally {
         setSearchingRecipients(false);
       }
     }, 250);
-    return () => window.clearTimeout(timeoutId);
+    return () => window.clearTimeout(t);
   }, [activeTab, recipientSearch]);
 
+  // Sync selectedRecipients when enrollment_ids change
   useEffect(() => {
-    const selectedIds = campaignForm.filters.enrollment_ids || [];
-    if (selectedIds.length === 0) {
-      setSelectedRecipients([]);
-      return;
-    }
+    const ids = campaignForm.filters.enrollment_ids || [];
+    if (ids.length === 0) { setSelectedRecipients([]); return; }
     const currentIds = selectedRecipients.map((r) => r.id).sort((a, b) => a - b);
-    const normalizedIds = [...selectedIds].sort((a, b) => a - b);
-    if (
-      currentIds.length === normalizedIds.length &&
-      currentIds.every((id, i) => id === normalizedIds[i])
-    ) return;
-
-    const loadSelectedRecipients = async () => {
+    const sorted = [...ids].sort((a, b) => a - b);
+    if (currentIds.length === sorted.length && currentIds.every((id, i) => id === sorted[i])) return;
+    (async () => {
       try {
-        const response = await getAdminEnrollments({
-          ids: selectedIds,
-          page: 1,
-          page_size: selectedIds.length,
-        });
-        const results = Array.isArray(response.data) ? response.data : response.data.results || [];
-        setSelectedRecipients(results);
-      } catch (err) {
-        console.error('Erro ao carregar inscritos selecionados da campanha:', err);
-      }
-    };
-    void loadSelectedRecipients();
+        const res = await getAdminEnrollments({ ids, page: 1, page_size: ids.length });
+        setSelectedRecipients(Array.isArray(res.data) ? res.data : res.data.results || []);
+      } catch { /* silent */ }
+    })();
   }, [campaignForm.filters.enrollment_ids, selectedRecipients]);
 
-  const refreshCampaign = async (campaignId: number) => {
-    const response = await getAdminEmailCampaign(campaignId);
-    const campaign = response.data;
-    setCampaigns((current) => {
-      const others = current.filter((item) => item.id !== campaign.id);
-      return [campaign, ...others].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
+  // ─── Recipient helpers ────────────────────────────────────────────────────────
+
+  const addRecipient = (enrollment: Enrollment) => {
+    const ids = campaignForm.filters.enrollment_ids || [];
+    if (ids.includes(enrollment.id)) return;
+    setCampaignForm((f) => ({ ...f, filters: { ...f.filters, enrollment_ids: [...ids, enrollment.id] } }));
+    setSelectedRecipients((r) => [...r, enrollment]);
+  };
+
+  const removeRecipient = (enrollmentId: number) => {
+    setCampaignForm((f) => {
+      const next = (f.filters.enrollment_ids || []).filter((id) => id !== enrollmentId);
+      return { ...f, filters: { ...f.filters, enrollment_ids: next.length > 0 ? next : undefined } };
     });
-    setSelectedCampaignId(campaign.id);
-    setCampaignForm({
-      id: campaign.id,
-      name: campaign.name,
-      subject: campaign.subject,
-      html_content: campaign.html_content,
-      text_content: campaign.text_content,
-      filters: campaign.filters || {},
-      status: campaign.status,
-    });
-    return campaign;
+    setSelectedRecipients((r) => r.filter((e) => e.id !== enrollmentId));
   };
 
-  const openCampaignEditor = async (campaignId: number) => {
-    await refreshCampaign(campaignId);
-    setCampaignTemplateKey('');
-    setRecipientPreview(null);
-    setShowSendConfirm(false);
-    setCampaignView('editor');
-  };
-
-  const openNewCampaign = () => {
-    setCampaignForm(emptyCampaignForm);
-    setSelectedCampaignId(null);
-    setCampaignTemplateKey('');
-    setRecipientPreview(null);
-    setShowSendConfirm(false);
-    setSelectedRecipients([]);
-    setCampaignView('editor');
-  };
-
-  const addRecipientToCampaign = (enrollment: Enrollment) => {
-    const currentIds = campaignForm.filters.enrollment_ids || [];
-    if (currentIds.includes(enrollment.id)) return;
-    setCampaignForm((current) => ({
-      ...current,
-      filters: { ...current.filters, enrollment_ids: [...currentIds, enrollment.id] },
-    }));
-    setSelectedRecipients((current) => [...current, enrollment]);
-  };
-
-  const removeRecipientFromCampaign = (enrollmentId: number) => {
-    setCampaignForm((current) => {
-      const nextIds = (current.filters.enrollment_ids || []).filter((id) => id !== enrollmentId);
-      return {
-        ...current,
-        filters: {
-          ...current.filters,
-          enrollment_ids: nextIds.length > 0 ? nextIds : undefined,
-        },
-      };
-    });
-    setSelectedRecipients((current) => current.filter((r) => r.id !== enrollmentId));
-  };
+  // ─── Template tab handlers ────────────────────────────────────────────────────
 
   const handleSaveTemplate = async () => {
     if (!templateForm) return;
-    setSaving(true);
-    setError('');
-    setSuccess('');
+    setSaving(true); setError(''); setSuccess('');
     try {
-      const response = await updateAdminEmailTemplate(templateForm.key, {
+      const res = await updateAdminEmailTemplate(templateForm.key, {
         subject: templateForm.subject,
         html_content: templateForm.html_content,
         text_content: templateForm.text_content,
         is_active: templateForm.is_active,
       });
-      const updated = response.data;
-      setTemplates((current) => current.map((item) => (item.key === updated.key ? updated : item)));
-      setTemplateForm(updated);
-      setSuccess('Template salvo com sucesso.');
-    } catch {
-      setError('Erro ao salvar template.');
-    } finally {
-      setSaving(false);
-    }
+      setTemplates((ts) => ts.map((t) => (t.key === res.data.key ? res.data : t)));
+      setTemplateForm(res.data);
+      setSuccess('Template salvo.');
+    } catch { setError('Erro ao salvar template.'); }
+    finally { setSaving(false); }
   };
 
   const handlePreviewTemplate = async () => {
     if (!templateForm) return;
-    setSaving(true);
-    setError('');
-    setSuccess('');
+    setSaving(true); setError(''); setSuccess('');
     try {
       await updateAdminEmailTemplate(templateForm.key, {
         subject: templateForm.subject,
@@ -320,20 +257,15 @@ export default function AdminEmailSettings() {
         text_content: templateForm.text_content,
         is_active: templateForm.is_active,
       });
-      const previewResponse = await previewAdminEmailTemplate(templateForm.key);
-      setTemplatePreview(previewResponse.data);
-    } catch {
-      setError('Erro ao gerar preview do template.');
-    } finally {
-      setSaving(false);
-    }
+      const res = await previewAdminEmailTemplate(templateForm.key);
+      setTemplatePreview(res.data);
+    } catch { setError('Erro ao gerar preview.'); }
+    finally { setSaving(false); }
   };
 
   const handleTemplateTest = async () => {
     if (!templateForm || !templateTestEmail) return;
-    setSaving(true);
-    setError('');
-    setSuccess('');
+    setSaving(true); setError(''); setSuccess('');
     try {
       await updateAdminEmailTemplate(templateForm.key, {
         subject: templateForm.subject,
@@ -342,88 +274,33 @@ export default function AdminEmailSettings() {
         is_active: templateForm.is_active,
       });
       await sendAdminEmailTemplateTest(templateForm.key, templateTestEmail);
-      setSuccess('Email de teste enviado com sucesso.');
-    } catch {
-      setError('Erro ao enviar email de teste do template.');
-    } finally {
-      setSaving(false);
-    }
+      setSuccess('Teste enviado.');
+    } catch { setError('Erro ao enviar teste.'); }
+    finally { setSaving(false); }
   };
 
-  const handleCreateDraft = async () => {
-    setSaving(true);
-    setError('');
-    setSuccess('');
-    try {
-      const response = await createAdminEmailCampaign(campaignForm);
-      await loadData();
-      await refreshCampaign(response.data.id);
-      setSuccess('Campanha criada como rascunho.');
-    } catch (err: any) {
-      setError(getApiErrorMessage(err, 'Erro ao criar campanha.'));
-    } finally {
-      setSaving(false);
-    }
-  };
+  // ─── Campaign wizard handlers ─────────────────────────────────────────────────
 
-  const handleSaveDraft = async () => {
-    if (!campaignForm.id) {
-      await handleCreateDraft();
+  const pickTemplate = (key: string) => {
+    setCampaignTemplateKey(key);
+    if (key === '__custom__') {
+      setCampaignForm((f) => ({ ...f, subject: '', html_content: '', text_content: '' }));
       return;
     }
-    setSaving(true);
-    setError('');
-    setSuccess('');
-    try {
-      const response = await updateAdminEmailCampaign(campaignForm.id, {
-        name: campaignForm.name,
-        subject: campaignForm.subject,
-        html_content: campaignForm.html_content,
-        text_content: campaignForm.text_content,
-        filters: campaignForm.filters,
-      });
-      await loadData();
-      await refreshCampaign(response.data.id);
-      setSuccess('Rascunho atualizado com sucesso.');
-    } catch (err: any) {
-      setError(getApiErrorMessage(err, 'Erro ao salvar rascunho.'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handlePreviewRecipients = async () => {
-    try {
-      setSaving(true);
-      setError('');
-      setSuccess('');
-      if (!campaignForm.id) {
-        const response = await previewAdminEmailCampaignRecipientsByFilters(campaignForm.filters);
-        setRecipientPreview(response.data);
-      } else {
-        await updateAdminEmailCampaign(campaignForm.id, {
-          name: campaignForm.name,
-          subject: campaignForm.subject,
-          html_content: campaignForm.html_content,
-          text_content: campaignForm.text_content,
-          filters: campaignForm.filters,
-        });
-        const response = await previewAdminEmailCampaignRecipients(campaignForm.id);
-        setRecipientPreview(response.data);
-      }
-    } catch (err: any) {
-      setError(getApiErrorMessage(err, 'Erro ao calcular destinatários.'));
-    } finally {
-      setSaving(false);
-    }
+    const tpl = templates.find((t) => t.key === key);
+    if (!tpl) return;
+    setCampaignForm((f) => ({
+      ...f,
+      subject: tpl.subject,
+      html_content: tpl.html_content,
+      text_content: tpl.text_content,
+    }));
   };
 
   const handleCampaignTest = async () => {
     if (!campaignTestEmail) return;
+    setSaving(true); setError(''); setSuccess('');
     try {
-      setSaving(true);
-      setError('');
-      setSuccess('');
       if (!campaignForm.id) {
         await sendAdminEmailCampaignDraftTest({
           to_email: campaignTestEmail,
@@ -442,53 +319,62 @@ export default function AdminEmailSettings() {
         });
         await sendAdminEmailCampaignTest(campaignForm.id, campaignTestEmail);
       }
-      setSuccess('Email de teste da campanha enviado com sucesso.');
-    } catch (err: any) {
-      setError(getApiErrorMessage(err, 'Erro ao enviar teste da campanha.'));
-    } finally {
-      setSaving(false);
-    }
+      setSuccess('Teste enviado.');
+    } catch (err: any) { setError(getApiErrorMessage(err, 'Erro ao enviar teste.')); }
+    finally { setSaving(false); }
   };
 
-  const handleSendCampaign = async () => {
-    if (!campaignForm.id) {
-      setError('Salve a campanha antes de confirmar o envio.');
-      return;
-    }
+  const handleQuickSend = async () => {
+    setSaving(true); setError(''); setSuccess('');
     try {
-      setSaving(true);
-      setError('');
-      setSuccess('');
-      setShowSendConfirm(false);
-      await updateAdminEmailCampaign(campaignForm.id, {
-        name: campaignForm.name,
-        subject: campaignForm.subject,
-        html_content: campaignForm.html_content,
-        text_content: campaignForm.text_content,
-        filters: campaignForm.filters,
-      });
-      const response = await sendAdminEmailCampaign(campaignForm.id);
+      const templateLabel =
+        campaignTemplateKey === '__custom__'
+          ? 'Email personalizado'
+          : templates.find((t) => t.key === campaignTemplateKey)?.name ?? 'Email';
+      const name = campaignForm.name.trim() || generateCampaignName(templateLabel);
+
+      let campaignId = campaignForm.id;
+      if (!campaignId) {
+        const res = await createAdminEmailCampaign({ ...campaignForm, name });
+        campaignId = res.data.id;
+      } else {
+        await updateAdminEmailCampaign(campaignId, {
+          name,
+          subject: campaignForm.subject,
+          html_content: campaignForm.html_content,
+          text_content: campaignForm.text_content,
+          filters: campaignForm.filters,
+        });
+      }
+
+      const res = await sendAdminEmailCampaign(campaignId);
       await loadData();
-      await refreshCampaign(campaignForm.id);
-      setSuccess(`Envio iniciado para ${response.data.recipient_count} destinatário(s).`);
-    } catch (err: any) {
-      setError(getApiErrorMessage(err, 'Erro ao iniciar campanha.'));
-    } finally {
-      setSaving(false);
-    }
+      setSuccess(`Enviado para ${res.data.recipient_count} destinatário(s).`);
+
+      // Reset wizard
+      setCampaignForm(emptyCampaignForm);
+      setCampaignTemplateKey('');
+      setWizardStep(1);
+      setRecipientPreview(null);
+      setShowSendConfirm(false);
+      setSelectedRecipients([]);
+      setShowHistory(true);
+    } catch (err: any) { setError(getApiErrorMessage(err, 'Erro ao enviar.')); }
+    finally { setSaving(false); }
   };
 
-  const applyTemplateToCampaign = (key: string) => {
-    const template = templates.find((item) => item.key === key);
-    if (!template) return;
-    setCampaignForm((current) => ({
-      ...current,
-      subject: template.subject,
-      html_content: template.html_content,
-      text_content: template.text_content,
-    }));
-    setSuccess(`Template "${template.name}" aplicado.`);
+  const resetWizard = () => {
+    setCampaignForm(emptyCampaignForm);
+    setCampaignTemplateKey('');
+    setWizardStep(1);
+    setRecipientPreview(null);
+    setShowSendConfirm(false);
+    setSelectedRecipients([]);
+    setError('');
+    setSuccess('');
   };
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <AdminShell>
@@ -496,12 +382,12 @@ export default function AdminEmailSettings() {
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Emails</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Edite templates automáticos e gerencie campanhas em lote com Resend.
+            Edite templates automáticos e gerencie campanhas com Resend.
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 w-fit">
+        <div className="flex gap-1 w-fit rounded-xl border border-gray-200 bg-gray-50 p-1">
           {(['templates', 'campaigns'] as const).map((tab) => (
             <button
               key={tab}
@@ -513,7 +399,7 @@ export default function AdminEmailSettings() {
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab === 'templates' ? 'Templates' : 'Campanhas'}
+              {tab === 'templates' ? 'Templates' : 'Enviar campanha'}
             </button>
           ))}
         </div>
@@ -532,57 +418,55 @@ export default function AdminEmailSettings() {
         )}
 
         {loading ? (
-          <div className={cardClass}>
-            <div className="flex items-center gap-3 text-gray-600">
+          <div className={`${cardClass} p-5`}>
+            <div className="flex items-center gap-3 text-gray-500">
               <Loader2 className="h-5 w-5 animate-spin" />
-              Carregando emails...
+              Carregando...
             </div>
           </div>
         ) : activeTab === 'templates' ? (
 
-          /* ─────────────── TEMPLATES TAB ─────────────── */
+          /* ══════════════════ TEMPLATES TAB ══════════════════ */
           <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-            {/* Template list */}
-            <div className={cardClass}>
-              <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.15em] text-gray-500">
+            {/* List */}
+            <div className={`${cardClass} p-4`}>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">
                 Templates
-              </h3>
+              </p>
               <div className="space-y-1.5">
-                {templates.map((template) => (
+                {templates.map((tpl) => (
                   <button
-                    key={template.key}
+                    key={tpl.key}
                     type="button"
-                    onClick={() => setSelectedTemplateKey(template.key)}
+                    onClick={() => setSelectedTemplateKey(tpl.key)}
                     className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors ${
-                      selectedTemplateKey === template.key
+                      selectedTemplateKey === tpl.key
                         ? 'border-purple/30 bg-purple/5'
                         : 'border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    <p className="text-sm font-medium text-gray-900">{template.name}</p>
+                    <p className="text-sm font-medium text-gray-900">{tpl.name}</p>
                     <span
-                      className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                        template.is_active ? 'bg-green-500' : 'bg-gray-300'
-                      }`}
-                      title={template.is_active ? 'Ativo' : 'Inativo'}
+                      className={`h-2 w-2 flex-shrink-0 rounded-full ${tpl.is_active ? 'bg-green-500' : 'bg-gray-300'}`}
+                      title={tpl.is_active ? 'Ativo' : 'Inativo'}
                     />
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Template editor */}
+            {/* Editor */}
             {templateForm && (
               <div className="space-y-5">
-                <div className={cardClass}>
-                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_240px]">
+                <div className={`${cardClass} p-5 lg:p-6`}>
+                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_220px]">
                     <div className="space-y-4">
-                      {/* Active toggle */}
+                      {/* Toggle */}
                       <div className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3">
                         <div>
                           <p className="text-sm font-medium text-gray-900">Template ativo</p>
                           <p className="text-xs text-gray-500">
-                            Desativado, o disparo automático desse email é ignorado.
+                            Desativado, o disparo automático é ignorado.
                           </p>
                         </div>
                         <button
@@ -606,9 +490,7 @@ export default function AdminEmailSettings() {
                         <label className={labelClass}>Assunto</label>
                         <input
                           value={templateForm.subject}
-                          onChange={(e) =>
-                            setTemplateForm({ ...templateForm, subject: e.target.value })
-                          }
+                          onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
                           className={inputClass}
                         />
                       </div>
@@ -617,9 +499,7 @@ export default function AdminEmailSettings() {
                         <label className={labelClass}>HTML</label>
                         <textarea
                           value={templateForm.html_content}
-                          onChange={(e) =>
-                            setTemplateForm({ ...templateForm, html_content: e.target.value })
-                          }
+                          onChange={(e) => setTemplateForm({ ...templateForm, html_content: e.target.value })}
                           rows={16}
                           className={`${inputClass} font-mono text-xs`}
                         />
@@ -629,43 +509,35 @@ export default function AdminEmailSettings() {
                         <label className={labelClass}>Texto fallback</label>
                         <textarea
                           value={templateForm.text_content}
-                          onChange={(e) =>
-                            setTemplateForm({ ...templateForm, text_content: e.target.value })
-                          }
+                          onChange={(e) => setTemplateForm({ ...templateForm, text_content: e.target.value })}
                           rows={5}
                           className={`${inputClass} font-mono text-xs`}
                         />
                       </div>
 
-                      {/* Actions */}
                       <div className="flex flex-wrap gap-3">
                         <button
                           type="button"
                           onClick={() => void handleSaveTemplate()}
                           disabled={saving}
-                          className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
                         >
-                          {saving ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Save className="h-4 w-4" />
-                          )}
-                          Salvar template
+                          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                          Salvar
                         </button>
                         <button
                           type="button"
                           onClick={() => void handlePreviewTemplate()}
                           disabled={saving}
-                          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                         >
                           <Mail className="h-4 w-4" />
                           Salvar e pré-visualizar
                         </button>
                       </div>
 
-                      {/* Test send */}
                       <div className="rounded-xl border border-gray-200 p-4">
-                        <p className={labelClass}>Enviar teste</p>
+                        <label className={labelClass}>Enviar teste</label>
                         <div className="flex flex-col gap-2 sm:flex-row">
                           <input
                             type="email"
@@ -678,20 +550,18 @@ export default function AdminEmailSettings() {
                             type="button"
                             onClick={() => void handleTemplateTest()}
                             disabled={saving || !templateTestEmail}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                           >
                             <Send className="h-4 w-4" />
-                            Enviar teste
+                            Enviar
                           </button>
                         </div>
                       </div>
 
                       {templatePreview && (
                         <div className="rounded-xl border border-gray-200 p-4">
-                          <p className="mb-1 text-sm font-medium text-gray-900">
-                            Preview renderizado
-                          </p>
-                          <p className="mb-4 text-sm text-gray-600">
+                          <p className="mb-1 text-sm font-medium text-gray-900">Preview</p>
+                          <p className="mb-4 text-sm text-gray-500">
                             <strong>Assunto:</strong> {templatePreview.subject}
                           </p>
                           <div
@@ -702,10 +572,10 @@ export default function AdminEmailSettings() {
                       )}
                     </div>
 
-                    {/* Available tokens */}
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-500">
-                        Tokens disponíveis
+                    {/* Tokens */}
+                    <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">
+                        Tokens
                       </p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {templateForm.available_tokens.map((token) => (
@@ -726,531 +596,559 @@ export default function AdminEmailSettings() {
 
         ) : (
 
-          /* ─────────────── CAMPAIGNS TAB ─────────────── */
-          campaignView === 'list' ? (
+          /* ══════════════════ CAMPAIGNS TAB ══════════════════ */
+          <div className="space-y-5">
 
-            /* LIST VIEW */
-            <div className={cardClass}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Campanhas</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Clique em uma campanha para editar ou ver o status de envio.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={openNewCampaign}
-                  className="rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                >
-                  + Nova campanha
-                </button>
-              </div>
-
-              <div className="mt-5 space-y-2">
-                {campaigns.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-gray-500">
-                    Nenhuma campanha criada ainda.
-                  </div>
-                ) : (
-                  campaigns.map((campaign) => {
-                    const statusMeta = CAMPAIGN_STATUS[campaign.status] ?? {
-                      label: campaign.status,
-                      className: 'bg-gray-100 text-gray-700',
-                    };
-                    return (
-                      <button
-                        key={campaign.id}
-                        type="button"
-                        onClick={() => void openCampaignEditor(campaign.id)}
-                        className="flex w-full items-center justify-between gap-4 rounded-xl border border-gray-200 px-4 py-3.5 text-left transition-colors hover:bg-gray-50"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-gray-900">
-                            {campaign.name}
-                          </p>
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            {campaign.sent_count}/{campaign.recipient_count} enviados
-                            {campaign.failed_count > 0 && (
-                              <span className="ml-1.5 text-red-600">
-                                · {campaign.failed_count} falhas
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <span
-                          className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}
-                        >
-                          {statusMeta.label}
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-          ) : (
-
-            /* EDITOR VIEW */
-            <div className="space-y-5">
-              {/* Editor header */}
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setCampaignView('list'); setError(''); setSuccess(''); }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Campanhas
-                </button>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {campaignForm.id ? campaignForm.name || 'Sem nome' : 'Nova campanha'}
-                </h3>
-                {campaignForm.status && (
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      (CAMPAIGN_STATUS[campaignForm.status] ?? { className: 'bg-gray-100 text-gray-700' }).className
-                    }`}
-                  >
-                    {(CAMPAIGN_STATUS[campaignForm.status] ?? { label: campaignForm.status }).label}
-                  </span>
-                )}
-              </div>
-
-              {/* Section 1: Conteúdo */}
-              <section className={cardClass}>
-                <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                  1. Conteúdo
-                </h4>
-                <div className="space-y-4">
-                  <div>
-                    <label className={labelClass}>Usar template base</label>
-                    <select
-                      value={campaignTemplateKey}
-                      onChange={(e) => {
-                        setCampaignTemplateKey(e.target.value);
-                        if (e.target.value) applyTemplateToCampaign(e.target.value);
-                      }}
-                      className={inputClass}
-                    >
-                      <option value="">Nenhum — escrever do zero</option>
-                      {templates.map((template) => (
-                        <option key={template.key} value={template.key}>
-                          {template.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Nome interno</label>
-                    <input
-                      value={campaignForm.name}
-                      onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
-                      placeholder="Ex: Lembrete de pagamento — Lote 2"
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Assunto</label>
-                    <input
-                      value={campaignForm.subject}
-                      onChange={(e) =>
-                        setCampaignForm({ ...campaignForm, subject: e.target.value })
-                      }
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>HTML</label>
-                    <textarea
-                      value={campaignForm.html_content}
-                      onChange={(e) =>
-                        setCampaignForm({ ...campaignForm, html_content: e.target.value })
-                      }
-                      rows={14}
-                      className={`${inputClass} font-mono text-xs`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Texto fallback</label>
-                    <textarea
-                      value={campaignForm.text_content}
-                      onChange={(e) =>
-                        setCampaignForm({ ...campaignForm, text_content: e.target.value })
-                      }
-                      rows={5}
-                      className={`${inputClass} font-mono text-xs`}
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {/* Section 2: Público */}
-              <section className={cardClass}>
-                <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                  2. Público
-                </h4>
-
-                <div className="space-y-4">
-                  <p className="text-sm font-medium text-gray-700">Filtros</p>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    <select
-                      value={campaignForm.filters.product || ''}
-                      onChange={(e) =>
-                        setCampaignForm({
-                          ...campaignForm,
-                          filters: {
-                            ...campaignForm.filters,
-                            product: e.target.value ? Number(e.target.value) : undefined,
-                          },
-                        })
-                      }
-                      className={inputClass}
-                    >
-                      <option value="">Todos os produtos</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={campaignForm.filters.status || ''}
-                      onChange={(e) =>
-                        setCampaignForm({
-                          ...campaignForm,
-                          filters: { ...campaignForm.filters, status: e.target.value || undefined },
-                        })
-                      }
-                      className={inputClass}
-                    >
-                      <option value="">Todos os status</option>
-                      <option value="PENDING_PAYMENT">Aguardando pagamento</option>
-                      <option value="PAID">Pago</option>
-                      <option value="CANCELLED">Cancelado</option>
-                      <option value="EXPIRED">Expirado</option>
-                    </select>
-
-                    <select
-                      value={campaignForm.filters.payment_method || ''}
-                      onChange={(e) =>
-                        setCampaignForm({
-                          ...campaignForm,
-                          filters: {
-                            ...campaignForm.filters,
-                            payment_method: e.target.value || undefined,
-                          },
-                        })
-                      }
-                      className={inputClass}
-                    >
-                      <option value="">Todas as formas de pagamento</option>
-                      <option value="PIX_CASH">PIX à vista</option>
-                      <option value="PIX_INSTALLMENT">PIX parcelado</option>
-                      <option value="CREDIT_CARD">Cartão de crédito</option>
-                    </select>
-
-                    <select
-                      value={campaignForm.filters.payment_state || ''}
-                      onChange={(e) =>
-                        setCampaignForm({
-                          ...campaignForm,
-                          filters: {
-                            ...campaignForm.filters,
-                            payment_state: e.target.value || undefined,
-                          },
-                        })
-                      }
-                      className={inputClass}
-                    >
-                      <option value="">Qualquer situação de pagamento</option>
-                      <option value="NO_PAYMENT_YET">Sem pagamento efetivado</option>
-                    </select>
-
-                    <input
-                      value={campaignForm.filters.search || ''}
-                      onChange={(e) =>
-                        setCampaignForm({
-                          ...campaignForm,
-                          filters: {
-                            ...campaignForm.filters,
-                            search: e.target.value || undefined,
-                          },
-                        })
-                      }
-                      placeholder="Buscar por nome, email ou CPF"
-                      className={inputClass}
-                    />
-                  </div>
-
-                  {/* Specific recipients */}
-                  <div className="border-t border-gray-100 pt-4">
-                    <p className="text-sm font-medium text-gray-700">
-                      Inscritos específicos{' '}
-                      <span className="font-normal text-gray-500">(opcional)</span>
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Quando preenchido, a campanha é restrita a esses inscritos (em conjunto com os filtros acima).
-                    </p>
-
-                    <input
-                      value={recipientSearch}
-                      onChange={(e) => setRecipientSearch(e.target.value)}
-                      placeholder="Buscar inscrito por nome, email ou CPF"
-                      className={`${inputClass} mt-3`}
-                    />
-
-                    <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
-                      {searchingRecipients ? (
-                        <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-500">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Buscando inscritos...
-                        </div>
-                      ) : (
-                        <div className="max-h-56 overflow-y-auto">
-                          {recipientOptions.length === 0 ? (
-                            <div className="px-4 py-3 text-sm text-gray-500">
-                              Nenhum inscrito encontrado.
-                            </div>
-                          ) : (
-                            recipientOptions.map((enrollment) => {
-                              const isSelected = (
-                                campaignForm.filters.enrollment_ids || []
-                              ).includes(enrollment.id);
-                              return (
-                                <button
-                                  key={enrollment.id}
-                                  type="button"
-                                  onClick={() => addRecipientToCampaign(enrollment)}
-                                  disabled={isSelected}
-                                  className="flex w-full items-center justify-between border-b border-gray-100 px-4 py-2.5 text-left last:border-b-0 transition-colors hover:bg-gray-50 disabled:bg-gray-50"
-                                >
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-900">
-                                      {enrollment.form_data?.nome_completo ||
-                                        enrollment.user_email ||
-                                        `Inscrição #${enrollment.id}`}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      #{enrollment.id} ·{' '}
-                                      {enrollment.user_email ||
-                                        enrollment.form_data?.email ||
-                                        'Sem email'}
-                                    </p>
-                                  </div>
-                                  <span
-                                    className={`text-xs font-medium ${
-                                      isSelected ? 'text-gray-400' : 'text-purple'
-                                    }`}
-                                  >
-                                    {isSelected ? 'Adicionado' : 'Adicionar'}
-                                  </span>
-                                </button>
-                              );
-                            })
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {selectedRecipients.length > 0 && (
-                      <div className="mt-3">
-                        <p className="mb-2 text-xs font-medium text-gray-600">
-                          Selecionados ({selectedRecipients.length})
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedRecipients.map((recipient) => (
-                            <button
-                              key={recipient.id}
-                              type="button"
-                              onClick={() => removeRecipientFromCampaign(recipient.id)}
-                              className="flex items-center gap-1.5 rounded-full border border-purple/20 bg-purple/5 px-3 py-1.5 text-xs font-medium text-purple transition-colors hover:bg-purple/10"
-                            >
-                              {recipient.form_data?.nome_completo ||
-                                recipient.user_email ||
-                                `#${recipient.id}`}
-                              <span className="text-purple/60">✕</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+            {/* Step indicator */}
+            <div className={`${cardClass} p-4`}>
+              <div className="flex items-center gap-0">
+                {([
+                  { n: 1, label: 'Template' },
+                  { n: 2, label: 'Público' },
+                  { n: 3, label: 'Enviar' },
+                ] as const).map(({ n, label }, i) => (
+                  <div key={n} className="flex items-center">
+                    {i > 0 && (
+                      <div className={`h-px w-8 sm:w-16 ${wizardStep > i ? 'bg-gray-900' : 'bg-gray-200'}`} />
                     )}
-                  </div>
-                </div>
-              </section>
-
-              {/* Section 3: Salvar, testar, enviar */}
-              <section className={cardClass}>
-                <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                  3. Salvar e enviar
-                </h4>
-
-                <div className="space-y-5">
-                  {/* Save */}
-                  <div>
                     <button
                       type="button"
-                      onClick={() => void handleSaveDraft()}
-                      disabled={saving}
-                      className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                      onClick={() => {
+                        if (n < wizardStep) setWizardStep(n);
+                      }}
+                      disabled={n >= wizardStep}
+                      className="flex items-center gap-2 disabled:cursor-default"
                     >
-                      {saving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      {campaignForm.id ? 'Salvar rascunho' : 'Criar rascunho'}
+                      <span
+                        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                          wizardStep === n
+                            ? 'bg-gray-950 text-white'
+                            : wizardStep > n
+                              ? 'bg-gray-200 text-gray-700'
+                              : 'bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {wizardStep > n ? '✓' : n}
+                      </span>
+                      <span
+                        className={`hidden text-sm font-medium sm:block ${
+                          wizardStep === n ? 'text-gray-900' : 'text-gray-400'
+                        }`}
+                      >
+                        {label}
+                      </span>
                     </button>
                   </div>
+                ))}
 
-                  {/* Test */}
-                  <div className="rounded-xl border border-gray-200 p-4">
-                    <p className={labelClass}>Enviar e-mail de teste</p>
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="ml-auto">
+                  <button
+                    type="button"
+                    onClick={resetWizard}
+                    className="text-xs text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
+                  >
+                    Recomeçar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Step 1: Template ── */}
+            {wizardStep === 1 && (
+              <div className={`${cardClass} p-5 lg:p-6`}>
+                <h3 className="text-base font-semibold text-gray-900">
+                  Qual template você quer enviar?
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  O conteúdo do template será usado como base. Você poderá ajustar o assunto no passo seguinte.
+                </p>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {templates.map((tpl) => (
+                    <button
+                      key={tpl.key}
+                      type="button"
+                      onClick={() => pickTemplate(tpl.key)}
+                      className={`relative rounded-xl border-2 p-4 text-left transition-all ${
+                        campaignTemplateKey === tpl.key
+                          ? 'border-gray-900 bg-gray-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {campaignTemplateKey === tpl.key && (
+                        <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[10px] text-white">
+                          ✓
+                        </span>
+                      )}
+                      <p className="pr-6 text-sm font-semibold text-gray-900">{tpl.name}</p>
+                      <p className="mt-1 line-clamp-1 text-xs text-gray-500">{tpl.subject}</p>
+                      {!tpl.is_active && (
+                        <span className="mt-2 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                          Inativo
+                        </span>
+                      )}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => pickTemplate('__custom__')}
+                    className={`rounded-xl border-2 border-dashed p-4 text-left transition-all ${
+                      campaignTemplateKey === '__custom__'
+                        ? 'border-gray-900 bg-gray-50'
+                        : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-700">Escrever do zero</p>
+                    <p className="mt-1 text-xs text-gray-500">HTML e texto personalizados</p>
+                  </button>
+                </div>
+
+                {/* Custom content fields */}
+                {campaignTemplateKey === '__custom__' && (
+                  <div className="mt-5 space-y-4 border-t border-gray-100 pt-5">
+                    <div>
+                      <label className={labelClass}>Assunto</label>
                       <input
-                        type="email"
-                        value={campaignTestEmail}
-                        onChange={(e) => setCampaignTestEmail(e.target.value)}
-                        placeholder="destino@exemplo.com"
+                        value={campaignForm.subject}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
+                        placeholder="Assunto do email"
                         className={inputClass}
                       />
-                      <button
-                        type="button"
-                        onClick={() => void handleCampaignTest()}
-                        disabled={saving || !campaignTestEmail}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
-                      >
-                        <Send className="h-4 w-4" />
-                        Enviar teste
-                      </button>
+                    </div>
+                    <div>
+                      <label className={labelClass}>HTML</label>
+                      <textarea
+                        value={campaignForm.html_content}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, html_content: e.target.value })}
+                        rows={12}
+                        className={`${inputClass} font-mono text-xs`}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Texto fallback</label>
+                      <textarea
+                        value={campaignForm.text_content}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, text_content: e.target.value })}
+                        rows={4}
+                        className={`${inputClass} font-mono text-xs`}
+                      />
                     </div>
                   </div>
+                )}
 
-                  {/* Preview recipients */}
-                  <div className="rounded-xl border border-gray-200 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className={labelClass}>Prévia de destinatários</p>
-                      <button
-                        type="button"
-                        onClick={() => void handlePreviewRecipients()}
-                        disabled={saving}
-                        className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
-                      >
-                        Calcular
-                      </button>
-                    </div>
-                    {recipientPreview ? (
-                      <div className="mt-3 space-y-2">
-                        <p className="text-sm text-gray-700">
-                          Total estimado:{' '}
-                          <strong className="text-gray-950">{recipientPreview.count}</strong>
-                        </p>
-                        <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
-                          {recipientPreview.sample.map((recipient) => (
-                            <div
-                              key={`${recipient.enrollment_id}-${recipient.email}`}
-                              className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
-                            >
-                              <p className="text-xs font-medium text-gray-900">{recipient.name}</p>
-                              <p className="text-xs text-gray-500">{recipient.email}</p>
-                            </div>
-                          ))}
-                        </div>
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    disabled={!campaignTemplateKey}
+                    onClick={() => setWizardStep(2)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
+                  >
+                    Próximo: Público
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Step 2: Público ── */}
+            {wizardStep === 2 && (
+              <div className={`${cardClass} p-5 lg:p-6`}>
+                <h3 className="text-base font-semibold text-gray-900">Para quem você quer enviar?</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Deixe todos os filtros em branco para enviar para todos os inscritos.
+                </p>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <select
+                    value={campaignForm.filters.product || ''}
+                    onChange={(e) =>
+                      setCampaignForm({
+                        ...campaignForm,
+                        filters: { ...campaignForm.filters, product: e.target.value ? Number(e.target.value) : undefined },
+                      })
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">Todos os produtos</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={campaignForm.filters.status || ''}
+                    onChange={(e) =>
+                      setCampaignForm({
+                        ...campaignForm,
+                        filters: { ...campaignForm.filters, status: e.target.value || undefined },
+                      })
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">Todos os status</option>
+                    <option value="PENDING_PAYMENT">Aguardando pagamento</option>
+                    <option value="PAID">Pago</option>
+                    <option value="CANCELLED">Cancelado</option>
+                    <option value="EXPIRED">Expirado</option>
+                  </select>
+
+                  <select
+                    value={campaignForm.filters.payment_method || ''}
+                    onChange={(e) =>
+                      setCampaignForm({
+                        ...campaignForm,
+                        filters: { ...campaignForm.filters, payment_method: e.target.value || undefined },
+                      })
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">Todas as formas de pagamento</option>
+                    <option value="PIX_CASH">PIX à vista</option>
+                    <option value="PIX_INSTALLMENT">PIX parcelado</option>
+                    <option value="CREDIT_CARD">Cartão de crédito</option>
+                  </select>
+
+                  <select
+                    value={campaignForm.filters.payment_state || ''}
+                    onChange={(e) =>
+                      setCampaignForm({
+                        ...campaignForm,
+                        filters: { ...campaignForm.filters, payment_state: e.target.value || undefined },
+                      })
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">Qualquer situação de pagamento</option>
+                    <option value="NO_PAYMENT_YET">Sem pagamento efetivado</option>
+                  </select>
+
+                  <input
+                    value={campaignForm.filters.search || ''}
+                    onChange={(e) =>
+                      setCampaignForm({
+                        ...campaignForm,
+                        filters: { ...campaignForm.filters, search: e.target.value || undefined },
+                      })
+                    }
+                    placeholder="Buscar por nome, email ou CPF"
+                    className={inputClass}
+                  />
+                </div>
+
+                {/* Specific recipients */}
+                <div className="mt-5 border-t border-gray-100 pt-5">
+                  <p className="text-sm font-medium text-gray-700">
+                    Inscritos específicos{' '}
+                    <span className="font-normal text-gray-400">(opcional)</span>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Quando preenchido, a campanha é restrita a esses inscritos além dos filtros acima.
+                  </p>
+                  <input
+                    value={recipientSearch}
+                    onChange={(e) => setRecipientSearch(e.target.value)}
+                    placeholder="Buscar inscrito por nome, email ou CPF"
+                    className={`${inputClass} mt-3`}
+                  />
+                  <div className="mt-2 overflow-hidden rounded-xl border border-gray-200">
+                    {searchingRecipients ? (
+                      <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Buscando...
                       </div>
+                    ) : recipientOptions.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-400">Nenhum inscrito encontrado.</div>
                     ) : (
-                      <p className="mt-2 text-sm text-gray-500">
-                        Calcule para ver quantidade e amostra do público.
-                      </p>
+                      <div className="max-h-48 overflow-y-auto">
+                        {recipientOptions.map((enrollment) => {
+                          const isSelected = (campaignForm.filters.enrollment_ids || []).includes(enrollment.id);
+                          return (
+                            <button
+                              key={enrollment.id}
+                              type="button"
+                              onClick={() => addRecipient(enrollment)}
+                              disabled={isSelected}
+                              className="flex w-full items-center justify-between border-b border-gray-100 px-4 py-2.5 text-left last:border-b-0 hover:bg-gray-50 disabled:bg-gray-50"
+                            >
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {enrollment.form_data?.nome_completo || enrollment.user_email || `#${enrollment.id}`}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  #{enrollment.id} · {enrollment.user_email || '—'}
+                                </p>
+                              </div>
+                              <span className={`text-xs font-medium ${isSelected ? 'text-gray-300' : 'text-purple'}`}>
+                                {isSelected ? 'Adicionado' : 'Adicionar'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
 
-                  {/* Send — only when saved as DRAFT */}
-                  {campaignForm.id && campaignForm.status === 'DRAFT' && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-                      <p className="text-sm font-semibold text-red-900">Envio definitivo</p>
-                      <p className="mt-1 text-sm text-red-800">
-                        Esta ação dispara o e-mail para todos os destinatários do filtro e não pode
-                        ser desfeita.
-                      </p>
-                      {showSendConfirm ? (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void handleSendCampaign()}
-                            disabled={saving}
-                            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-                          >
-                            {saving ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Send className="h-4 w-4" />
-                            )}
-                            Confirmar envio
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowSendConfirm(false)}
-                            className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
+                  {selectedRecipients.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedRecipients.map((r) => (
                         <button
+                          key={r.id}
                           type="button"
-                          onClick={() => setShowSendConfirm(true)}
-                          className="mt-3 rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
+                          onClick={() => removeRecipient(r.id)}
+                          className="flex items-center gap-1.5 rounded-full border border-purple/20 bg-purple/5 px-3 py-1 text-xs font-medium text-purple hover:bg-purple/10"
                         >
-                          Enviar para todos os destinatários
+                          {r.form_data?.nome_completo || r.user_email || `#${r.id}`}
+                          <span className="text-purple/50">✕</span>
                         </button>
-                      )}
-                    </div>
-                  )}
-
-                  {campaignForm.status === 'SENT' && (
-                    <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
-                      <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
-                      <p className="text-sm font-medium text-green-800">
-                        Campanha enviada — {selectedCampaign?.sent_count ?? 0}/
-                        {selectedCampaign?.recipient_count ?? 0} destinatários.
-                      </p>
+                      ))}
                     </div>
                   )}
                 </div>
-              </section>
 
-              {/* Failed recipients */}
-              {failedRecipients.length > 0 && (
-                <section className={cardClass}>
-                  <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
-                    Falhas de envio ({failedRecipients.length})
-                  </h4>
-                  <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                    {failedRecipients.map((recipient) => (
-                      <div
-                        key={recipient.id}
-                        className="rounded-xl border border-red-200 bg-red-50 px-4 py-3"
-                      >
-                        <p className="text-sm font-medium text-red-900">
-                          {recipient.name || recipient.email}
-                        </p>
-                        <p className="text-xs text-red-700">{recipient.email}</p>
-                        <p className="mt-1 text-xs text-red-700">
-                          {recipient.error_message || 'Falha no envio.'}
-                        </p>
+                {/* Live count */}
+                <div className="mt-5 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  {previewingRecipients ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                      <span className="text-sm text-gray-500">Calculando destinatários...</span>
+                    </>
+                  ) : recipientPreview ? (
+                    <>
+                      <span className="text-2xl font-bold text-gray-950">{recipientPreview.count}</span>
+                      <span className="text-sm text-gray-500">
+                        {recipientPreview.count === 1 ? 'destinatário' : 'destinatários'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-400">
+                      Defina os filtros para calcular automaticamente.
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-6 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setWizardStep(1)}
+                    className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    ← Voltar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWizardStep(3)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                  >
+                    Próximo: Revisar
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Step 3: Revisar e enviar ── */}
+            {wizardStep === 3 && (
+              <div className="space-y-4">
+                {/* Summary */}
+                <div className={`${cardClass} p-5 lg:p-6`}>
+                  <h3 className="text-base font-semibold text-gray-900">Revisar antes de enviar</h3>
+
+                  <div className="mt-5 space-y-4">
+                    {/* Subject (editable) */}
+                    <div>
+                      <label className={labelClass}>Assunto</label>
+                      <input
+                        value={campaignForm.subject}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
+                        className={inputClass}
+                      />
+                    </div>
+
+                    {/* Recipient count */}
+                    <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                      {previewingRecipients ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                          <span className="text-sm text-gray-500">Calculando...</span>
+                        </>
+                      ) : recipientPreview ? (
+                        <>
+                          <span className="text-2xl font-bold text-gray-950">{recipientPreview.count}</span>
+                          <span className="text-sm text-gray-500">
+                            {recipientPreview.count === 1 ? 'destinatário' : 'destinatários'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-sm text-gray-400">Contagem não calculada.</span>
+                      )}
+                    </div>
+
+                    {/* Sample */}
+                    {recipientPreview && recipientPreview.sample.length > 0 && (
+                      <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                        {recipientPreview.sample.map((r) => (
+                          <div
+                            key={`${r.enrollment_id}-${r.email}`}
+                            className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                          >
+                            <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] font-bold text-gray-600">
+                              {(r.name || r.email)[0]?.toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-medium text-gray-900">{r.name}</p>
+                              <p className="truncate text-xs text-gray-400">{r.email}</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+
+                    {/* Name (optional, auto-generated) */}
+                    <div>
+                      <label className={labelClass}>
+                        Nome para o histórico{' '}
+                        <span className="font-normal text-gray-400">(gerado automaticamente se vazio)</span>
+                      </label>
+                      <input
+                        value={campaignForm.name}
+                        onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
+                        placeholder={generateCampaignName(
+                          campaignTemplateKey === '__custom__'
+                            ? 'Email personalizado'
+                            : templates.find((t) => t.key === campaignTemplateKey)?.name ?? 'Email',
+                        )}
+                        className={inputClass}
+                      />
+                    </div>
                   </div>
-                </section>
+                </div>
+
+                {/* Test send */}
+                <div className={`${cardClass} p-5`}>
+                  <label className={labelClass}>Enviar e-mail de teste</label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      type="email"
+                      value={campaignTestEmail}
+                      onChange={(e) => setCampaignTestEmail(e.target.value)}
+                      placeholder="destino@exemplo.com"
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleCampaignTest()}
+                      disabled={saving || !campaignTestEmail}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      <Send className="h-4 w-4" />
+                      Enviar teste
+                    </button>
+                  </div>
+                </div>
+
+                {/* Send */}
+                <div className={`${cardClass} p-5`}>
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setWizardStep(2)}
+                      className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      ← Voltar
+                    </button>
+
+                    {showSendConfirm ? (
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-500">Tem certeza?</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowSendConfirm(false)}
+                          className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleQuickSend()}
+                          disabled={saving}
+                          className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+                        >
+                          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          Confirmar envio
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowSendConfirm(true)}
+                        disabled={!campaignForm.subject}
+                        className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
+                      >
+                        <Send className="h-4 w-4" />
+                        {recipientPreview
+                          ? `Enviar para ${recipientPreview.count} ${recipientPreview.count === 1 ? 'pessoa' : 'pessoas'}`
+                          : 'Enviar campanha'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* History toggle */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowHistory((v) => !v)}
+                className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600"
+              >
+                {showHistory ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                Histórico de campanhas
+                {campaigns.length > 0 && (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                    {campaigns.length}
+                  </span>
+                )}
+              </button>
+
+              {showHistory && (
+                <div className={`${cardClass} mt-3 p-4`}>
+                  {campaigns.length === 0 ? (
+                    <p className="text-sm text-gray-400">Nenhuma campanha enviada ainda.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {campaigns.map((campaign) => {
+                        const meta = CAMPAIGN_STATUS[campaign.status] ?? {
+                          label: campaign.status,
+                          className: 'bg-gray-100 text-gray-600',
+                        };
+                        return (
+                          <div
+                            key={campaign.id}
+                            className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 px-4 py-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-gray-900">{campaign.name}</p>
+                              <p className="mt-0.5 text-xs text-gray-400">
+                                {campaign.sent_count}/{campaign.recipient_count} enviados
+                                {campaign.failed_count > 0 && (
+                                  <span className="ml-1.5 text-red-500">· {campaign.failed_count} falhas</span>
+                                )}
+                              </p>
+                            </div>
+                            <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.className}`}>
+                              {meta.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-          )
+          </div>
         )}
       </div>
     </AdminShell>
