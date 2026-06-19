@@ -1,3 +1,4 @@
 AREA_LEADERS_GROUP_NAME = 'area_leaders'
 FINANCE_VIEWERS_GROUP_NAME = 'finance_viewers'
+FINANCE_MANAGERS_GROUP_NAME = 'finance_managers'
 FINANCE_NOTIFICATION_RECIPIENTS_GROUP_NAME = 'finance_notifications'
