@@ -355,9 +355,9 @@ export default function AdminFinance() {
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Orçado em áreas</p>
             <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.allocated_total)}</p>
           </div>
-          <div className={`${cardClass} border-l-[3px] border-l-gold`}>
+          <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Ainda distribuível</p>
-            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.remaining_to_allocate, 'text-gold-700')}</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.remaining_to_allocate)}</p>
           </div>
         </section>
 
