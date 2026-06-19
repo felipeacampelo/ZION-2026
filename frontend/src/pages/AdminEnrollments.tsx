@@ -95,10 +95,16 @@ const calcNetAmount = (enrollment: any): number => {
   if (!final || !enrollment.payment_method) return final;
   const method = enrollment.payment_method as string;
   const installments = Number(enrollment.installments || 1);
-  if (method === 'PIX_INSTALLMENT') {
-    return final - (installments * 0.49 + final * 0.0249);
+  if (method === 'PIX_CASH') {
+    return final - 1.99;
   }
-  // PIX_CASH and CREDIT_CARD: single payment
+  if (method === 'PIX_INSTALLMENT') {
+    return final - installments * 1.99;
+  }
+  // CREDIT_CARD à vista vs parcelado
+  if (installments > 1) {
+    return final - (0.49 + final * 0.0349);
+  }
   return final - (0.49 + final * 0.0299);
 };
 
