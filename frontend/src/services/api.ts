@@ -455,7 +455,7 @@ export interface FinanceGlobalSummary {
   budgets: {
     allocated_total: string;
     remaining_to_allocate: string;
-    awaiting_execution_total: string;
+    awaiting_approval_total: string;
   };
   extra_contributions: {
     total: string;

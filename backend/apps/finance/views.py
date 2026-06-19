@@ -59,12 +59,11 @@ def _build_global_summary():
         ),
         Decimal('0'),
     )
-    awaiting_execution_total = sum(
+    awaiting_approval_total = sum(
         (
-            Decimal(str(execution.amount))
-            for execution in ExpenseExecution.objects.filter(
-                expense_request__status=ExpenseRequest.STATUS_APPROVED,
-                status=ExpenseExecution.STATUS_NOT_EXECUTED,
+            Decimal(str(expense_request.amount))
+            for expense_request in ExpenseRequest.objects.filter(
+                status__in=[ExpenseRequest.STATUS_PENDING, ExpenseRequest.STATUS_UNDER_REVIEW],
             )
         ),
         Decimal('0'),
@@ -79,7 +78,7 @@ def _build_global_summary():
         'budgets': {
             'allocated_total': str(allocated_total),
             'remaining_to_allocate': str(revenue['net_revenue'] - allocated_total),
-            'awaiting_execution_total': str(awaiting_execution_total),
+            'awaiting_approval_total': str(awaiting_approval_total),
         },
         'extra_contributions': {
             'total': str(extra_total),

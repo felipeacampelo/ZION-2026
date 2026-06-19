@@ -289,8 +289,8 @@ export default function AdminFinance() {
             <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.revenue.net)}</p>
           </div>
           <div className={cardClass}>
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Aguardando execução</p>
-            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.awaiting_execution_total)}</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Aguardando aprovação</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.awaiting_approval_total)}</p>
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Orçado em áreas</p>
