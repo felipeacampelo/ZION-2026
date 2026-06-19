@@ -57,17 +57,30 @@ const getErrorMessage = (error: any) => {
 const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]';
 const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
 
-function BudgetCols({ allocated, pending, committed, available, size = 'sm' }: {
-  allocated: string; pending: string; committed: string; available: string; size?: 'sm' | 'xs';
+function BudgetCols({ allocated, pending, committed, available, size = 'sm', showBar = false }: {
+  allocated: string; pending: string; committed: string; available: string; size?: 'sm' | 'xs'; showBar?: boolean;
 }) {
   const labelClass = size === 'xs' ? 'text-[10px]' : 'text-xs';
   const valueClass = size === 'xs' ? 'text-xs font-semibold' : 'text-sm font-semibold';
+  const allocatedNum = Number(allocated || 0);
+  const usedNum = Number(committed || 0) + Number(pending || 0);
+  const usedPct = allocatedNum > 0 ? Math.min(100, (usedNum / allocatedNum) * 100) : 0;
+  const committedPct = allocatedNum > 0 ? Math.min(100, (Number(committed || 0) / allocatedNum) * 100) : 0;
   return (
     <div className="grid grid-cols-4 gap-x-4 text-right">
       <div><p className={`${labelClass} text-gray-400`}>Orçado</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrency(allocated)}</p></div>
       <div><p className={`${labelClass} text-gray-400`}>Pendente</p><p className={`${valueClass} text-amber-700`}>R$ {formatCurrency(pending)}</p></div>
       <div><p className={`${labelClass} text-gray-400`}>Comprometido</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrency(committed)}</p></div>
       <div><p className={`${labelClass} text-gray-400`}>Disponível</p><p className={`${valueClass} text-dark`}>R$ {formatCurrency(available)}</p></div>
+      {showBar && allocatedNum > 0 && (
+        <div className="col-span-4 mt-2">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+            <div className="h-full rounded-full bg-amber-400" style={{ width: `${usedPct}%` }}>
+              <div className="h-full rounded-full bg-dark" style={{ width: committedPct > 0 ? `${(committedPct / usedPct) * 100}%` : '0%' }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -321,7 +334,12 @@ export default function AdminFinance() {
         </div>
 
         {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-        {successMessage && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{successMessage}</div>}
+        {successMessage && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <span>{successMessage}</span>
+            <button type="button" onClick={() => setSuccessMessage('')} className="flex-shrink-0 font-bold text-emerald-600 hover:text-emerald-900">✕</button>
+          </div>
+        )}
 
         {/* KPIs — 4 cols */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -416,13 +434,25 @@ export default function AdminFinance() {
               <h2 className="text-lg font-black text-gray-950">Áreas e Rubricas</h2>
               <p className="mt-1 text-xs text-gray-500">{areas.length} áreas • {rubrics.length} rubricas</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowCreateAreaForm((v) => !v)}
-              className="rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white"
-            >
-              {showCreateAreaForm ? 'Cancelar' : '+ Nova área'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const allExpanded = areas.every((a) => expandedAreaIds.has(a.id));
+                  setExpandedAreaIds(allExpanded ? new Set() : new Set(areas.map((a) => a.id)));
+                }}
+                className="rounded-2xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:border-dark hover:text-dark"
+              >
+                {areas.every((a) => expandedAreaIds.has(a.id)) ? 'Colapsar tudo' : 'Expandir tudo'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreateAreaForm((v) => !v)}
+                className="rounded-2xl bg-dark px-4 py-2.5 text-sm font-semibold text-white"
+              >
+                {showCreateAreaForm ? 'Cancelar' : '+ Nova área'}
+              </button>
+            </div>
           </div>
 
           {showCreateAreaForm && (
@@ -473,6 +503,7 @@ export default function AdminFinance() {
                         committed={area.summary.committed_amount}
                         available={area.summary.available_amount}
                         size="xs"
+                        showBar
                       />
                     </div>
                     <div className="flex flex-shrink-0 gap-2 pl-3" onClick={(e) => e.stopPropagation()}>

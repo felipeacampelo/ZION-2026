@@ -202,11 +202,20 @@ export default function AdminFinanceApprovals() {
     }));
   }, [visibleRequests]);
 
-  const pendingCount = visibleRequests.filter((r) => ['PENDING', 'UNDER_REVIEW'].includes(r.status)).length;
-  const approvedCount = visibleRequests.filter((r) => r.status === 'APPROVED').length;
-  const awaitingExecutionCount = visibleRequests.filter((r) => r.status === 'APPROVED' && r.execution?.status === 'NOT_EXECUTED').length;
-  const pendingProofCount = visibleRequests.filter((r) => r.execution?.settlement_status === 'PENDING_PROOF').length;
-  const pendingReturnCount = visibleRequests.filter((r) => r.execution?.settlement_status === 'PENDING_RETURN').length;
+  const sumAmount = (items: typeof visibleRequests) =>
+    items.reduce((acc, r) => acc + Number(r.amount || 0), 0);
+
+  const pendingItems = visibleRequests.filter((r) => ['PENDING', 'UNDER_REVIEW'].includes(r.status));
+  const approvedItems = visibleRequests.filter((r) => r.status === 'APPROVED');
+  const awaitingExecutionItems = visibleRequests.filter((r) => r.status === 'APPROVED' && r.execution?.status === 'NOT_EXECUTED');
+  const pendingProofItems = visibleRequests.filter((r) => r.execution?.settlement_status === 'PENDING_PROOF');
+  const pendingReturnItems = visibleRequests.filter((r) => r.execution?.settlement_status === 'PENDING_RETURN');
+
+  const pendingCount = pendingItems.length;
+  const approvedCount = approvedItems.length;
+  const awaitingExecutionCount = awaitingExecutionItems.length;
+  const pendingProofCount = pendingProofItems.length;
+  const pendingReturnCount = pendingReturnItems.length;
 
   const submitRejection = async (requestId: number) => {
     try {
@@ -297,29 +306,39 @@ export default function AdminFinanceApprovals() {
         </div>
 
         {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-        {successMessage && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{successMessage}</div>}
+        {successMessage && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <span>{successMessage}</span>
+            <button type="button" onClick={() => setSuccessMessage('')} className="flex-shrink-0 font-bold text-emerald-600 hover:text-emerald-900">✕</button>
+          </div>
+        )}
 
         {/* KPIs */}
         <section className="grid gap-4 sm:grid-cols-5">
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Em análise</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{pendingCount}</p>
+            {pendingCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(pendingItems)))}</p>}
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Aprovadas</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{approvedCount}</p>
+            {approvedCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(approvedItems)))}</p>}
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Aguardando execução</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{awaitingExecutionCount}</p>
+            {awaitingExecutionCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(awaitingExecutionItems)))}</p>}
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Pendente de prestação</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{pendingProofCount}</p>
+            {pendingProofCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(pendingProofItems)))}</p>}
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Pendente de devolução</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{pendingReturnCount}</p>
+            {pendingReturnCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(pendingReturnItems)))}</p>}
           </div>
         </section>
 
