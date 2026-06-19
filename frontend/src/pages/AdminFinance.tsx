@@ -27,6 +27,17 @@ import {
 const formatCurrency = (value?: string) =>
   Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const renderCurrencyValue = (value?: string, positiveClassName = 'text-gray-950') => {
+  const amount = Number(value || 0);
+  const isNegative = amount < 0;
+  return (
+    <span className={isNegative ? 'text-red-600' : positiveClassName}>
+      {isNegative ? '- R$ ' : 'R$ '}
+      {formatCurrency(String(Math.abs(amount)))}
+    </span>
+  );
+};
+
 const normalizeAmountInput = (value: string) => value.replace(/\./g, '').replace(',', '.').trim();
 
 const getErrorMessage = (error: any) => {
@@ -275,19 +286,19 @@ export default function AdminFinance() {
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Receita líquida</p>
-            <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.revenue.net)}</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.revenue.net)}</p>
           </div>
           <div className={cardClass}>
-            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Taxas</p>
-            <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.revenue.fees)}</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Aguardando execução</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.awaiting_execution_total)}</p>
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Orçado em áreas</p>
-            <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.budgets.allocated_total)}</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.allocated_total)}</p>
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Ainda distribuível</p>
-            <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.budgets.remaining_to_allocate)}</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.remaining_to_allocate)}</p>
           </div>
         </section>
 
@@ -295,12 +306,12 @@ export default function AdminFinance() {
         <section className="grid gap-4 sm:grid-cols-2">
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Total de aportes</p>
-            <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.extra_contributions.total)}</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.extra_contributions.total)}</p>
             <p className="mt-1 text-xs text-gray-500">Ofertas, investidores, doações — não contam como receita líquida</p>
           </div>
           <div className="rounded-3xl border border-lime-200 bg-lime-50/80 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]">
             <p className="text-xs uppercase tracking-[0.2em] text-lime-700">Receita total (líquida + aportes)</p>
-            <p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(summary?.extra_contributions.combined_with_net)}</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.extra_contributions.combined_with_net)}</p>
             <p className="mt-1 text-xs text-gray-500">Receita líquida + aportes registrados</p>
           </div>
         </section>
