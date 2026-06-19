@@ -90,6 +90,18 @@ const formatEmpire = (value?: string) => {
 const formatCurrency = (value: string | number | undefined) =>
   Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const calcNetAmount = (enrollment: any): number => {
+  const final = Number(enrollment.final_amount || 0);
+  if (!final || !enrollment.payment_method) return final;
+  const method = enrollment.payment_method as string;
+  const installments = Number(enrollment.installments || 1);
+  if (method === 'PIX_INSTALLMENT') {
+    return final - (installments * 0.49 + final * 0.0249);
+  }
+  // PIX_CASH and CREDIT_CARD: single payment
+  return final - (0.49 + final * 0.0299);
+};
+
 const formatResponsibleFieldLabel = (key: string) => {
   if (RESPONSAVEL_FIXED_LABELS[key]) {
     return RESPONSAVEL_FIXED_LABELS[key];
@@ -118,6 +130,7 @@ export default function AdminEnrollments() {
   const [sortKey, setSortKey] = useState<SortKey>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [searching, setSearching] = useState(false);
+  const [showNetAmount, setShowNetAmount] = useState(false);
   const hasMountedRef = useRef(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -331,15 +344,31 @@ export default function AdminEnrollments() {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Inscritos</h1>
             <p className="mt-1 text-sm text-gray-600">Lista completa de inscrições, com filtros, exportação e detalhes.</p>
           </div>
-          <button
-            onClick={exportToCSV}
-            disabled={exporting}
-            className="flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">{exporting ? 'Exportando CSV' : 'Exportar CSV'}</span>
-            <span className="sm:hidden">{exporting ? '...' : 'CSV'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowNetAmount((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                showNetAmount
+                  ? 'border-purple bg-purple/10 text-purple'
+                  : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+              title="Alternar entre valor bruto e valor líquido (descontando taxa Asaas)"
+            >
+              <span className={`h-2 w-2 rounded-full ${showNetAmount ? 'bg-purple' : 'bg-gray-400'}`} />
+              <span className="hidden sm:inline">{showNetAmount ? 'Valor líquido' : 'Valor bruto'}</span>
+              <span className="sm:hidden">Líq.</span>
+            </button>
+            <button
+              onClick={exportToCSV}
+              disabled={exporting}
+              className="flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">{exporting ? 'Exportando CSV' : 'Exportar CSV'}</span>
+              <span className="sm:hidden">{exporting ? '...' : 'CSV'}</span>
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-3 sm:p-6">
@@ -499,7 +528,11 @@ export default function AdminEnrollments() {
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-600">
                   <span>{enrollment.form_data?.telefone || enrollment.user_email}</span>
-                  <span className="font-semibold text-gray-900">R$ {enrollment.final_amount}</span>
+                  <span className="font-semibold text-gray-900">
+                    {showNetAmount
+                      ? formatCurrency(calcNetAmount(enrollment))
+                      : `R$ ${enrollment.final_amount}`}
+                  </span>
                 </div>
               </div>
             ))}
@@ -547,7 +580,7 @@ export default function AdminEnrollments() {
                   </th>
                   <th className="text-left py-3 px-2 lg:px-4 font-semibold text-sm">
                     <button type="button" onClick={() => handleSort('valor')} className="inline-flex items-center gap-1">
-                      Valor
+                      {showNetAmount ? 'Líquido' : 'Valor'}
                       {sortIndicator(sortKey === 'valor', sortDirection)}
                     </button>
                   </th>
@@ -606,7 +639,11 @@ export default function AdminEnrollments() {
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-2 lg:px-4 font-medium text-sm">R$ {enrollment.final_amount}</td>
+                    <td className="py-3 px-2 lg:px-4 font-medium text-sm">
+                      {showNetAmount
+                        ? <span className="text-purple">{formatCurrency(calcNetAmount(enrollment))}</span>
+                        : `R$ ${enrollment.final_amount}`}
+                    </td>
                     <td className="py-3 px-2 lg:px-4">
                       <button
                         onClick={() => setSelectedEnrollment(enrollment)}
