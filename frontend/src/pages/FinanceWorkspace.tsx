@@ -9,6 +9,7 @@ import {
   getMyFinanceDashboard,
   replaceFinanceRequestAttachment,
   resolveMediaUrl,
+  submitFinanceAdvanceSettlement,
   type FinanceAttachment,
   type FinanceAuditLog,
   type FinanceExpenseRequest,
@@ -29,6 +30,9 @@ const getAttachmentName = (fileUrl: string) => {
 const getRequestReceipt = (request: FinanceExpenseRequest) =>
   request.execution?.attachments.find((attachment) => attachment.category === 'RECEIPT') || null;
 
+const getAdvanceSettlementAttachment = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.find((attachment) => attachment.category === 'ADVANCE_SETTLEMENT') || null;
+
 const getSupportingAttachments = (request: FinanceExpenseRequest) =>
   request.attachments.filter((attachment) => attachment.category !== 'RECEIPT');
 
@@ -46,8 +50,24 @@ const getAuditLabel = (log: FinanceAuditLog) => {
     CANCELLED: 'Solicitação cancelada',
     EXECUTED: 'Solicitação executada',
     ATTACHMENT_ADDED: 'Arquivo anexado',
+    ATTACHMENT_REPLACED: 'Arquivo substituído',
+    ATTACHMENT_REMOVED: 'Arquivo removido',
+    ADVANCE_SETTLEMENT_SUBMITTED: 'Prestação enviada',
+    ADVANCE_RETURN_CONFIRMED: 'Devolução confirmada',
+    ADVANCE_MANUALLY_CLOSED: 'Encerrado manualmente',
   };
   return labels[log.action] || log.action;
+};
+
+const getSettlementStatusConfig = (status?: string) => {
+  const map: Record<string, { label: string; className: string }> = {
+    PENDING_PROOF: { label: 'Pendente de prestação', className: 'bg-amber-100 text-amber-800' },
+    PENDING_RETURN: { label: 'Pendente de devolução', className: 'bg-orange-100 text-orange-700' },
+    SETTLED: { label: 'Prestação concluída', className: 'bg-emerald-100 text-emerald-800' },
+    MANUALLY_CLOSED: { label: 'Encerrado manualmente', className: 'bg-slate-200 text-slate-700' },
+    NOT_REQUIRED: { label: 'Sem prestação', className: 'bg-gray-100 text-gray-500' },
+  };
+  return map[status || 'NOT_REQUIRED'] || map.NOT_REQUIRED;
 };
 
 type UploadState = {
@@ -101,6 +121,10 @@ export default function FinanceWorkspace() {
   const [replacementFiles, setReplacementFiles] = useState<Record<number, File | null>>({});
   const [replacementStates, setReplacementStates] = useState<Record<number, UploadState>>({});
   const [replacementInputKeys, setReplacementInputKeys] = useState<Record<number, number>>({});
+  const [settlementForms, setSettlementForms] = useState<Record<number, { spent_amount: string; settlement_notes: string }>>({});
+  const [settlementFiles, setSettlementFiles] = useState<Record<number, File | null>>({});
+  const [settlementStates, setSettlementStates] = useState<Record<number, UploadState>>({});
+  const [settlementInputKeys, setSettlementInputKeys] = useState<Record<number, number>>({});
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
@@ -250,13 +274,60 @@ export default function FinanceWorkspace() {
     }
   };
 
+  const handleSettlement = async (request: FinanceExpenseRequest) => {
+    const values = settlementForms[request.id] || { spent_amount: '', settlement_notes: '' };
+    const file = settlementFiles[request.id];
+    setSettlementStates((current) => ({
+      ...current,
+      [request.id]: {
+        status: 'uploading',
+        message: 'Enviando prestação de contas...',
+        fileName: file?.name || '',
+      },
+    }));
+    try {
+      await submitFinanceAdvanceSettlement(request.id, {
+        spent_amount: values.spent_amount,
+        settlement_notes: values.settlement_notes,
+        file,
+      });
+      setSettlementStates((current) => ({
+        ...current,
+        [request.id]: {
+          status: 'success',
+          message: 'Prestação de contas enviada com sucesso.',
+          fileName: file?.name || '',
+        },
+      }));
+      setSettlementFiles((current) => ({ ...current, [request.id]: null }));
+      setSettlementInputKeys((current) => ({ ...current, [request.id]: (current[request.id] || 0) + 1 }));
+      await loadData();
+    } catch (settlementError: any) {
+      setSettlementStates((current) => ({
+        ...current,
+        [request.id]: {
+          status: 'error',
+          message: getErrorMessage(settlementError),
+          fileName: file?.name || '',
+        },
+      }));
+    }
+  };
+
   const renderRequest = (request: FinanceExpenseRequest) => {
     const receipt = getRequestReceipt(request);
+    const settlementAttachment = getAdvanceSettlementAttachment(request);
     const supportingAttachments = getSupportingAttachments(request);
     const attachmentMap = getAttachmentMap(request);
     const uploadState = attachmentStates[request.id];
     const selectedFile = attachmentFiles[request.id];
     const receiptUrl = receipt ? resolveMediaUrl(receipt.file) : '';
+    const settlementUrl = settlementAttachment ? resolveMediaUrl(settlementAttachment.file) : '';
+    const settlementState = settlementStates[request.id];
+    const settlementForm = settlementForms[request.id] || { spent_amount: '', settlement_notes: '' };
+    const selectedSettlementFile = settlementFiles[request.id];
+    const settlementConfig = getSettlementStatusConfig(request.execution?.settlement_status);
+    const hasAdvanceSettlementFlow = request.execution?.execution_type === 'ADVANCE' && request.execution?.status === 'EXECUTED';
 
     return (
       <div key={request.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
@@ -272,10 +343,12 @@ export default function FinanceWorkspace() {
           </div>
         </div>
         <p className="mt-3 text-sm text-gray-700">{request.justification}</p>
-        <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
-          <p><span className="font-semibold text-gray-900">Favorecido:</span> {request.recipient_name || 'Não informado'}</p>
-          <p className="mt-1"><span className="font-semibold text-gray-900">Chave PIX:</span> {request.pix_key || 'Não informada'}</p>
-        </div>
+        {(request.request_type !== 'DIRECT_PAYMENT' || request.recipient_name || request.pix_key) && (
+          <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+            <p><span className="font-semibold text-gray-900">Favorecido:</span> {request.recipient_name || 'Não informado'}</p>
+            <p className="mt-1"><span className="font-semibold text-gray-900">Chave PIX:</span> {request.pix_key || 'Não informada'}</p>
+          </div>
+        )}
         {request.rejection_reason && <p className="mt-2 text-sm font-medium text-red-600">{request.rejection_reason}</p>}
 
         <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
@@ -305,6 +378,135 @@ export default function FinanceWorkspace() {
             <p className="mt-1 text-sm text-emerald-800">Nenhum comprovante de execução anexado ainda.</p>
           )}
         </div>
+
+        {hasAdvanceSettlementFlow && (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-amber-900">Prestação de contas do adiantamento</p>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${settlementConfig.className}`}>
+                {settlementConfig.label}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm text-amber-900">
+              <div className="rounded-2xl bg-white/80 px-3 py-2">
+                <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Adiantado</p>
+                <p className="mt-1 font-semibold">R$ {formatCurrency(request.execution?.amount)}</p>
+              </div>
+              <div className="rounded-2xl bg-white/80 px-3 py-2">
+                <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Gasto informado</p>
+                <p className="mt-1 font-semibold">R$ {formatCurrency(request.execution?.spent_amount || '0')}</p>
+              </div>
+              <div className="rounded-2xl bg-white/80 px-3 py-2">
+                <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Valor a devolver</p>
+                <p className="mt-1 font-semibold">R$ {formatCurrency(request.execution?.returned_amount || '0')}</p>
+              </div>
+            </div>
+            {request.execution?.settlement_notes && (
+              <p className="mt-3 text-sm text-amber-900">{request.execution.settlement_notes}</p>
+            )}
+            {settlementAttachment ? (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
+                <p className="text-sm font-semibold text-amber-900">Comprovante da prestação</p>
+                <p className="mt-1 text-sm text-amber-800">
+                  {getAttachmentName(settlementAttachment.file)} • enviado em {formatDateTime(settlementAttachment.created_at)}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewFile({ name: getAttachmentName(settlementAttachment.file), url: settlementUrl })}
+                    className="rounded-xl bg-amber-700 px-3 py-2 text-xs font-semibold text-white"
+                  >
+                    Visualizar
+                  </button>
+                  <a href={settlementUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">
+                    Nova aba
+                  </a>
+                  <a href={settlementUrl} download className="rounded-xl border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800">
+                    Baixar comprovante
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-amber-800">Nenhum comprovante de prestação anexado ainda.</p>
+            )}
+
+            {request.execution?.can_submit_settlement && request.execution.settlement_status !== 'SETTLED' && request.execution.settlement_status !== 'MANUALLY_CLOSED' && (
+              <div className="mt-4 rounded-2xl border border-dashed border-amber-300 bg-white px-4 py-4">
+                <p className="text-sm font-semibold text-amber-900">Enviar prestação</p>
+                <p className="mt-1 text-xs text-amber-800">
+                  Informe quanto foi gasto. Se sobrou dinheiro, o sistema deixará a devolução pendente para o administrativo confirmar.
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <input
+                    className={inputClass}
+                    placeholder="Valor efetivamente gasto"
+                    value={settlementForm.spent_amount}
+                    onChange={(event) => setSettlementForms((current) => ({
+                      ...current,
+                      [request.id]: {
+                        ...settlementForm,
+                        spent_amount: event.target.value,
+                      },
+                    }))}
+                  />
+                  <input
+                    key={`${request.id}-${settlementInputKeys[request.id] || 0}`}
+                    type="file"
+                    className="text-sm text-gray-600"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] || null;
+                      setSettlementFiles((current) => ({ ...current, [request.id]: file }));
+                      setSettlementStates((current) => ({
+                        ...current,
+                        [request.id]: {
+                          status: 'idle',
+                          message: file ? 'Arquivo pronto para envio.' : '',
+                          fileName: file?.name || '',
+                        },
+                      }));
+                    }}
+                  />
+                </div>
+                <textarea
+                  className={`${inputClass} mt-3 min-h-[90px]`}
+                  placeholder="Observações da prestação"
+                  value={settlementForm.settlement_notes}
+                  onChange={(event) => setSettlementForms((current) => ({
+                    ...current,
+                    [request.id]: {
+                      ...settlementForm,
+                      settlement_notes: event.target.value,
+                    },
+                  }))}
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSettlement(request)}
+                    disabled={!settlementForm.spent_amount || settlementState?.status === 'uploading'}
+                    className="rounded-xl bg-amber-700 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {settlementState?.status === 'uploading' ? 'Enviando...' : 'Enviar prestação'}
+                  </button>
+                  {selectedSettlementFile && <p className="text-xs text-gray-600">Arquivo selecionado: {selectedSettlementFile.name}</p>}
+                </div>
+                {settlementState?.message && (
+                  <p
+                    className={`mt-3 text-xs ${
+                      settlementState.status === 'error'
+                        ? 'text-red-600'
+                        : settlementState.status === 'success'
+                          ? 'text-emerald-700'
+                          : 'text-gray-600'
+                    }`}
+                  >
+                    {settlementState.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {supportingAttachments.length > 0 && (
           <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
@@ -457,7 +659,7 @@ export default function FinanceWorkspace() {
           <p className="text-sm font-semibold text-gray-900">Histórico de ações</p>
           <div className="mt-3 space-y-3">
             {request.audit_logs.map((log) => {
-              const linkedAttachment = log.action === 'ATTACHMENT_ADDED'
+              const linkedAttachment = ['ATTACHMENT_ADDED', 'ADVANCE_SETTLEMENT_SUBMITTED'].includes(log.action)
                 ? attachmentMap.get(Number(log.metadata?.attachment_id))
                 : null;
               return (
@@ -471,7 +673,11 @@ export default function FinanceWorkspace() {
                   {linkedAttachment && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700">
-                        {linkedAttachment.category === 'RECEIPT' ? 'Comprovante' : 'Anexo de suporte'}
+                        {linkedAttachment.category === 'RECEIPT'
+                          ? 'Comprovante'
+                          : linkedAttachment.category === 'ADVANCE_SETTLEMENT'
+                            ? 'Prestação'
+                            : 'Anexo de suporte'}
                       </span>
                       <button
                         type="button"

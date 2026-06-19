@@ -33,6 +33,9 @@ from .permissions import IsFinanceLeaderOrAdmin
 from .serializers import (
     AreaSerializer,
     BudgetRubricSerializer,
+    ExpenseAdvanceConfirmReturnSerializer,
+    ExpenseAdvanceManualCloseSerializer,
+    ExpenseAdvanceSettlementSerializer,
     ExpenseAttachmentSerializer,
     ExpenseRequestExecuteSerializer,
     ExpenseRequestRejectSerializer,
@@ -192,6 +195,15 @@ class ExpenseRequestViewSet(
             return Response({'detail': 'Acesso restrito ao administrativo.'}, status=status.HTTP_403_FORBIDDEN)
         return None
 
+    def _ensure_area_leader_or_admin(self, request, expense_request):
+        user = request.user
+        if user.is_staff or user.is_superuser:
+            return None
+        assignment = user.finance_area_assignments.select_related('area').first()
+        if assignment and assignment.area_id == expense_request.area_id:
+            return None
+        return Response({'detail': 'Sem permissão para prestar contas desta solicitação.'}, status=status.HTTP_403_FORBIDDEN)
+
     @action(detail=True, methods=['post'])
     def review(self, request, pk=None):
         forbidden = self._ensure_admin(request)
@@ -329,6 +341,16 @@ class ExpenseRequestViewSet(
         execution.execution_type = serializer.validated_data['execution_type']
         execution.notes = serializer.validated_data.get('notes', '')
         execution.status = ExpenseExecution.STATUS_EXECUTED
+        execution.settlement_status = (
+            ExpenseExecution.SETTLEMENT_PENDING_PROOF
+            if execution.execution_type == ExpenseExecution.TYPE_ADVANCE
+            else ExpenseExecution.SETTLEMENT_NOT_REQUIRED
+        )
+        execution.spent_amount = None
+        execution.returned_amount = None
+        execution.settlement_notes = ''
+        execution.settled_by = None
+        execution.settled_at = None
         execution.executed_by = request.user
         execution.executed_at = timezone.now()
         execution.save()
@@ -355,6 +377,158 @@ class ExpenseRequestViewSet(
             action=ExpenseAuditLog.ACTION_EXECUTED,
             note=execution.notes,
             metadata={'execution_type': execution.execution_type},
+        )
+        return Response(self.get_serializer(expense_request).data)
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    @transaction.atomic
+    def settlement(self, request, pk=None):
+        expense_request = self.get_object()
+        forbidden = self._ensure_area_leader_or_admin(request, expense_request)
+        if forbidden:
+            return forbidden
+        execution = getattr(expense_request, 'execution', None)
+        if not execution or execution.status != ExpenseExecution.STATUS_EXECUTED:
+            return Response({'detail': 'A solicitação precisa estar executada para receber prestação de contas.'}, status=status.HTTP_400_BAD_REQUEST)
+        if execution.execution_type != ExpenseExecution.TYPE_ADVANCE:
+            return Response({'detail': 'Prestação de contas só se aplica a solicitações de transferência.'}, status=status.HTTP_400_BAD_REQUEST)
+        if execution.settlement_status in [
+            ExpenseExecution.SETTLEMENT_SETTLED,
+            ExpenseExecution.SETTLEMENT_MANUALLY_CLOSED,
+        ]:
+            return Response({'detail': 'Esta prestação de contas já foi encerrada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ExpenseAdvanceSettlementSerializer(data=request.data, context={'execution': execution})
+        serializer.is_valid(raise_exception=True)
+        execution.spent_amount = serializer.validated_data['spent_amount']
+        execution.returned_amount = serializer.validated_data['returned_amount']
+        execution.settlement_notes = serializer.validated_data.get('settlement_notes', '')
+        execution.settled_by = request.user
+        execution.settled_at = timezone.now()
+        execution.settlement_status = (
+            ExpenseExecution.SETTLEMENT_PENDING_RETURN
+            if execution.returned_amount > Decimal('0')
+            else ExpenseExecution.SETTLEMENT_SETTLED
+        )
+        execution.save(
+            update_fields=[
+                'spent_amount',
+                'returned_amount',
+                'settlement_notes',
+                'settled_by',
+                'settled_at',
+                'settlement_status',
+                'updated_at',
+            ]
+        )
+
+        uploaded_file = serializer.validated_data.get('file')
+        attachment_id = None
+        if uploaded_file:
+            attachment = ExpenseAttachment.objects.create(
+                execution=execution,
+                category=ExpenseAttachment.CATEGORY_ADVANCE_SETTLEMENT,
+                file=uploaded_file,
+                uploaded_by=request.user,
+            )
+            attachment_id = attachment.id
+            ExpenseAuditLog.objects.create(
+                expense_request=expense_request,
+                actor=request.user,
+                action=ExpenseAuditLog.ACTION_ATTACHMENT_ADDED,
+                note='Comprovante enviado na prestação de contas do adiantamento.',
+                metadata={'attachment_id': attachment.id},
+            )
+
+        ExpenseAuditLog.objects.create(
+            expense_request=expense_request,
+            actor=request.user,
+            action=ExpenseAuditLog.ACTION_ADVANCE_SETTLEMENT_SUBMITTED,
+            note=execution.settlement_notes,
+            metadata={
+                'spent_amount': str(execution.spent_amount),
+                'returned_amount': str(execution.returned_amount),
+                'attachment_id': attachment_id,
+            },
+        )
+        return Response(self.get_serializer(expense_request).data)
+
+    @action(detail=True, methods=['post'], url_path='confirm-return', url_name='confirm-return')
+    @transaction.atomic
+    def confirm_return(self, request, pk=None):
+        forbidden = self._ensure_admin(request)
+        if forbidden:
+            return forbidden
+        expense_request = self.get_object()
+        execution = getattr(expense_request, 'execution', None)
+        if not execution or execution.execution_type != ExpenseExecution.TYPE_ADVANCE:
+            return Response({'detail': 'Devolução só se aplica a adiantamentos.'}, status=status.HTTP_400_BAD_REQUEST)
+        if execution.settlement_status != ExpenseExecution.SETTLEMENT_PENDING_RETURN:
+            return Response({'detail': 'Não há devolução pendente para esta solicitação.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ExpenseAdvanceConfirmReturnSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        execution.settlement_status = ExpenseExecution.SETTLEMENT_SETTLED
+        execution.settled_by = request.user
+        execution.settled_at = timezone.now()
+        execution.save(update_fields=['settlement_status', 'settled_by', 'settled_at', 'updated_at'])
+        ExpenseAuditLog.objects.create(
+            expense_request=expense_request,
+            actor=request.user,
+            action=ExpenseAuditLog.ACTION_ADVANCE_RETURN_CONFIRMED,
+            note=serializer.validated_data.get('note', ''),
+            metadata={'returned_amount': str(execution.returned_amount or Decimal('0'))},
+        )
+        return Response(self.get_serializer(expense_request).data)
+
+    @action(detail=True, methods=['post'], url_path='manual-close', url_name='manual-close')
+    @transaction.atomic
+    def manual_close(self, request, pk=None):
+        forbidden = self._ensure_admin(request)
+        if forbidden:
+            return forbidden
+        expense_request = self.get_object()
+        execution = getattr(expense_request, 'execution', None)
+        if not execution or execution.execution_type != ExpenseExecution.TYPE_ADVANCE:
+            return Response({'detail': 'Encerramento manual só se aplica a adiantamentos.'}, status=status.HTTP_400_BAD_REQUEST)
+        if execution.status != ExpenseExecution.STATUS_EXECUTED:
+            return Response({'detail': 'A solicitação precisa estar executada antes do encerramento manual.'}, status=status.HTTP_400_BAD_REQUEST)
+        if execution.settlement_status in [
+            ExpenseExecution.SETTLEMENT_SETTLED,
+            ExpenseExecution.SETTLEMENT_MANUALLY_CLOSED,
+        ]:
+            return Response({'detail': 'Esta prestação de contas já foi encerrada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = ExpenseAdvanceManualCloseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        execution.settlement_status = ExpenseExecution.SETTLEMENT_MANUALLY_CLOSED
+        execution.settled_by = request.user
+        execution.settled_at = timezone.now()
+        execution.settlement_notes = serializer.validated_data['note']
+        if execution.spent_amount is None:
+            execution.spent_amount = execution.amount
+        if execution.returned_amount is None:
+            execution.returned_amount = Decimal('0')
+        execution.save(
+            update_fields=[
+                'settlement_status',
+                'settled_by',
+                'settled_at',
+                'settlement_notes',
+                'spent_amount',
+                'returned_amount',
+                'updated_at',
+            ]
+        )
+        ExpenseAuditLog.objects.create(
+            expense_request=expense_request,
+            actor=request.user,
+            action=ExpenseAuditLog.ACTION_ADVANCE_MANUALLY_CLOSED,
+            note=execution.settlement_notes,
+            metadata={
+                'spent_amount': str(execution.spent_amount),
+                'returned_amount': str(execution.returned_amount),
+            },
         )
         return Response(self.get_serializer(expense_request).data)
 

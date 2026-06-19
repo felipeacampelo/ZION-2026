@@ -369,7 +369,7 @@ export interface FinanceRubric {
 
 export interface FinanceAttachment {
   id: number;
-  category: 'SUPPORTING' | 'RECEIPT';
+  category: 'SUPPORTING' | 'RECEIPT' | 'ADVANCE_SETTLEMENT';
   file: string;
   uploaded_by_email: string;
   can_manage: boolean;
@@ -391,8 +391,17 @@ export interface FinanceExecution {
   status: 'NOT_EXECUTED' | 'EXECUTED';
   amount: string;
   notes: string;
+  settlement_status: 'NOT_REQUIRED' | 'PENDING_PROOF' | 'PENDING_RETURN' | 'SETTLED' | 'MANUALLY_CLOSED';
+  spent_amount: string | null;
+  returned_amount: string | null;
+  settlement_notes: string;
   executed_by_email: string;
+  settled_by_email: string;
   executed_at: string | null;
+  settled_at: string | null;
+  can_submit_settlement: boolean;
+  can_confirm_return: boolean;
+  can_manual_close: boolean;
   attachments: FinanceAttachment[];
 }
 
@@ -475,6 +484,12 @@ export interface FinanceReportResponse extends FinanceGlobalSummary {
       executed_amount: string;
       available_amount: string;
     }>;
+    advance_settlement: {
+      pending_proof_count: number;
+      pending_proof_amount: string;
+      pending_return_count: number;
+      pending_return_amount: string;
+    };
   };
 }
 
@@ -916,6 +931,25 @@ export const executeFinanceRequest = (
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
+
+export const submitFinanceAdvanceSettlement = (
+  id: number,
+  data: { spent_amount: string; settlement_notes?: string; file?: File | null }
+) => {
+  const formData = new FormData();
+  formData.append('spent_amount', data.spent_amount);
+  if (data.settlement_notes) formData.append('settlement_notes', data.settlement_notes);
+  if (data.file) formData.append('file', data.file);
+  return api.post<FinanceExpenseRequest>(`/finance/requests/${id}/settlement/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const confirmFinanceAdvanceReturn = (id: number, note?: string) =>
+  api.post<FinanceExpenseRequest>(`/finance/requests/${id}/confirm-return/`, { note });
+
+export const manualCloseFinanceAdvance = (id: number, note: string) =>
+  api.post<FinanceExpenseRequest>(`/finance/requests/${id}/manual-close/`, { note });
 
 export const addFinanceRequestAttachment = (id: number, data: { file: File; category?: 'SUPPORTING' | 'RECEIPT' }) => {
   const formData = new FormData();

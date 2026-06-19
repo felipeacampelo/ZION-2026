@@ -4,10 +4,12 @@ import AttachmentPreviewModal from '../components/AttachmentPreviewModal';
 import AdminShell from '../components/AdminShell';
 import {
   approveFinanceRequest,
+  confirmFinanceAdvanceReturn,
   executeFinanceRequest,
   getFinanceAreas,
   getFinanceRequests,
   getFinanceRubrics,
+  manualCloseFinanceAdvance,
   rejectFinanceRequest,
   resolveMediaUrl,
   reviewFinanceRequest,
@@ -32,6 +34,9 @@ const getAttachmentName = (fileUrl: string) => {
 const getRequestReceipt = (request: FinanceExpenseRequest) =>
   request.execution?.attachments.find((a) => a.category === 'RECEIPT') || null;
 
+const getAdvanceSettlementAttachment = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.find((a) => a.category === 'ADVANCE_SETTLEMENT') || null;
+
 const getSupportingAttachments = (request: FinanceExpenseRequest) =>
   request.attachments.filter((a) => a.category !== 'RECEIPT');
 
@@ -49,8 +54,24 @@ const getAuditLabel = (log: FinanceAuditLog) => {
     CANCELLED: 'Cancelada',
     EXECUTED: 'Executada',
     ATTACHMENT_ADDED: 'Arquivo anexado',
+    ATTACHMENT_REPLACED: 'Arquivo substituído',
+    ATTACHMENT_REMOVED: 'Arquivo removido',
+    ADVANCE_SETTLEMENT_SUBMITTED: 'Prestação enviada',
+    ADVANCE_RETURN_CONFIRMED: 'Devolução confirmada',
+    ADVANCE_MANUALLY_CLOSED: 'Encerrado manualmente',
   };
   return labels[log.action] || log.action;
+};
+
+const getSettlementStatusConfig = (status?: string) => {
+  const labels: Record<string, { label: string; className: string }> = {
+    NOT_REQUIRED: { label: 'Sem prestação', className: 'bg-gray-100 text-gray-500' },
+    PENDING_PROOF: { label: 'Pendente de prestação', className: 'bg-amber-100 text-amber-800' },
+    PENDING_RETURN: { label: 'Pendente de devolução', className: 'bg-orange-100 text-orange-700' },
+    SETTLED: { label: 'Prestação concluída', className: 'bg-emerald-100 text-emerald-800' },
+    MANUALLY_CLOSED: { label: 'Encerrado manualmente', className: 'bg-slate-200 text-slate-700' },
+  };
+  return labels[status || 'NOT_REQUIRED'] || labels.NOT_REQUIRED;
 };
 
 const getErrorMessage = (error: any) => {
@@ -103,6 +124,8 @@ export default function AdminFinanceApprovals() {
   const [executionNotes, setExecutionNotes] = useState('');
   const [executionFile, setExecutionFile] = useState<File | null>(null);
   const [executionFeedback, setExecutionFeedback] = useState('');
+  const [manualCloseRequestId, setManualCloseRequestId] = useState<number | null>(null);
+  const [manualCloseNote, setManualCloseNote] = useState('');
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
 
   const loadData = async () => {
@@ -180,6 +203,8 @@ export default function AdminFinanceApprovals() {
   const pendingCount = visibleRequests.filter((r) => ['PENDING', 'UNDER_REVIEW'].includes(r.status)).length;
   const approvedCount = visibleRequests.filter((r) => r.status === 'APPROVED').length;
   const awaitingExecutionCount = visibleRequests.filter((r) => r.status === 'APPROVED' && r.execution?.status === 'NOT_EXECUTED').length;
+  const pendingProofCount = visibleRequests.filter((r) => r.execution?.settlement_status === 'PENDING_PROOF').length;
+  const pendingReturnCount = visibleRequests.filter((r) => r.execution?.settlement_status === 'PENDING_RETURN').length;
 
   const submitRejection = async (requestId: number) => {
     try {
@@ -212,6 +237,30 @@ export default function AdminFinanceApprovals() {
     }
   };
 
+  const submitConfirmReturn = async (requestId: number) => {
+    try {
+      setError('');
+      await confirmFinanceAdvanceReturn(requestId, 'Devolução confirmada pelo administrativo.');
+      setSuccessMessage('Devolução confirmada com sucesso.');
+      await loadData();
+    } catch (submitError: any) {
+      setError(getErrorMessage(submitError));
+    }
+  };
+
+  const submitManualClose = async (requestId: number) => {
+    try {
+      setError('');
+      await manualCloseFinanceAdvance(requestId, manualCloseNote);
+      setSuccessMessage('Prestação encerrada manualmente.');
+      setManualCloseRequestId(null);
+      setManualCloseNote('');
+      await loadData();
+    } catch (submitError: any) {
+      setError(getErrorMessage(submitError));
+    }
+  };
+
   return (
     <AdminShell>
       <AttachmentPreviewModal
@@ -234,7 +283,7 @@ export default function AdminFinanceApprovals() {
         {successMessage && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{successMessage}</div>}
 
         {/* KPIs */}
-        <section className="grid gap-4 sm:grid-cols-3">
+        <section className="grid gap-4 sm:grid-cols-5">
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Em análise</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{pendingCount}</p>
@@ -246,6 +295,14 @@ export default function AdminFinanceApprovals() {
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Aguardando execução</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{awaitingExecutionCount}</p>
+          </div>
+          <div className={cardClass}>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Pendente de prestação</p>
+            <p className="mt-3 text-2xl font-black text-gray-950">{pendingProofCount}</p>
+          </div>
+          <div className={cardClass}>
+            <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Pendente de devolução</p>
+            <p className="mt-3 text-2xl font-black text-gray-950">{pendingReturnCount}</p>
           </div>
         </section>
 
@@ -315,8 +372,11 @@ export default function AdminFinanceApprovals() {
                         const isAwaitingExecution = item.status === 'APPROVED' && item.execution?.status === 'NOT_EXECUTED';
                         const expanded = isRequestExpanded(item);
                         const receipt = getRequestReceipt(item);
+                        const settlementAttachment = getAdvanceSettlementAttachment(item);
                         const supportingAttachments = getSupportingAttachments(item);
                         const attachmentMap = getAttachmentMap(item);
+                        const settlementConfig = getSettlementStatusConfig(item.execution?.settlement_status);
+                        const settlementAttachmentUrl = settlementAttachment ? resolveMediaUrl(settlementAttachment.file) : '';
 
                         return (
                           <div key={item.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
@@ -378,6 +438,27 @@ export default function AdminFinanceApprovals() {
                                     Executar
                                   </button>
                                 )}
+                                {item.execution?.can_confirm_return && (
+                                  <button
+                                    type="button"
+                                    onClick={() => submitConfirmReturn(item.id)}
+                                    className="rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white"
+                                  >
+                                    Confirmar devolução
+                                  </button>
+                                )}
+                                {item.execution?.can_manual_close && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setManualCloseRequestId(item.id);
+                                      setManualCloseNote(item.execution?.settlement_notes || '');
+                                    }}
+                                    className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                                  >
+                                    Encerrar manualmente
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -392,6 +473,34 @@ export default function AdminFinanceApprovals() {
                                     <p className="mt-2 text-xs text-red-600"><span className="font-semibold">Motivo da rejeição:</span> {item.rejection_reason}</p>
                                   )}
                                 </div>
+
+                                {item.execution?.execution_type === 'ADVANCE' && item.execution?.status === 'EXECUTED' && (
+                                  <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-sm font-semibold text-amber-900">Prestação de contas do adiantamento</p>
+                                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${settlementConfig.className}`}>
+                                        {settlementConfig.label}
+                                      </span>
+                                    </div>
+                                    <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm text-amber-900">
+                                      <div className="rounded-2xl bg-white/80 px-3 py-2">
+                                        <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Adiantado</p>
+                                        <p className="mt-1 font-semibold">R$ {formatCurrency(item.execution.amount)}</p>
+                                      </div>
+                                      <div className="rounded-2xl bg-white/80 px-3 py-2">
+                                        <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Gasto informado</p>
+                                        <p className="mt-1 font-semibold">R$ {formatCurrency(item.execution.spent_amount || '0')}</p>
+                                      </div>
+                                      <div className="rounded-2xl bg-white/80 px-3 py-2">
+                                        <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Valor a devolver</p>
+                                        <p className="mt-1 font-semibold">R$ {formatCurrency(item.execution.returned_amount || '0')}</p>
+                                      </div>
+                                    </div>
+                                    {item.execution.settlement_notes && (
+                                      <p className="mt-3 text-sm text-amber-900">{item.execution.settlement_notes}</p>
+                                    )}
+                                  </div>
+                                )}
 
                                 {/* Receipt */}
                                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
@@ -415,6 +524,24 @@ export default function AdminFinanceApprovals() {
                                     <p className="mt-1 text-sm text-emerald-700">Nenhum comprovante de execução ainda.</p>
                                   )}
                                 </div>
+
+                                {settlementAttachment && (
+                                  <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3">
+                                    <p className="text-sm font-semibold text-amber-900">Comprovante da prestação</p>
+                                    <p className="mt-1 text-sm text-amber-800">{getAttachmentName(settlementAttachment.file)} • {formatDateTime(settlementAttachment.created_at)}</p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewFile({ name: getAttachmentName(settlementAttachment.file), url: settlementAttachmentUrl })}
+                                        className="rounded-xl bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white"
+                                      >
+                                        Visualizar
+                                      </button>
+                                      <a href={settlementAttachmentUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700">Nova aba</a>
+                                      <a href={settlementAttachmentUrl} download className="rounded-xl border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800">Baixar</a>
+                                    </div>
+                                  </div>
+                                )}
 
                                 {/* Supporting attachments */}
                                 {supportingAttachments.length > 0 && (
@@ -448,7 +575,7 @@ export default function AdminFinanceApprovals() {
                                   <p className="mb-2 text-sm font-semibold text-gray-900">Histórico</p>
                                   <div className="space-y-2">
                                     {item.audit_logs.map((log) => {
-                                      const linkedAttachment = log.action === 'ATTACHMENT_ADDED'
+                                      const linkedAttachment = ['ATTACHMENT_ADDED', 'ADVANCE_SETTLEMENT_SUBMITTED'].includes(log.action)
                                         ? attachmentMap.get(Number(log.metadata?.attachment_id))
                                         : null;
                                       return (
@@ -462,7 +589,11 @@ export default function AdminFinanceApprovals() {
                                           {linkedAttachment && (
                                             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                                               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">
-                                                {linkedAttachment.category === 'RECEIPT' ? 'Comprovante' : 'Anexo'}
+                                                {linkedAttachment.category === 'RECEIPT'
+                                                  ? 'Comprovante'
+                                                  : linkedAttachment.category === 'ADVANCE_SETTLEMENT'
+                                                    ? 'Prestação'
+                                                    : 'Anexo'}
                                               </span>
                                               <button
                                                 type="button"
@@ -487,6 +618,25 @@ export default function AdminFinanceApprovals() {
                                     <div className="mt-3 flex gap-2">
                                       <button type="button" onClick={() => submitRejection(item.id)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Confirmar rejeição</button>
                                       <button type="button" onClick={() => { setRejectingRequestId(null); setRejectionReason(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {manualCloseRequestId === item.id && (
+                                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <p className="text-sm font-semibold text-slate-700">Encerrar manualmente</p>
+                                    <p className="mt-1 text-xs text-slate-600">
+                                      Use esta opção quando a prestação não terá comprovante formal ou quando a devolução já foi resolvida fora do fluxo.
+                                    </p>
+                                    <textarea
+                                      className={`${inputClass} mt-3 min-h-[100px] bg-white`}
+                                      value={manualCloseNote}
+                                      onChange={(e) => setManualCloseNote(e.target.value)}
+                                      placeholder="Observação obrigatória"
+                                    />
+                                    <div className="mt-3 flex gap-2">
+                                      <button type="button" onClick={() => submitManualClose(item.id)} className="rounded-xl bg-slate-700 px-3 py-2 text-xs font-semibold text-white">Confirmar encerramento</button>
+                                      <button type="button" onClick={() => { setManualCloseRequestId(null); setManualCloseNote(''); }} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
                                     </div>
                                   </div>
                                 )}

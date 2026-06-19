@@ -215,6 +215,19 @@ class ExpenseExecution(models.Model):
         (STATUS_EXECUTED, _('Executado')),
     ]
 
+    SETTLEMENT_NOT_REQUIRED = 'NOT_REQUIRED'
+    SETTLEMENT_PENDING_PROOF = 'PENDING_PROOF'
+    SETTLEMENT_PENDING_RETURN = 'PENDING_RETURN'
+    SETTLEMENT_SETTLED = 'SETTLED'
+    SETTLEMENT_MANUALLY_CLOSED = 'MANUALLY_CLOSED'
+    SETTLEMENT_STATUS_CHOICES = [
+        (SETTLEMENT_NOT_REQUIRED, _('Não aplicável')),
+        (SETTLEMENT_PENDING_PROOF, _('Pendente de prestação')),
+        (SETTLEMENT_PENDING_RETURN, _('Pendente de devolução')),
+        (SETTLEMENT_SETTLED, _('Prestação concluída')),
+        (SETTLEMENT_MANUALLY_CLOSED, _('Encerrado manualmente')),
+    ]
+
     expense_request = models.OneToOneField(
         ExpenseRequest,
         on_delete=models.CASCADE,
@@ -241,6 +254,29 @@ class ExpenseExecution(models.Model):
         validators=[MinValueValidator(0.01)],
     )
     notes = models.TextField(_('Observações'), blank=True)
+    settlement_status = models.CharField(
+        _('Status da Prestação'),
+        max_length=24,
+        choices=SETTLEMENT_STATUS_CHOICES,
+        default=SETTLEMENT_NOT_REQUIRED,
+    )
+    spent_amount = models.DecimalField(
+        _('Valor Gasto'),
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        null=True,
+        blank=True,
+    )
+    returned_amount = models.DecimalField(
+        _('Valor Devolvido'),
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        null=True,
+        blank=True,
+    )
+    settlement_notes = models.TextField(_('Observações da Prestação'), blank=True)
     executed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -249,7 +285,16 @@ class ExpenseExecution(models.Model):
         related_name='executed_expense_requests',
         verbose_name=_('Executado por'),
     )
+    settled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='settled_expense_requests',
+        verbose_name=_('Prestado por'),
+    )
     executed_at = models.DateTimeField(_('Executado em'), null=True, blank=True)
+    settled_at = models.DateTimeField(_('Prestado em'), null=True, blank=True)
     created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
     updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
 
@@ -264,9 +309,11 @@ class ExpenseExecution(models.Model):
 class ExpenseAttachment(models.Model):
     CATEGORY_SUPPORTING = 'SUPPORTING'
     CATEGORY_RECEIPT = 'RECEIPT'
+    CATEGORY_ADVANCE_SETTLEMENT = 'ADVANCE_SETTLEMENT'
     CATEGORY_CHOICES = [
         (CATEGORY_SUPPORTING, _('Suporte')),
         (CATEGORY_RECEIPT, _('Comprovante')),
+        (CATEGORY_ADVANCE_SETTLEMENT, _('Prestação de contas')),
     ]
 
     expense_request = models.ForeignKey(
@@ -355,6 +402,9 @@ class ExpenseAuditLog(models.Model):
     ACTION_ATTACHMENT_ADDED = 'ATTACHMENT_ADDED'
     ACTION_ATTACHMENT_REPLACED = 'ATTACHMENT_REPLACED'
     ACTION_ATTACHMENT_REMOVED = 'ATTACHMENT_REMOVED'
+    ACTION_ADVANCE_SETTLEMENT_SUBMITTED = 'ADVANCE_SETTLEMENT_SUBMITTED'
+    ACTION_ADVANCE_RETURN_CONFIRMED = 'ADVANCE_RETURN_CONFIRMED'
+    ACTION_ADVANCE_MANUALLY_CLOSED = 'ADVANCE_MANUALLY_CLOSED'
     ACTION_CHOICES = [
         (ACTION_CREATED, _('Criada')),
         (ACTION_UNDER_REVIEW, _('Em análise')),
@@ -365,6 +415,9 @@ class ExpenseAuditLog(models.Model):
         (ACTION_ATTACHMENT_ADDED, _('Anexo adicionado')),
         (ACTION_ATTACHMENT_REPLACED, _('Anexo substituído')),
         (ACTION_ATTACHMENT_REMOVED, _('Anexo removido')),
+        (ACTION_ADVANCE_SETTLEMENT_SUBMITTED, _('Prestação enviada')),
+        (ACTION_ADVANCE_RETURN_CONFIRMED, _('Devolução confirmada')),
+        (ACTION_ADVANCE_MANUALLY_CLOSED, _('Encerrado manualmente')),
     ]
 
     expense_request = models.ForeignKey(

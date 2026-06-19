@@ -7,6 +7,24 @@ from apps.payments.models import Payment
 from .models import Area, AreaBudget, BudgetRubric, ExpenseExecution, ExpenseRequest, ExtraContribution
 
 
+def _get_effective_execution_amount(execution):
+    if execution.status != ExpenseExecution.STATUS_EXECUTED:
+        return Decimal('0')
+    if execution.execution_type != ExpenseExecution.TYPE_ADVANCE:
+        return Decimal(str(execution.amount))
+
+    if execution.settlement_status in [
+        ExpenseExecution.SETTLEMENT_SETTLED,
+        ExpenseExecution.SETTLEMENT_MANUALLY_CLOSED,
+    ]:
+        if execution.spent_amount is not None:
+            return Decimal(str(execution.spent_amount))
+        returned = Decimal(str(execution.returned_amount or Decimal('0')))
+        return max(Decimal(str(execution.amount)) - returned, Decimal('0'))
+
+    return Decimal(str(execution.amount))
+
+
 def calculate_asaas_fee(payment_amount, payment_method, installments):
     amount = Decimal(str(payment_amount))
 
@@ -109,13 +127,11 @@ def get_area_committed_amount(area):
 
 
 def get_area_executed_amount(area):
-    return (
-        ExpenseExecution.objects.filter(
-            expense_request__area=area,
-            status=ExpenseExecution.STATUS_EXECUTED,
-        ).aggregate(total=Sum('amount'))['total']
-        or Decimal('0')
+    executions = ExpenseExecution.objects.filter(
+        expense_request__area=area,
+        status=ExpenseExecution.STATUS_EXECUTED,
     )
+    return sum((_get_effective_execution_amount(execution) for execution in executions), Decimal('0'))
 
 
 def get_area_summary(area):
@@ -149,12 +165,15 @@ def get_rubric_summary(rubric):
         ).aggregate(total=Sum('amount'))['total']
         or Decimal('0')
     )
-    executed = (
-        ExpenseExecution.objects.filter(
-            expense_request__rubric=rubric,
-            status=ExpenseExecution.STATUS_EXECUTED,
-        ).aggregate(total=Sum('amount'))['total']
-        or Decimal('0')
+    executed = sum(
+        (
+            _get_effective_execution_amount(execution)
+            for execution in ExpenseExecution.objects.filter(
+                expense_request__rubric=rubric,
+                status=ExpenseExecution.STATUS_EXECUTED,
+            )
+        ),
+        Decimal('0'),
     )
     allocated = Decimal(str(rubric.allocated_amount))
     return {
@@ -173,6 +192,12 @@ def get_extra_contributions_total():
 def build_finance_report():
     areas_payload = []
     rubrics_payload = []
+    advance_settlement = {
+        'pending_proof_count': 0,
+        'pending_proof_amount': Decimal('0'),
+        'pending_return_count': 0,
+        'pending_return_amount': Decimal('0'),
+    }
     for area in Area.objects.prefetch_related('rubrics').all():
         area_summary = get_area_summary(area)
         areas_payload.append({
@@ -189,8 +214,18 @@ def build_finance_report():
                 'area_name': area.name,
                 **{key: str(value) for key, value in rubric_summary.items()},
             })
+    for execution in ExpenseExecution.objects.filter(
+        status=ExpenseExecution.STATUS_EXECUTED,
+        execution_type=ExpenseExecution.TYPE_ADVANCE,
+    ):
+        if execution.settlement_status == ExpenseExecution.SETTLEMENT_PENDING_PROOF:
+            advance_settlement['pending_proof_count'] += 1
+            advance_settlement['pending_proof_amount'] += Decimal(str(execution.amount))
+        if execution.settlement_status == ExpenseExecution.SETTLEMENT_PENDING_RETURN:
+            advance_settlement['pending_return_count'] += 1
+            advance_settlement['pending_return_amount'] += Decimal(str(execution.returned_amount or Decimal('0')))
     return {
         'areas': areas_payload,
         'rubrics': rubrics_payload,
+        'advance_settlement': {key: str(value) if isinstance(value, Decimal) else value for key, value in advance_settlement.items()},
     }
-

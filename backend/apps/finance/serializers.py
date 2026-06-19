@@ -63,7 +63,11 @@ class ExpenseAuditLogSerializer(serializers.ModelSerializer):
 
 class ExpenseExecutionSerializer(serializers.ModelSerializer):
     executed_by_email = serializers.EmailField(source='executed_by.email', read_only=True)
+    settled_by_email = serializers.EmailField(source='settled_by.email', read_only=True)
     attachments = ExpenseAttachmentSerializer(many=True, read_only=True)
+    can_submit_settlement = serializers.SerializerMethodField()
+    can_confirm_return = serializers.SerializerMethodField()
+    can_manual_close = serializers.SerializerMethodField()
 
     class Meta:
         model = ExpenseExecution
@@ -73,10 +77,57 @@ class ExpenseExecutionSerializer(serializers.ModelSerializer):
             'status',
             'amount',
             'notes',
+            'settlement_status',
+            'spent_amount',
+            'returned_amount',
+            'settlement_notes',
             'executed_by_email',
+            'settled_by_email',
             'executed_at',
+            'settled_at',
+            'can_submit_settlement',
+            'can_confirm_return',
+            'can_manual_close',
             'attachments',
         ]
+
+    def get_can_submit_settlement(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        if obj.execution_type != ExpenseExecution.TYPE_ADVANCE or obj.status != ExpenseExecution.STATUS_EXECUTED:
+            return False
+        if user.is_staff or user.is_superuser:
+            return True
+        assignment = getattr(obj.expense_request.area, 'leader_assignment', None)
+        return bool(assignment and assignment.user_id == user.id)
+
+    def get_can_confirm_return(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return bool(
+            (user.is_staff or user.is_superuser)
+            and obj.execution_type == ExpenseExecution.TYPE_ADVANCE
+            and obj.settlement_status == ExpenseExecution.SETTLEMENT_PENDING_RETURN
+        )
+
+    def get_can_manual_close(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return bool(
+            (user.is_staff or user.is_superuser)
+            and obj.execution_type == ExpenseExecution.TYPE_ADVANCE
+            and obj.status == ExpenseExecution.STATUS_EXECUTED
+            and obj.settlement_status in [
+                ExpenseExecution.SETTLEMENT_PENDING_PROOF,
+                ExpenseExecution.SETTLEMENT_PENDING_RETURN,
+            ]
+        )
 
 
 class AreaSerializer(serializers.ModelSerializer):
@@ -367,6 +418,29 @@ class ExpenseRequestExecuteSerializer(serializers.Serializer):
         if attrs['execution_type'] == ExpenseExecution.TYPE_REIMBURSEMENT and not attrs.get('file'):
             raise serializers.ValidationError({'file': 'Reembolso exige comprovante.'})
         return attrs
+
+
+class ExpenseAdvanceSettlementSerializer(serializers.Serializer):
+    spent_amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'))
+    settlement_notes = serializers.CharField(required=False, allow_blank=True)
+    file = serializers.FileField(required=False)
+
+    def validate(self, attrs):
+        execution = self.context['execution']
+        spent_amount = Decimal(str(attrs['spent_amount']))
+        execution_amount = Decimal(str(execution.amount))
+        if spent_amount > execution_amount:
+            raise serializers.ValidationError({'spent_amount': 'O valor gasto não pode ultrapassar o valor do adiantamento.'})
+        attrs['returned_amount'] = execution_amount - spent_amount
+        return attrs
+
+
+class ExpenseAdvanceConfirmReturnSerializer(serializers.Serializer):
+    note = serializers.CharField(required=False, allow_blank=True)
+
+
+class ExpenseAdvanceManualCloseSerializer(serializers.Serializer):
+    note = serializers.CharField(required=True, allow_blank=False)
 
 
 class ExtraContributionSerializer(serializers.ModelSerializer):

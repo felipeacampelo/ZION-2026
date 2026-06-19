@@ -14,7 +14,7 @@ from apps.payments.models import Payment
 from apps.products.models import Batch, Product
 
 from .constants import AREA_LEADERS_GROUP_NAME
-from .models import Area, AreaBudget, AreaLeaderAssignment, BudgetRubric, ExpenseAuditLog
+from .models import Area, AreaBudget, AreaLeaderAssignment, BudgetRubric, ExpenseAuditLog, ExpenseExecution
 
 
 User = get_user_model()
@@ -364,6 +364,211 @@ class FinanceFlowTests(APITestCase):
                 action=ExpenseAuditLog.ACTION_EXECUTED,
             ).exists()
         )
+
+    def test_advance_execution_starts_pending_settlement_flow(self):
+        _, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '25.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Compra externa',
+                'justification': 'Pagamento rápido',
+            },
+            format='json',
+        )
+        request_id = create_response.data['id']
+
+        self.client.force_authenticate(self.admin)
+        self.client.post(reverse('finance:finance-request-approve', args=[request_id]), {}, format='json')
+        execute_response = self.client.post(
+            reverse('finance:finance-request-execute', args=[request_id]),
+            {'execution_type': 'ADVANCE', 'notes': 'Transferido'},
+            format='multipart',
+        )
+
+        self.assertEqual(execute_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(execute_response.data['execution']['settlement_status'], 'PENDING_PROOF')
+        self.assertTrue(execute_response.data['execution']['can_submit_settlement'])
+
+    def test_leader_can_submit_advance_settlement_and_pending_return_keeps_full_consumption(self):
+        area, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '20.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Material',
+                'justification': 'Compra local',
+            },
+            format='json',
+        )
+        request_id = create_response.data['id']
+
+        self.client.force_authenticate(self.admin)
+        self.client.post(reverse('finance:finance-request-approve', args=[request_id]), {}, format='json')
+        self.client.post(
+            reverse('finance:finance-request-execute', args=[request_id]),
+            {'execution_type': 'ADVANCE', 'notes': 'Transferido'},
+            format='multipart',
+        )
+
+        self.client.force_authenticate(self.leader)
+        settlement_response = self.client.post(
+            reverse('finance:finance-request-settlement', args=[request_id]),
+            {
+                'spent_amount': '17.00',
+                'settlement_notes': 'Gastei menos do que o previsto',
+                'file': SimpleUploadedFile('nota.pdf', b'%PDF-1.4 nota', content_type='application/pdf'),
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(settlement_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(settlement_response.data['execution']['settlement_status'], 'PENDING_RETURN')
+        self.assertEqual(settlement_response.data['execution']['spent_amount'], '17.00')
+        self.assertEqual(settlement_response.data['execution']['returned_amount'], '3.00')
+        self.assertTrue(
+            any(
+                attachment['category'] == 'ADVANCE_SETTLEMENT'
+                for attachment in settlement_response.data['execution']['attachments']
+            )
+        )
+
+        leader_dashboard = self.client.get(reverse('finance:my-dashboard'))
+        self.assertEqual(leader_dashboard.status_code, status.HTTP_200_OK)
+        self.assertEqual(leader_dashboard.data['summary']['executed_amount'], '20.00')
+        self.assertTrue(
+            ExpenseAuditLog.objects.filter(
+                expense_request_id=request_id,
+                action=ExpenseAuditLog.ACTION_ADVANCE_SETTLEMENT_SUBMITTED,
+            ).exists()
+        )
+
+    def test_confirm_return_reopens_available_budget(self):
+        area, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '20.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Material',
+                'justification': 'Compra local',
+            },
+            format='json',
+        )
+        request_id = create_response.data['id']
+
+        self.client.force_authenticate(self.admin)
+        self.client.post(reverse('finance:finance-request-approve', args=[request_id]), {}, format='json')
+        self.client.post(
+            reverse('finance:finance-request-execute', args=[request_id]),
+            {'execution_type': 'ADVANCE', 'notes': 'Transferido'},
+            format='multipart',
+        )
+
+        self.client.force_authenticate(self.leader)
+        self.client.post(
+            reverse('finance:finance-request-settlement', args=[request_id]),
+            {'spent_amount': '17.00', 'settlement_notes': 'Sobrou valor'},
+            format='multipart',
+        )
+
+        self.client.force_authenticate(self.admin)
+        confirm_response = self.client.post(
+            reverse('finance:finance-request-confirm-return', args=[request_id]),
+            {'note': 'Devolução recebida'},
+            format='json',
+        )
+
+        self.assertEqual(confirm_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(confirm_response.data['execution']['settlement_status'], 'SETTLED')
+
+        admin_requests = self.client.get(reverse('finance:finance-request-list'))
+        self.assertEqual(admin_requests.status_code, status.HTTP_200_OK)
+        self.assertEqual(admin_requests.data[0]['execution']['returned_amount'], '3.00')
+
+        self.client.force_authenticate(self.leader)
+        leader_dashboard = self.client.get(reverse('finance:my-dashboard'))
+        self.assertEqual(leader_dashboard.status_code, status.HTTP_200_OK)
+        self.assertEqual(leader_dashboard.data['summary']['executed_amount'], '17.00')
+        self.assertEqual(leader_dashboard.data['summary']['available_amount'], '33.00')
+
+    def test_advance_settlement_rejects_spent_amount_above_execution_total(self):
+        _, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '20.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Material',
+                'justification': 'Compra local',
+            },
+            format='json',
+        )
+        request_id = create_response.data['id']
+
+        self.client.force_authenticate(self.admin)
+        self.client.post(reverse('finance:finance-request-approve', args=[request_id]), {}, format='json')
+        self.client.post(
+            reverse('finance:finance-request-execute', args=[request_id]),
+            {'execution_type': 'ADVANCE', 'notes': 'Transferido'},
+            format='multipart',
+        )
+
+        self.client.force_authenticate(self.leader)
+        settlement_response = self.client.post(
+            reverse('finance:finance-request-settlement', args=[request_id]),
+            {'spent_amount': '21.00'},
+            format='multipart',
+        )
+        self.assertEqual(settlement_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('spent_amount', settlement_response.data)
+
+    def test_manual_close_requires_note(self):
+        _, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '20.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Material',
+                'justification': 'Compra local',
+            },
+            format='json',
+        )
+        request_id = create_response.data['id']
+
+        self.client.force_authenticate(self.admin)
+        self.client.post(reverse('finance:finance-request-approve', args=[request_id]), {}, format='json')
+        self.client.post(
+            reverse('finance:finance-request-execute', args=[request_id]),
+            {'execution_type': 'ADVANCE', 'notes': 'Transferido'},
+            format='multipart',
+        )
+
+        manual_close_response = self.client.post(
+            reverse('finance:finance-request-manual-close', args=[request_id]),
+            {'note': ''},
+            format='json',
+        )
+        self.assertEqual(manual_close_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('note', manual_close_response.data)
 
     def test_attachment_file_url_is_relative_media_path(self):
         _, rubric = self._create_area_and_rubric()
