@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models import Q, Sum
+from django.db.models import Sum
 
 from apps.payments.models import Payment
 
@@ -116,12 +116,14 @@ def get_area_pending_amount(area):
 
 
 def get_area_committed_amount(area):
+    # exclude() correctly handles the NULL case: includes requests with no
+    # execution record AND requests whose execution is not yet EXECUTED.
     return (
         ExpenseRequest.objects.filter(
             area=area,
             status=ExpenseRequest.STATUS_APPROVED,
-        ).filter(
-            Q(execution__isnull=True) | Q(execution__status=ExpenseExecution.STATUS_NOT_EXECUTED)
+        ).exclude(
+            execution__status=ExpenseExecution.STATUS_EXECUTED,
         ).aggregate(total=Sum('amount'))['total']
         or Decimal('0')
     )
@@ -132,8 +134,8 @@ def get_rubric_committed_amount(rubric):
         ExpenseRequest.objects.filter(
             rubric=rubric,
             status=ExpenseRequest.STATUS_APPROVED,
-        ).filter(
-            Q(execution__isnull=True) | Q(execution__status=ExpenseExecution.STATUS_NOT_EXECUTED)
+        ).exclude(
+            execution__status=ExpenseExecution.STATUS_EXECUTED,
         ).aggregate(total=Sum('amount'))['total']
         or Decimal('0')
     )
@@ -152,7 +154,7 @@ def get_area_summary(area):
     pending = get_area_pending_amount(area)
     committed = get_area_committed_amount(area)
     executed = get_area_executed_amount(area)
-    available = allocated - committed - executed
+    available = allocated - pending - committed - executed
     return {
         'allocated_amount': allocated,
         'pending_amount': pending,
@@ -187,7 +189,7 @@ def get_rubric_summary(rubric):
         'pending_amount': pending,
         'committed_amount': committed,
         'executed_amount': executed,
-        'available_amount': allocated - committed - executed,
+        'available_amount': allocated - pending - committed - executed,
     }
 
 
