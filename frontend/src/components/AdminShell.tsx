@@ -40,29 +40,44 @@ interface NavItem {
   }>;
 }
 
-const NAV_ITEMS = [
-  { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
-  { to: '/admin/enrollments', label: 'Inscritos', icon: Users, end: false },
-  { to: '/admin/waitlist', label: 'Lista de Espera', icon: Hourglass, end: false },
-  { to: '/admin/empires', label: 'Impérios', icon: Crown, end: false },
-  { to: '/admin/social-quotas', label: 'Cota Social', icon: Wallet, end: false },
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
   {
-    to: '/admin/finance',
-    label: 'Financeiro',
-    icon: BriefcaseBusiness,
-    end: false,
-    children: [
-      { to: '/admin/finance', label: 'Visão geral', end: true },
-      { to: '/admin/finance/approvals', label: 'Aprovações', end: false },
+    label: 'Operacional',
+    items: [
+      { to: '/admin', label: 'Dashboard', icon: BarChart3, end: true },
+      { to: '/admin/enrollments', label: 'Inscritos', icon: Users, end: false },
+      { to: '/admin/waitlist', label: 'Lista de Espera', icon: Hourglass, end: false },
+      { to: '/admin/empires', label: 'Impérios', icon: Crown, end: false },
+      { to: '/admin/social-quotas', label: 'Cota Social', icon: Wallet, end: false },
+      {
+        to: '/admin/finance',
+        label: 'Financeiro',
+        icon: BriefcaseBusiness,
+        end: false,
+        children: [
+          { to: '/admin/finance', label: 'Visão geral', end: true },
+          { to: '/admin/finance/approvals', label: 'Aprovações', end: false },
+        ],
+      },
     ],
   },
-  { to: '/admin/settings/event', label: 'Evento', icon: CalendarDays, end: false },
-  { to: '/admin/settings/payment', label: 'Pagamentos', icon: CreditCard, end: false },
-  { to: '/admin/settings/form', label: 'Formulário', icon: FileText, end: false },
-  { to: '/admin/settings/batches', label: 'Lotes', icon: Layers, end: false },
-  { to: '/admin/settings/coupons', label: 'Cupons', icon: TicketPercent, end: false },
-  { to: '/admin/settings/emails', label: 'Emails', icon: Mail, end: false },
-] satisfies NavItem[];
+  {
+    label: 'Configurações',
+    items: [
+      { to: '/admin/settings/event', label: 'Evento', icon: CalendarDays, end: false },
+      { to: '/admin/settings/payment', label: 'Pagamentos', icon: CreditCard, end: false },
+      { to: '/admin/settings/form', label: 'Formulário', icon: FileText, end: false },
+      { to: '/admin/settings/batches', label: 'Lotes', icon: Layers, end: false },
+      { to: '/admin/settings/coupons', label: 'Cupons', icon: TicketPercent, end: false },
+      { to: '/admin/settings/emails', label: 'Emails', icon: Mail, end: false },
+    ],
+  },
+];
 
 export default function AdminShell({ children }: AdminShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -116,24 +131,26 @@ export default function AdminShell({ children }: AdminShellProps) {
     ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email
     : '';
 
-  const navItems = NAV_ITEMS
-    .filter((item) => {
-      if (item.to !== '/admin/finance') {
-        return isAdmin;
-      }
-      return canViewFinanceAdmin;
-    })
-    .map((item) => (
-      item.to === '/admin/finance' && item.children
-        ? {
-            ...item,
-            children: item.children.filter((child) => {
-              if (child.to === '/admin/finance/approvals') return canManageFinance;
-              return true;
-            }),
-          }
-        : item
-    ));
+  const filterItem = (item: NavItem): NavItem | null => {
+    if (item.to !== '/admin/finance' && !canViewFinanceAdmin && !isAdmin) return null;
+    if (item.to !== '/admin/finance' && !isAdmin) return null;
+    if (item.to === '/admin/finance' && !canViewFinanceAdmin) return null;
+    if (item.to === '/admin/finance' && item.children) {
+      return {
+        ...item,
+        children: item.children.filter((child) => {
+          if (child.to === '/admin/finance/approvals') return canManageFinance;
+          return true;
+        }),
+      };
+    }
+    return item;
+  };
+
+  const navGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.map(filterItem).filter(Boolean) as NavItem[],
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -225,76 +242,88 @@ export default function AdminShell({ children }: AdminShellProps) {
               </button>
             </div>
 
-            <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
-              {navItems.map(({ to, label, icon: Icon, end, children }) => {
-                const isGroupActive = location.pathname === to || location.pathname.startsWith(`${to}/`);
+            <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
+              {navGroups.map((group, groupIndex) => (
+                <div key={group.label} className="flex flex-col gap-1">
+                  {!desktopCollapsed && (
+                    <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                      {group.label}
+                    </p>
+                  )}
+                  {groupIndex > 0 && desktopCollapsed && (
+                    <div className="my-1 border-t border-gray-100" />
+                  )}
+                  {group.items.map(({ to, label, icon: Icon, end, children }) => {
+                    const isGroupActive = location.pathname === to || location.pathname.startsWith(`${to}/`);
 
-                if (!children || desktopCollapsed) {
-                  return (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      end={end}
-                      onClick={handleNavClick}
-                      title={desktopCollapsed ? label : undefined}
-                      className={({ isActive }) =>
-                        `flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                          isActive || (desktopCollapsed && isGroupActive)
-                            ? 'bg-dark text-white shadow-sm'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                        } ${desktopCollapsed ? 'justify-center' : 'gap-3'}`
-                      }
-                    >
-                      <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                      {!desktopCollapsed && <span>{label}</span>}
-                    </NavLink>
-                  );
-                }
+                    if (!children || desktopCollapsed) {
+                      return (
+                        <NavLink
+                          key={to}
+                          to={to}
+                          end={end}
+                          onClick={handleNavClick}
+                          title={desktopCollapsed ? label : undefined}
+                          className={({ isActive }) =>
+                            `flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                              isActive || (desktopCollapsed && isGroupActive)
+                                ? 'bg-dark text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            } ${desktopCollapsed ? 'justify-center' : 'gap-3'}`
+                          }
+                        >
+                          <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+                          {!desktopCollapsed && <span>{label}</span>}
+                        </NavLink>
+                      );
+                    }
 
-                const isOpen = openGroups.finance;
+                    const isOpen = openGroups.finance;
 
-                return (
-                  <div key={to} className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => setOpenGroups((current) => ({ ...current, finance: !current.finance }))}
-                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                        isGroupActive
-                          ? 'bg-dark text-white shadow-sm'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                    >
-                      <span className="flex items-center gap-3">
-                        <Icon className="h-[18px] w-[18px] flex-shrink-0" />
-                        <span>{label}</span>
-                      </span>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </button>
+                    return (
+                      <div key={to} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => setOpenGroups((current) => ({ ...current, finance: !current.finance }))}
+                          className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                            isGroupActive
+                              ? 'bg-dark text-white shadow-sm'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                        >
+                          <span className="flex items-center gap-3">
+                            <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+                            <span>{label}</span>
+                          </span>
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
 
-                    {isOpen && (
-                      <div className="ml-6 space-y-1 border-l border-gray-100 pl-3">
-                        {children.map((child) => (
-                          <NavLink
-                            key={child.to}
-                            to={child.to}
-                            end={child.end}
-                            onClick={handleNavClick}
-                            className={({ isActive }) =>
-                              `flex rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                                isActive
-                                  ? 'bg-gold/15 text-dark'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                              }`
-                            }
-                          >
-                            {child.label}
-                          </NavLink>
-                        ))}
+                        {isOpen && (
+                          <div className="ml-6 space-y-1 border-l border-gray-100 pl-3">
+                            {children.map((child) => (
+                              <NavLink
+                                key={child.to}
+                                to={child.to}
+                                end={child.end}
+                                onClick={handleNavClick}
+                                className={({ isActive }) =>
+                                  `flex rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                                    isActive
+                                      ? 'bg-gold/15 text-dark'
+                                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                  }`
+                                }
+                              >
+                                {child.label}
+                              </NavLink>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
 
             <div className={`border-t border-gray-100 py-4 ${desktopCollapsed ? 'px-3' : 'px-4'}`}>

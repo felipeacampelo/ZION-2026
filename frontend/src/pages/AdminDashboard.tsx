@@ -804,19 +804,37 @@ export default function AdminDashboard() {
                   <div>
                     <h2 className="text-2xl font-bold text-gray-950">Pagamentos em atraso</h2>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
-                      {overdueEnrollments.length} inscrições
+                  {overdueEnrollments.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
+                        {overdueEnrollments.length} inscrições
+                      </span>
+                      <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
+                        {overduePaymentsCount} parcelas
+                      </span>
+                      <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
+                        R$ {formatCurrency(overdueTotalAmount)}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-700">
+                      Nenhum atraso
                     </span>
-                    <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
-                      {overduePaymentsCount} parcelas
-                    </span>
-                    <span className="rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
-                      R$ {formatCurrency(overdueTotalAmount)}
-                    </span>
-                  </div>
+                  )}
                 </div>
 
+                {overdueEnrollments.length === 0 ? (
+                  <div className="mt-5 flex items-center gap-4 rounded-[24px] border border-green-100 bg-green-50 px-5 py-4">
+                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-green-100">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-950">Tudo em dia</p>
+                      <p className="text-sm text-gray-600">Nenhuma parcela vencida no momento.</p>
+                    </div>
+                  </div>
+                ) : (
+                <>
                 <button
                   type="button"
                   onClick={() => setShowOverduePayments((value) => !value)}
@@ -841,12 +859,7 @@ export default function AdminDashboard() {
                 {showOverduePayments && (
                   <div className="mt-5 max-h-[38rem] overflow-y-auto pr-1 sm:pr-2">
                     <div className="grid gap-4 2xl:grid-cols-2">
-                    {overdueEnrollments.length === 0 ? (
-                      <div className="rounded-[24px] border border-dashed border-green-200 bg-green-50 px-5 py-8 text-green-800 xl:col-span-2">
-                        Nenhum pagamento está em atraso no momento.
-                      </div>
-                    ) : (
-                      overdueEnrollments.map((item) => {
+                      {overdueEnrollments.map((item) => {
                         const name = item.form_data?.nome_completo || item.user_email || 'Sem nome';
                         return (
                           <article
@@ -924,10 +937,11 @@ export default function AdminDashboard() {
                             </div>
                           </article>
                         );
-                      })
-                    )}
+                      })}
                     </div>
                   </div>
+                )}
+                </>
                 )}
               </div>
             </section>
