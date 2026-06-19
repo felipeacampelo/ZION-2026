@@ -71,7 +71,7 @@ function BudgetCols({ allocated, pending, committed, available, size = 'sm', sho
       <div><p className={`${labelClass} text-gray-400`}>Orçado</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrency(allocated)}</p></div>
       <div><p className={`${labelClass} text-gray-400`}>Pendente</p><p className={`${valueClass} text-amber-700`}>R$ {formatCurrency(pending)}</p></div>
       <div><p className={`${labelClass} text-gray-400`}>Comprometido</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrency(committed)}</p></div>
-      <div><p className={`${labelClass} text-gray-400`}>Disponível</p><p className={`${valueClass} text-dark`}>R$ {formatCurrency(available)}</p></div>
+      <div><p className={`${labelClass} text-gray-400`}>Disponível</p><p className={`${valueClass} text-gold-700`}>R$ {formatCurrency(available)}</p></div>
       {showBar && allocatedNum > 0 && (
         <div className="col-span-4 mt-2">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
@@ -355,9 +355,9 @@ export default function AdminFinance() {
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Orçado em áreas</p>
             <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.allocated_total)}</p>
           </div>
-          <div className={cardClass}>
+          <div className={`${cardClass} border-l-[3px] border-l-gold`}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Ainda distribuível</p>
-            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.remaining_to_allocate)}</p>
+            <p className="mt-3 text-2xl font-black">{renderCurrencyValue(summary?.budgets.remaining_to_allocate, 'text-gold-700')}</p>
           </div>
         </section>
 
@@ -698,7 +698,7 @@ export default function AdminFinance() {
                     <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Orçado</th>
                     <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Pendente</th>
                     <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Comprometido</th>
-                    <th className="pb-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-dark">Disponível</th>
+                    <th className="pb-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gold-700">Disponível</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -711,7 +711,7 @@ export default function AdminFinance() {
                           <td className="py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.allocated_amount)}</td>
                           <td className="py-2.5 pr-4 text-right font-semibold text-amber-700">R$ {formatCurrency(area.summary.pending_amount)}</td>
                           <td className="py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.committed_amount)}</td>
-                          <td className="py-2.5 text-right font-bold text-dark">R$ {formatCurrency(area.summary.available_amount)}</td>
+                          <td className="py-2.5 text-right font-bold text-gold-700">R$ {formatCurrency(area.summary.available_amount)}</td>
                         </tr>
                         {areaRubrics.map((rubric) => (
                           <tr key={`rubric-${rubric.id}`} className="border-t border-gray-50">
@@ -721,7 +721,7 @@ export default function AdminFinance() {
                             <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrency(rubric.summary.allocated_amount)}</td>
                             <td className="py-2 pr-4 text-right text-amber-600">R$ {formatCurrency(rubric.summary.pending_amount)}</td>
                             <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrency(rubric.summary.committed_amount)}</td>
-                            <td className="py-2 text-right font-semibold text-dark/80">R$ {formatCurrency(rubric.summary.available_amount)}</td>
+                            <td className="py-2 text-right font-semibold text-gold-600">R$ {formatCurrency(rubric.summary.available_amount)}</td>
                           </tr>
                         ))}
                       </>

@@ -89,7 +89,7 @@ const getErrorMessage = (error: any) => {
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   PENDING: { label: 'Pendente', className: 'bg-amber-100 text-amber-800' },
   UNDER_REVIEW: { label: 'Em análise', className: 'bg-blue-100 text-blue-700' },
-  APPROVED: { label: 'Aprovada', className: 'bg-emerald-100 text-emerald-800' },
+  APPROVED: { label: 'Aprovada', className: 'bg-gold-100 text-gold-800' },
   REJECTED: { label: 'Rejeitada', className: 'bg-red-100 text-red-700' },
   CANCELLED: { label: 'Cancelada', className: 'bg-gray-100 text-gray-500' },
   EXECUTED: { label: 'Executada', className: 'bg-dark/10 text-dark' },
