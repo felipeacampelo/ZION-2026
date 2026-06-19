@@ -106,6 +106,11 @@ export default function AdminFinance() {
   // Tree expand state
   const [expandedAreaIds, setExpandedAreaIds] = useState<Set<number>>(new Set());
 
+  // Delete confirmations
+  const [deletingAreaId, setDeletingAreaId] = useState<number | null>(null);
+  const [deletingRubricId, setDeletingRubricId] = useState<number | null>(null);
+  const [deletingContributionId, setDeletingContributionId] = useState<number | null>(null);
+
   // Contribution form
   const [contributionForm, setContributionForm] = useState({ label: '', amount: '', source_type: 'OTHER' as ExtraContribution['source_type'], date: '', notes: '' });
 
@@ -151,6 +156,26 @@ export default function AdminFinance() {
   const cancelRubricCreate = () => {
     setCreatingRubricForAreaId(null);
     setRubricForm({ area: '', name: '', description: '', allocated_amount: '' });
+  };
+
+  const handleDeleteArea = async (areaId: number) => {
+    try {
+      await deleteFinanceArea(areaId);
+      setDeletingAreaId(null);
+      await loadData();
+    } catch (submitError: any) {
+      setError(getErrorMessage(submitError));
+    }
+  };
+
+  const handleDeleteRubric = async (rubricId: number) => {
+    try {
+      await deleteFinanceRubric(rubricId);
+      setDeletingRubricId(null);
+      await loadData();
+    } catch (submitError: any) {
+      setError(getErrorMessage(submitError));
+    }
   };
 
   const handleCreateArea = async (event: React.FormEvent) => {
@@ -262,6 +287,22 @@ export default function AdminFinance() {
     window.URL.revokeObjectURL(url);
   };
 
+  if (loading) return (
+    <AdminShell>
+      <div className="animate-pulse space-y-6">
+        <div className="h-20 rounded-3xl bg-gray-100" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-20 rounded-3xl bg-gray-100" />)}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => <div key={i} className="h-24 rounded-3xl bg-gray-100" />)}
+        </div>
+        <div className="h-48 rounded-3xl bg-gray-100" />
+        <div className="h-64 rounded-3xl bg-gray-100" />
+      </div>
+    </AdminShell>
+  );
+
   return (
     <AdminShell>
       <div className="space-y-6">
@@ -334,7 +375,15 @@ export default function AdminFinance() {
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="text-lg font-black text-gray-950">R$ {formatCurrency(item.amount)}</p>
-                    <button onClick={() => handleDeleteContribution(item.id)} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
+                    {deletingContributionId === item.id ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-red-700">Confirmar exclusão?</p>
+                        <button type="button" onClick={async () => { setDeletingContributionId(null); await handleDeleteContribution(item.id); }} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Sim</button>
+                        <button type="button" onClick={() => setDeletingContributionId(null)} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Não</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setDeletingContributionId(item.id)} className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Excluir</button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -430,7 +479,7 @@ export default function AdminFinance() {
                       <button type="button" onClick={() => startAreaEdit(area)} className="rounded-xl bg-dark px-3 py-1.5 text-xs font-semibold text-white">Editar</button>
                       <button
                         type="button"
-                        onClick={async () => { try { await deleteFinanceArea(area.id); await loadData(); } catch (submitError: any) { setError(getErrorMessage(submitError)); } }}
+                        onClick={() => setDeletingAreaId(area.id)}
                         className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600"
                       >
                         Excluir
@@ -442,6 +491,17 @@ export default function AdminFinance() {
                   {area.leader && area.leader_is_eligible === false && (
                     <div className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
                       O líder atual não pertence mais ao grupo <code>area_leaders</code>. Atualize o vínculo para salvar alterações.
+                    </div>
+                  )}
+
+                  {/* Area delete confirmation */}
+                  {deletingAreaId === area.id && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-red-100 bg-red-50 px-4 py-3">
+                      <p className="text-sm font-semibold text-red-700">Excluir <span className="font-black">"{area.name}"</span>? Esta ação não pode ser desfeita.</p>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => handleDeleteArea(area.id)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Confirmar exclusão</button>
+                        <button type="button" onClick={() => setDeletingAreaId(null)} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                      </div>
                     </div>
                   )}
 
@@ -499,7 +559,7 @@ export default function AdminFinance() {
                               <button type="button" onClick={() => startRubricEdit(rubric)} className="rounded-xl bg-dark px-3 py-1.5 text-xs font-semibold text-white">Editar</button>
                               <button
                                 type="button"
-                                onClick={async () => { try { await deleteFinanceRubric(rubric.id); await loadData(); } catch (submitError: any) { setError(getErrorMessage(submitError)); } }}
+                                onClick={() => setDeletingRubricId(rubric.id)}
                                 className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600"
                               >
                                 Excluir
@@ -531,6 +591,17 @@ export default function AdminFinance() {
                                 <button type="button" onClick={() => setEditingRubricId(null)} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
                               </div>
                             </form>
+                          )}
+
+                          {/* Rubric delete confirmation */}
+                          {deletingRubricId === rubric.id && (
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-100 bg-red-50 px-3 py-3">
+                              <p className="text-sm font-semibold text-red-700">Excluir <span className="font-black">"{rubric.name}"</span>?</p>
+                              <div className="flex gap-2">
+                                <button type="button" onClick={() => handleDeleteRubric(rubric.id)} className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white">Confirmar</button>
+                                <button type="button" onClick={() => setDeletingRubricId(null)} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       ))}

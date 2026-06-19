@@ -117,6 +117,7 @@ export default function AdminFinanceApprovals() {
   const [successMessage, setSuccessMessage] = useState('');
 
   const [expandedRequestIds, setExpandedRequestIds] = useState<Set<number>>(new Set());
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [rejectingRequestId, setRejectingRequestId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [executingRequestId, setExecutingRequestId] = useState<number | null>(null);
@@ -177,9 +178,10 @@ export default function AdminFinanceApprovals() {
     requests.filter((r) => {
       if (selectedAreaId && String(r.area) !== selectedAreaId) return false;
       if (selectedRubricId && String(r.rubric) !== selectedRubricId) return false;
+      if (selectedStatus && r.status !== selectedStatus) return false;
       return true;
     })
-  ), [requests, selectedAreaId, selectedRubricId]);
+  ), [requests, selectedAreaId, selectedRubricId, selectedStatus]);
 
   const groupedRequests = useMemo(() => {
     const areaMap = new Map<number, { areaName: string; rubrics: Map<number, { rubricName: string; requests: FinanceExpenseRequest[] }> }>();
@@ -261,6 +263,21 @@ export default function AdminFinanceApprovals() {
     }
   };
 
+  if (loading) return (
+    <AdminShell>
+      <div className="animate-pulse space-y-6">
+        <div className="h-20 rounded-3xl bg-gray-100" />
+        <div className="grid gap-4 sm:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-20 rounded-3xl bg-gray-100" />)}
+        </div>
+        <div className="h-16 rounded-3xl bg-gray-100" />
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-32 rounded-3xl bg-gray-100" />)}
+        </div>
+      </div>
+    </AdminShell>
+  );
+
   return (
     <AdminShell>
       <AttachmentPreviewModal
@@ -330,10 +347,23 @@ export default function AdminFinanceApprovals() {
                 <option key={rubric.id} value={rubric.id}>{rubric.name}</option>
               ))}
             </select>
-            {(selectedAreaId || selectedRubricId) && (
+            <select
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-dark"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+            >
+              <option value="">Todos os status</option>
+              <option value="PENDING">Pendente</option>
+              <option value="UNDER_REVIEW">Em análise</option>
+              <option value="APPROVED">Aprovada</option>
+              <option value="REJECTED">Rejeitada</option>
+              <option value="CANCELLED">Cancelada</option>
+              <option value="EXECUTED">Executada</option>
+            </select>
+            {(selectedAreaId || selectedRubricId || selectedStatus) && (
               <button
                 type="button"
-                onClick={() => { setSelectedAreaId(''); setSelectedRubricId(''); }}
+                onClick={() => { setSelectedAreaId(''); setSelectedRubricId(''); setSelectedStatus(''); }}
                 className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-500 hover:text-gray-800"
               >
                 Limpar filtros
