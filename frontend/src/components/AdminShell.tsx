@@ -229,19 +229,6 @@ export default function AdminShell({ children }: AdminShellProps) {
               </button>
             </div>
 
-            <div className={`border-b border-gray-100 py-4 ${desktopCollapsed ? 'px-3' : 'px-4'}`}>
-              <button
-                onClick={() => navigate('/')}
-                className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 ${
-                  desktopCollapsed ? 'justify-center' : 'gap-3'
-                }`}
-                title="Voltar para o site"
-              >
-                <ArrowLeft className="h-[18px] w-[18px] flex-shrink-0" />
-                {!desktopCollapsed && <span>Voltar para o site</span>}
-              </button>
-            </div>
-
             <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
               {navGroups.map((group, groupIndex) => (
                 <div key={group.label} className="flex flex-col gap-1">
@@ -343,6 +330,16 @@ export default function AdminShell({ children }: AdminShellProps) {
                   </div>
                 )}
               </div>
+              <button
+                onClick={() => navigate('/')}
+                className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 ${
+                  desktopCollapsed ? 'justify-center' : 'gap-3'
+                }`}
+                title="Voltar para o site"
+              >
+                <ArrowLeft className="h-[18px] w-[18px] flex-shrink-0" />
+                {!desktopCollapsed && <span>Voltar para o site</span>}
+              </button>
               <button
                 onClick={handleLogout}
                 className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 ${
