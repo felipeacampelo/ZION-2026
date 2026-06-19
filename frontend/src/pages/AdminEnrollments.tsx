@@ -275,7 +275,7 @@ export default function AdminEnrollments() {
 
       const headers = [
         'ID', 'Nome Completo', 'Email', 'Telefone', 'CPF', 'RG',
-        'Data Nascimento', 'Membro Batista Capital',
+        'Data Nascimento', 'Idade', 'Membro Batista Capital',
         'Igreja', 'Líder PG', 'Já Participou do ZION', 'Império',
         'Nome do Responsável', 'Email do Responsável', 'Telefone do Responsável',
         'Produto', 'Lote', 'Status',
@@ -290,6 +290,16 @@ export default function AdminEnrollments() {
         formatCpfForCsv(e.form_data?.cpf),
         e.form_data?.rg || '',
         e.form_data?.data_nascimento || '',
+        (() => {
+          const dob = e.form_data?.data_nascimento;
+          if (!dob) return '';
+          const [year, month, day] = String(dob).split('-').map(Number);
+          if (!year || !month || !day) return '';
+          const today = new Date();
+          let age = today.getFullYear() - year;
+          if (today.getMonth() + 1 < month || (today.getMonth() + 1 === month && today.getDate() < day)) age--;
+          return age;
+        })(),
         e.form_data?.membro_batista_capital || '',
         e.form_data?.igreja || '',
         e.form_data?.lider_pg || '',
