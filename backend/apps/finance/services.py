@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from apps.payments.models import Payment
 
@@ -117,10 +117,23 @@ def get_area_pending_amount(area):
 
 def get_area_committed_amount(area):
     return (
-        ExpenseExecution.objects.filter(
-            expense_request__area=area,
-            expense_request__status=ExpenseRequest.STATUS_APPROVED,
-            status=ExpenseExecution.STATUS_NOT_EXECUTED,
+        ExpenseRequest.objects.filter(
+            area=area,
+            status=ExpenseRequest.STATUS_APPROVED,
+        ).filter(
+            Q(execution__isnull=True) | Q(execution__status=ExpenseExecution.STATUS_NOT_EXECUTED)
+        ).aggregate(total=Sum('amount'))['total']
+        or Decimal('0')
+    )
+
+
+def get_rubric_committed_amount(rubric):
+    return (
+        ExpenseRequest.objects.filter(
+            rubric=rubric,
+            status=ExpenseRequest.STATUS_APPROVED,
+        ).filter(
+            Q(execution__isnull=True) | Q(execution__status=ExpenseExecution.STATUS_NOT_EXECUTED)
         ).aggregate(total=Sum('amount'))['total']
         or Decimal('0')
     )
@@ -157,14 +170,7 @@ def get_rubric_summary(rubric):
         ).aggregate(total=Sum('amount'))['total']
         or Decimal('0')
     )
-    committed = (
-        ExpenseExecution.objects.filter(
-            expense_request__rubric=rubric,
-            expense_request__status=ExpenseRequest.STATUS_APPROVED,
-            status=ExpenseExecution.STATUS_NOT_EXECUTED,
-        ).aggregate(total=Sum('amount'))['total']
-        or Decimal('0')
-    )
+    committed = get_rubric_committed_amount(rubric)
     executed = sum(
         (
             _get_effective_execution_amount(execution)
