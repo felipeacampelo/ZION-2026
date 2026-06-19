@@ -712,33 +712,33 @@ export default function AdminFinance() {
           <section className={cardClass}>
             <h2 className="text-lg font-black text-gray-950">Relatório consolidado</h2>
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[560px] border-separate border-spacing-0 text-sm">
+              <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
                 <thead>
                   <tr>
-                    <th className="pb-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Área / Rubrica</th>
-                    <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Orçado</th>
-                    <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Pendente</th>
-                    <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Comprometido</th>
-                    <th className="pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Executado</th>
-                    <th className="pb-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gold-700">Disponível</th>
+                    <th className="border-b-2 border-gray-200 pb-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Área / Rubrica</th>
+                    <th className="border-b-2 border-gray-200 pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Orçado</th>
+                    <th className="border-b-2 border-gray-200 pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Pendente</th>
+                    <th className="border-b-2 border-gray-200 pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Comprometido</th>
+                    <th className="border-b-2 border-gray-200 pb-3 pr-4 text-right text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">Executado</th>
+                    <th className="border-b-2 border-gray-200 pb-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-gold-700">Disponível</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {areas.map((area) => {
+                  {areas.map((area, areaIdx) => {
                     const areaRubrics = rubrics.filter((r) => r.area === area.id);
                     return (
                       <>
-                        <tr key={`area-${area.id}`} className="border-t border-gray-100">
-                          <td className="py-2.5 font-bold text-gray-950">{area.name}</td>
-                          <td className="py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.allocated_amount)}</td>
-                          <td className="py-2.5 pr-4 text-right font-semibold text-amber-700">R$ {formatCurrency(area.summary.pending_amount)}</td>
-                          <td className="py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.committed_amount)}</td>
-                          <td className="py-2.5 pr-4 text-right font-semibold text-blue-700">R$ {formatCurrency(area.summary.executed_amount)}</td>
-                          <td className="py-2.5 text-right font-bold text-gold-700">R$ {formatCurrency(area.summary.available_amount)}</td>
+                        <tr key={`area-${area.id}`} className={areaIdx > 0 ? 'border-t-2 border-gray-200' : ''}>
+                          <td className="bg-gray-50 py-2.5 pl-2 font-bold text-gray-950">{area.name}</td>
+                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.allocated_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-amber-700">R$ {formatCurrency(area.summary.pending_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.committed_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-blue-700">R$ {formatCurrency(area.summary.executed_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 text-right font-bold text-gold-700">R$ {formatCurrency(area.summary.available_amount)}</td>
                         </tr>
                         {areaRubrics.map((rubric) => (
-                          <tr key={`rubric-${rubric.id}`} className="border-t border-gray-50">
-                            <td className="py-2 pl-6 text-gray-600">
+                          <tr key={`rubric-${rubric.id}`} className="border-t border-gray-100">
+                            <td className="py-2 pl-7 text-gray-600">
                               <span className="mr-2 text-gray-300">└</span>{rubric.name}
                             </td>
                             <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrency(rubric.summary.allocated_amount)}</td>
