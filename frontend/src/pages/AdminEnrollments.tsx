@@ -13,7 +13,8 @@ import { getAdminEnrollments, type Enrollment } from '../services/api';
 
 const ENROLLMENTS_PAGE_SIZE = 20;
 
-const escapeCsvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const escapeCsvCell = (value: unknown) =>
+  `"${String(value ?? '').replace(/\r?\n/g, ' ').replace(/"/g, '""')}"`;
 
 const formatCpfForCsv = (cpf: unknown) => {
   const text = String(cpf ?? '').trim();
@@ -318,7 +319,7 @@ export default function AdminEnrollments() {
         ...rows.map(row => row.map(escapeCsvCell).join(','))
       ].join('\n');
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `inscricoes_${new Date().toISOString().split('T')[0]}.csv`;
