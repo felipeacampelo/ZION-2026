@@ -623,7 +623,7 @@ class ExpenseRequestViewSet(
 class ExtraContributionViewSet(viewsets.ModelViewSet):
     queryset = ExtraContribution.objects.all()
     serializer_class = ExtraContributionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated, CanManageFinanceAdmin]
     pagination_class = None
 
 
