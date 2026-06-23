@@ -26,11 +26,13 @@ class FinanceFlowTests(APITestCase):
         self.admin = User.objects.create_user(email='finance-admin@example.com', password='password123', is_staff=True)
         self.viewer = User.objects.create_user(email='finance-viewer@example.com', password='password123', is_staff=True)
         self.leader = User.objects.create_user(email='leader@example.com', password='password123', first_name='Lider')
+        self.second_leader = User.objects.create_user(email='leader-2@example.com', password='password123', first_name='Lider 2')
         self.outsider = User.objects.create_user(email='outsider@example.com', password='password123')
         self.area_leaders_group = Group.objects.create(name=AREA_LEADERS_GROUP_NAME)
         self.finance_viewers_group = Group.objects.create(name=FINANCE_VIEWERS_GROUP_NAME)
         self.finance_notifications_group = Group.objects.create(name=FINANCE_NOTIFICATION_RECIPIENTS_GROUP_NAME)
         self.leader.groups.add(self.area_leaders_group)
+        self.second_leader.groups.add(self.area_leaders_group)
         self.viewer.groups.add(self.finance_viewers_group)
 
         self.product = Product.objects.create(
@@ -119,7 +121,7 @@ class FinanceFlowTests(APITestCase):
                 'name': 'Produção',
                 'description': 'Área',
                 'allocated_amount': '120.00',
-                'leader_id': self.leader.id,
+                'leader_ids': [self.leader.id],
             },
             format='json',
         )
@@ -214,13 +216,13 @@ class FinanceFlowTests(APITestCase):
                 'name': 'Comunicação',
                 'description': 'Área',
                 'allocated_amount': '30.00',
-                'leader_id': self.outsider.id,
+                'leader_ids': [self.outsider.id],
             },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('leader_id', response.data)
+        self.assertIn('leader_ids', response.data)
 
     def test_area_with_historical_ineligible_leader_loads_but_cannot_be_updated(self):
         area, _ = self._create_area_and_rubric()
@@ -229,7 +231,7 @@ class FinanceFlowTests(APITestCase):
         self.client.force_authenticate(self.admin)
         get_response = self.client.get(reverse('finance:finance-area-detail', args=[area.id]))
         self.assertEqual(get_response.status_code, status.HTTP_200_OK)
-        self.assertFalse(get_response.data['leader_is_eligible'])
+        self.assertTrue(get_response.data['leaders_have_ineligible'])
 
         patch_response = self.client.patch(
             reverse('finance:finance-area-detail', args=[area.id]),
@@ -239,7 +241,42 @@ class FinanceFlowTests(APITestCase):
             format='json',
         )
         self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('leader_id', patch_response.data)
+        self.assertIn('leader_ids', patch_response.data)
+
+    def test_area_can_have_up_to_two_leaders(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            reverse('finance:finance-area-list'),
+            {
+                'name': 'Comunicação',
+                'description': 'Área',
+                'allocated_amount': '30.00',
+                'leader_ids': [self.leader.id, self.second_leader.id],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(response.data['leaders']), 2)
+
+    def test_area_rejects_more_than_two_leaders(self):
+        third_leader = User.objects.create_user(email='leader-3@example.com', password='password123', first_name='Lider 3')
+        third_leader.groups.add(self.area_leaders_group)
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            reverse('finance:finance-area-list'),
+            {
+                'name': 'Comunicação',
+                'description': 'Área',
+                'allocated_amount': '30.00',
+                'leader_ids': [self.leader.id, self.second_leader.id, third_leader.id],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('leader_ids', response.data)
 
     def test_leader_cannot_request_more_than_rubric_available(self):
         _, rubric = self._create_area_and_rubric()

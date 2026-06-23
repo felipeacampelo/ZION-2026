@@ -344,8 +344,8 @@ export interface FinanceArea {
   name: string;
   description: string;
   is_active: boolean;
-  leader: FinanceUserOption | null;
-  leader_is_eligible: boolean | null;
+  leaders: FinanceUserOption[];
+  leaders_have_ineligible: boolean;
   budget: {
     allocated_amount: string;
   };
@@ -859,7 +859,7 @@ export const createFinanceArea = (data: {
   name: string;
   description?: string;
   allocated_amount: string;
-  leader_id?: number | null;
+  leader_ids?: number[];
   is_active?: boolean;
 }) => api.post<FinanceArea>('/finance/areas/', data);
 
@@ -867,7 +867,7 @@ export const updateFinanceArea = (id: number, data: Partial<{
   name: string;
   description: string;
   allocated_amount: string;
-  leader_id: number | null;
+  leader_ids: number[];
   is_active: boolean;
 }>) => api.patch<FinanceArea>(`/finance/areas/${id}/`, data);
 

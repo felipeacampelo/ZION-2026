@@ -87,7 +87,7 @@ def _build_global_summary():
 
 
 class AreaViewSet(viewsets.ModelViewSet):
-    queryset = Area.objects.select_related('budget').prefetch_related('leader_assignment__user')
+    queryset = Area.objects.select_related('budget').prefetch_related('leader_assignments__user')
     serializer_class = AreaSerializer
     permission_classes = [permissions.IsAuthenticated, CanViewFinanceAdmin]
     pagination_class = None

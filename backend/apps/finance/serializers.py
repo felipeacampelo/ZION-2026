@@ -101,8 +101,7 @@ class ExpenseExecutionSerializer(serializers.ModelSerializer):
             return False
         if can_manage_finance(user):
             return True
-        assignment = getattr(obj.expense_request.area, 'leader_assignment', None)
-        return bool(assignment and assignment.user_id == user.id)
+        return obj.expense_request.area.leader_assignments.filter(user_id=user.id).exists()
 
     def get_can_confirm_return(self, obj):
         request = self.context.get('request')
@@ -132,15 +131,13 @@ class ExpenseExecutionSerializer(serializers.ModelSerializer):
 
 
 class AreaSerializer(serializers.ModelSerializer):
-    leader_id = serializers.PrimaryKeyRelatedField(
-        source='leader_assignment.user',
-        queryset=get_eligible_area_leaders_queryset(),
+    leader_ids = serializers.ListField(
+        child=serializers.PrimaryKeyRelatedField(queryset=get_eligible_area_leaders_queryset()),
         write_only=True,
         required=False,
-        allow_null=True,
     )
-    leader = serializers.SerializerMethodField()
-    leader_is_eligible = serializers.SerializerMethodField()
+    leaders = serializers.SerializerMethodField()
+    leaders_have_ineligible = serializers.SerializerMethodField()
     allocated_amount = serializers.DecimalField(max_digits=12, decimal_places=2, write_only=True, required=False)
     budget = serializers.SerializerMethodField()
     summary = serializers.SerializerMethodField()
@@ -152,9 +149,9 @@ class AreaSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'is_active',
-            'leader_id',
-            'leader',
-            'leader_is_eligible',
+            'leader_ids',
+            'leaders',
+            'leaders_have_ineligible',
             'allocated_amount',
             'budget',
             'summary',
@@ -163,15 +160,16 @@ class AreaSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_at', 'updated_at']
 
-    def get_leader(self, obj):
-        assignment = getattr(obj, 'leader_assignment', None)
-        if not assignment or not assignment.user_id:
-            return None
-        return {
-            'id': assignment.user_id,
-            'email': assignment.user.email,
-            'name': assignment.user.get_full_name() or assignment.user.email,
-        }
+    def get_leaders(self, obj):
+        assignments = list(getattr(obj, 'leader_assignments', []).all()) if hasattr(getattr(obj, 'leader_assignments', None), 'all') else []
+        return [
+            {
+                'id': assignment.user_id,
+                'email': assignment.user.email,
+                'name': assignment.user.get_full_name() or assignment.user.email,
+            }
+            for assignment in assignments if assignment.user_id
+        ]
 
     def get_budget(self, obj):
         budget = getattr(obj, 'budget', None)
@@ -179,31 +177,40 @@ class AreaSerializer(serializers.ModelSerializer):
             return {'allocated_amount': '0.00'}
         return {'allocated_amount': str(budget.allocated_amount)}
 
-    def get_leader_is_eligible(self, obj):
-        assignment = getattr(obj, 'leader_assignment', None)
-        if not assignment or not assignment.user_id:
-            return None
-        return get_eligible_area_leaders_queryset().filter(pk=assignment.user_id).exists()
+    def get_leaders_have_ineligible(self, obj):
+        assignments = list(getattr(obj, 'leader_assignments', []).all()) if hasattr(getattr(obj, 'leader_assignments', None), 'all') else []
+        if not assignments:
+            return False
+        eligible_ids = set(get_eligible_area_leaders_queryset().values_list('id', flat=True))
+        return any(assignment.user_id not in eligible_ids for assignment in assignments if assignment.user_id)
 
     def get_summary(self, obj):
         summary = get_area_summary(obj)
         return {key: str(value) for key, value in summary.items()}
 
     def validate(self, attrs):
-        leader_payload = attrs.get('leader_assignment')
-        leader_user = leader_payload.get('user') if leader_payload is not None else None
-        existing_assignment = getattr(self.instance, 'leader_assignment', None)
+        leader_users = attrs.pop('leader_ids', None)
+        existing_assignments = list(self.instance.leader_assignments.all()) if self.instance is not None else []
 
-        if leader_payload is not None and leader_user is not None:
-            if not get_eligible_area_leaders_queryset().filter(pk=leader_user.pk).exists():
+        if leader_users is not None:
+            unique_users = []
+            seen_user_ids = set()
+            for leader_user in leader_users:
+                if leader_user.pk in seen_user_ids:
+                    continue
+                seen_user_ids.add(leader_user.pk)
+                unique_users.append(leader_user)
+            if len(unique_users) > 2:
                 raise serializers.ValidationError({
-                    'leader_id': 'O líder principal precisa pertencer ao grupo area_leaders e estar ativo.'
+                    'leader_ids': 'Cada área pode ter no máximo 2 líderes.'
                 })
+            attrs['_leader_users'] = unique_users
 
-        if self.instance is not None and leader_payload is None and existing_assignment and existing_assignment.user_id:
-            if not get_eligible_area_leaders_queryset().filter(pk=existing_assignment.user_id).exists():
+        if self.instance is not None and leader_users is None and existing_assignments:
+            eligible_ids = set(get_eligible_area_leaders_queryset().values_list('id', flat=True))
+            if any(assignment.user_id not in eligible_ids for assignment in existing_assignments if assignment.user_id):
                 raise serializers.ValidationError({
-                    'leader_id': 'A área possui um líder principal fora do grupo area_leaders. Atualize o líder para salvar alterações.'
+                    'leader_ids': 'A área possui líder fora do grupo area_leaders. Atualize os líderes para salvar alterações.'
                 })
 
         allocated_amount = attrs.pop('allocated_amount', None)
@@ -219,17 +226,17 @@ class AreaSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        leader_payload = validated_data.pop('leader_assignment', None)
+        leader_users = validated_data.pop('_leader_users', [])
         allocated_amount = validated_data.pop('_allocated_amount', Decimal('0'))
         area = Area.objects.create(**validated_data)
         AreaBudget.objects.create(area=area, allocated_amount=allocated_amount)
-        if leader_payload and leader_payload.get('user'):
-            AreaLeaderAssignment.objects.create(area=area, user=leader_payload['user'])
+        for leader_user in leader_users:
+            AreaLeaderAssignment.objects.create(area=area, user=leader_user)
         return area
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        leader_payload = validated_data.pop('leader_assignment', None)
+        leader_users = validated_data.pop('_leader_users', None)
         allocated_amount = validated_data.pop('_allocated_amount', None)
 
         for attr, value in validated_data.items():
@@ -241,14 +248,10 @@ class AreaSerializer(serializers.ModelSerializer):
             budget.allocated_amount = allocated_amount
             budget.save(update_fields=['allocated_amount', 'updated_at'])
 
-        if leader_payload is not None:
-            leader_user = leader_payload.get('user')
-            if leader_user is None:
-                AreaLeaderAssignment.objects.filter(area=instance).delete()
-            else:
-                assignment, _ = AreaLeaderAssignment.objects.get_or_create(area=instance)
-                assignment.user = leader_user
-                assignment.save(update_fields=['user', 'updated_at'])
+        if leader_users is not None:
+            AreaLeaderAssignment.objects.filter(area=instance).delete()
+            for leader_user in leader_users:
+                AreaLeaderAssignment.objects.create(area=instance, user=leader_user)
 
         return instance
 

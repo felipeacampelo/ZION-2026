@@ -49,7 +49,7 @@ const getErrorMessage = (error: any) => {
   const firstEntry = Object.entries(payload)[0];
   if (!firstEntry) return 'Não foi possível concluir a operação.';
   const [field, value] = firstEntry;
-  const labels: Record<string, string> = { leader_id: 'Líder principal', allocated_amount: 'Valor orçado' };
+  const labels: Record<string, string> = { leader_ids: 'Líderes da área', allocated_amount: 'Valor orçado' };
   const label = labels[field] || field;
   if (Array.isArray(value)) return `${label}: ${value.join(' ')}`;
   return `${label}: ${String(value)}`;
@@ -57,6 +57,14 @@ const getErrorMessage = (error: any) => {
 
 const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]';
 const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
+
+const toggleLeaderId = (current: string[], leaderId: string) => (
+  current.includes(leaderId)
+    ? current.filter((id) => id !== leaderId)
+    : current.length < 2
+      ? [...current, leaderId]
+      : current
+);
 
 function BudgetCols({ allocated, pending, committed, executed, available, size = 'sm', showBar = false }: {
   allocated: string; pending: string; committed: string; executed: string; available: string; size?: 'sm' | 'xs'; showBar?: boolean;
@@ -99,7 +107,7 @@ export default function AdminFinance() {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Area form
-  const [areaForm, setAreaForm] = useState({ name: '', description: '', allocated_amount: '', leader_id: '' });
+  const [areaForm, setAreaForm] = useState({ name: '', description: '', allocated_amount: '', leader_ids: [] as string[] });
   const [showCreateAreaForm, setShowCreateAreaForm] = useState(false);
 
   // Rubric form
@@ -111,7 +119,7 @@ export default function AdminFinance() {
   const [editingAreaName, setEditingAreaName] = useState('');
   const [editingAreaDescription, setEditingAreaDescription] = useState('');
   const [editingAreaAmount, setEditingAreaAmount] = useState('');
-  const [editingAreaLeaderId, setEditingAreaLeaderId] = useState('');
+  const [editingAreaLeaderIds, setEditingAreaLeaderIds] = useState<string[]>([]);
 
   // Inline rubric edits
   const [editingRubricId, setEditingRubricId] = useState<number | null>(null);
@@ -197,8 +205,8 @@ export default function AdminFinance() {
   const handleCreateArea = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
-      await createFinanceArea({ ...areaForm, leader_id: areaForm.leader_id ? Number(areaForm.leader_id) : null });
-      setAreaForm({ name: '', description: '', allocated_amount: '', leader_id: '' });
+      await createFinanceArea({ ...areaForm, leader_ids: areaForm.leader_ids.map(Number) });
+      setAreaForm({ name: '', description: '', allocated_amount: '', leader_ids: [] });
       setShowCreateAreaForm(false);
       await loadData();
     } catch (submitError: any) {
@@ -227,7 +235,7 @@ export default function AdminFinance() {
     setEditingAreaName(area.name);
     setEditingAreaDescription(area.description || '');
     setEditingAreaAmount(area.budget.allocated_amount);
-    setEditingAreaLeaderId(area.leader ? String(area.leader.id) : '');
+    setEditingAreaLeaderIds(area.leaders.map((leader) => String(leader.id)));
   };
 
   const saveAreaEdit = async (areaId: number) => {
@@ -237,7 +245,7 @@ export default function AdminFinance() {
         name: editingAreaName,
         description: editingAreaDescription,
         allocated_amount: normalizeAmountInput(editingAreaAmount),
-        leader_id: editingAreaLeaderId ? Number(editingAreaLeaderId) : null,
+        leader_ids: editingAreaLeaderIds.map(Number),
       });
       setEditingAreaId(null);
       await loadData();
@@ -474,12 +482,22 @@ export default function AdminFinance() {
                 <input className={inputClass} placeholder="Nome da área" value={areaForm.name} onChange={(e) => setAreaForm((c) => ({ ...c, name: e.target.value }))} required />
                 <textarea className={`${inputClass} min-h-[80px]`} placeholder="Descrição" value={areaForm.description} onChange={(e) => setAreaForm((c) => ({ ...c, description: e.target.value }))} />
                 <input className={inputClass} placeholder="Valor orçado" value={areaForm.allocated_amount} onChange={(e) => setAreaForm((c) => ({ ...c, allocated_amount: e.target.value }))} />
-                <select className={inputClass} value={areaForm.leader_id} onChange={(e) => setAreaForm((c) => ({ ...c, leader_id: e.target.value }))}>
-                  <option value="">Selecione o líder principal</option>
-                  {leaders.map((leader) => (
-                    <option key={leader.id} value={leader.id}>{leader.name} ({leader.email})</option>
-                  ))}
-                </select>
+                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                  <p className="text-sm font-semibold text-gray-900">Líderes da área</p>
+                  <p className="mt-1 text-xs text-gray-500">Selecione até 2 líderes.</p>
+                  <div className="mt-3 space-y-2">
+                    {leaders.map((leader) => (
+                      <label key={leader.id} className="flex items-start gap-3 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={areaForm.leader_ids.includes(String(leader.id))}
+                          onChange={() => setAreaForm((c) => ({ ...c, leader_ids: toggleLeaderId(c.leader_ids, String(leader.id)) }))}
+                        />
+                        <span>{leader.name} ({leader.email})</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Criar área</button>
                   <button type="button" onClick={() => setShowCreateAreaForm(false)} className="rounded-2xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-600">Cancelar</button>
@@ -506,7 +524,9 @@ export default function AdminFinance() {
                     }
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-gray-950">{area.name}</p>
-                      <p className="text-xs text-gray-500">{area.leader?.name || 'Sem líder'} • {areaRubrics.length} rubrica{areaRubrics.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-gray-500">
+                        {area.leaders.length > 0 ? area.leaders.map((leader) => leader.name).join(', ') : 'Sem líderes'} • {areaRubrics.length} rubrica{areaRubrics.length !== 1 ? 's' : ''}
+                      </p>
                     </div>
                     <div className="hidden xl:block" onClick={(e) => e.stopPropagation()}>
                       <BudgetCols
@@ -534,9 +554,9 @@ export default function AdminFinance() {
                   </div>
 
                   {/* Area warning */}
-                  {area.leader && area.leader_is_eligible === false && (
+                  {area.leaders_have_ineligible && (
                     <div className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
-                      O líder atual não pertence mais ao grupo <code>area_leaders</code>. Atualize o vínculo para salvar alterações.
+                      Há líder vinculado fora do grupo <code>area_leaders</code>. Atualize os vínculos para salvar alterações.
                     </div>
                   )}
 
@@ -561,15 +581,25 @@ export default function AdminFinance() {
                         <input className={`${inputClass} max-w-[420px]`} placeholder="Nome da área" value={editingAreaName} onChange={(e) => setEditingAreaName(e.target.value)} />
                         <textarea className={`${inputClass} min-h-[80px] max-w-[520px]`} placeholder="Descrição" value={editingAreaDescription} onChange={(e) => setEditingAreaDescription(e.target.value)} />
                         <input className={`${inputClass} max-w-[220px]`} placeholder="Valor orçado" value={editingAreaAmount} onChange={(e) => setEditingAreaAmount(e.target.value)} />
-                        <select className={`${inputClass} max-w-[420px]`} value={editingAreaLeaderId} onChange={(e) => setEditingAreaLeaderId(e.target.value)}>
-                          <option value="">Sem líder principal</option>
-                          {area.leader && area.leader_is_eligible === false && (
-                            <option value={area.leader.id}>{area.leader.name} ({area.leader.email}) — fora do grupo</option>
-                          )}
-                          {leaders.map((leader) => (
-                            <option key={leader.id} value={leader.id}>{leader.name} ({leader.email})</option>
-                          ))}
-                        </select>
+                        <div className="max-w-[520px] rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                          <p className="text-sm font-semibold text-gray-900">Líderes da área</p>
+                          <p className="mt-1 text-xs text-gray-500">Selecione até 2 líderes.</p>
+                          <div className="mt-3 space-y-2">
+                            {area.leaders_have_ineligible && (
+                              <p className="text-xs text-amber-700">Os líderes fora do grupo atual precisam ser substituídos antes de salvar.</p>
+                            )}
+                            {leaders.map((leader) => (
+                              <label key={leader.id} className="flex items-start gap-3 text-sm text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  checked={editingAreaLeaderIds.includes(String(leader.id))}
+                                  onChange={() => setEditingAreaLeaderIds((current) => toggleLeaderId(current, String(leader.id)))}
+                                />
+                                <span>{leader.name} ({leader.email})</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           <button type="submit" className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
                           <button type="button" onClick={() => setEditingAreaId(null)} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>

@@ -36,10 +36,10 @@ class Area(models.Model):
 
 
 class AreaLeaderAssignment(models.Model):
-    area = models.OneToOneField(
+    area = models.ForeignKey(
         Area,
         on_delete=models.CASCADE,
-        related_name='leader_assignment',
+        related_name='leader_assignments',
         verbose_name=_('Área'),
     )
     user = models.ForeignKey(
@@ -55,7 +55,7 @@ class AreaLeaderAssignment(models.Model):
         verbose_name = _('Vínculo de Líder')
         verbose_name_plural = _('Vínculos de Líder')
         constraints = [
-            models.UniqueConstraint(fields=['area'], name='finance_unique_leader_per_area'),
+            models.UniqueConstraint(fields=['area', 'user'], name='finance_unique_leader_user_per_area'),
         ]
 
     def __str__(self):
