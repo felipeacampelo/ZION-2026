@@ -594,7 +594,7 @@ export default function AdminFinance() {
                           {area.leaders_have_ineligible && (
                             <p className="mb-3 text-xs text-amber-700">Os líderes fora do grupo atual precisam ser substituídos antes de salvar.</p>
                           )}
-                          <div className="space-y-2">
+                          <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
                             {leaders.map((leader) => (
                               <label
                                 key={leader.id}
