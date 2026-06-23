@@ -129,7 +129,7 @@ export default function AdminFinanceApprovals() {
   const [rejectingRequestId, setRejectingRequestId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [executingRequestId, setExecutingRequestId] = useState<number | null>(null);
-  const [executionType, setExecutionType] = useState<'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT'>('ADVANCE');
+  const [executionType, setExecutionType] = useState<'ADVANCE' | 'REIMBURSEMENT'>('ADVANCE');
   const [executionNotes, setExecutionNotes] = useState('');
   const [executionFile, setExecutionFile] = useState<File | null>(null);
   const [executionFeedback, setExecutionFeedback] = useState('');
@@ -216,7 +216,11 @@ export default function AdminFinanceApprovals() {
 
   const pendingItems = visibleRequests.filter((r) => ['PENDING', 'UNDER_REVIEW'].includes(r.status));
   const approvedItems = visibleRequests.filter((r) => r.status === 'APPROVED');
-  const awaitingExecutionItems = visibleRequests.filter((r) => r.status === 'APPROVED' && r.execution?.status === 'NOT_EXECUTED');
+  const awaitingExecutionItems = visibleRequests.filter((r) => (
+    r.status === 'APPROVED'
+    && r.execution?.status === 'NOT_EXECUTED'
+    && r.request_type !== 'DIRECT_PAYMENT'
+  ));
   const pendingProofItems = visibleRequests.filter((r) => r.execution?.settlement_status === 'PENDING_PROOF');
   const pendingReturnItems = visibleRequests.filter((r) => r.execution?.settlement_status === 'PENDING_RETURN');
 
@@ -427,7 +431,9 @@ export default function AdminFinanceApprovals() {
 
                     <div className="space-y-2">
                       {rubricGroup.requests.map((item) => {
-                        const isAwaitingExecution = item.status === 'APPROVED' && item.execution?.status === 'NOT_EXECUTED';
+                        const isAwaitingExecution = item.status === 'APPROVED'
+                          && item.execution?.status === 'NOT_EXECUTED'
+                          && item.request_type !== 'DIRECT_PAYMENT';
                         const expanded = isRequestExpanded(item);
                         const depositReceipt = getDepositReceipt(item);
                         const executionReceipt = getExecutionReceipt(item);
@@ -488,7 +494,11 @@ export default function AdminFinanceApprovals() {
                                     type="button"
                                     onClick={() => {
                                       setExecutingRequestId(item.id);
-                                      setExecutionType(item.execution?.execution_type || item.request_type);
+                                      setExecutionType(
+                                        item.execution?.execution_type === 'REIMBURSEMENT'
+                                          ? 'REIMBURSEMENT'
+                                          : 'ADVANCE'
+                                      );
                                       setExecutionNotes('');
                                       setExecutionFile(null);
                                       setExecutionFeedback('');
@@ -767,15 +777,12 @@ export default function AdminFinanceApprovals() {
                                     <p className="mt-1 text-xs text-emerald-700">
                                       {executionType === 'REIMBURSEMENT'
                                         ? 'Reembolso exige comprovante no momento da execução.'
-                                        : executionType === 'ADVANCE'
-                                          ? 'Anexe o comprovante do depósito feito pelo financeiro.'
-                                          : 'Anexe um comprovante se quiser documentar a execução.'}
+                                        : 'Anexe o comprovante do depósito feito pelo financeiro.'}
                                     </p>
                                     <div className="mt-3 grid gap-3 md:grid-cols-2">
-                                      <select className={inputClass} value={executionType} onChange={(e) => setExecutionType(e.target.value as 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT')}>
+                                      <select className={inputClass} value={executionType} onChange={(e) => setExecutionType(e.target.value as 'ADVANCE' | 'REIMBURSEMENT')}>
                                         <option value="ADVANCE">Adiantamento</option>
                                         <option value="REIMBURSEMENT">Reembolso</option>
-                                        <option value="DIRECT_PAYMENT">Pagamento direto</option>
                                       </select>
                                       <input type="file" className={inputClass} onChange={(e) => setExecutionFile(e.target.files?.[0] || null)} />
                                     </div>

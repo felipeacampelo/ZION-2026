@@ -62,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
         children: [
           { to: '/admin/finance', label: 'Visão geral', end: true },
           { to: '/admin/finance/approvals', label: 'Aprovações', end: false },
+          { to: '/admin/finance/suppliers', label: 'Fornecedores', end: false },
         ],
       },
     ],
@@ -140,6 +141,7 @@ export default function AdminShell({ children }: AdminShellProps) {
         ...item,
         children: item.children.filter((child) => {
           if (child.to === '/admin/finance/approvals') return canManageFinance;
+          if (child.to === '/admin/finance/suppliers') return canManageFinance;
           return true;
         }),
       };

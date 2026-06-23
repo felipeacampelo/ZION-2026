@@ -4,7 +4,15 @@ from django.db.models import Sum
 
 from apps.payments.models import Payment
 
-from .models import Area, AreaBudget, BudgetRubric, ExpenseExecution, ExpenseRequest, ExtraContribution
+from .models import (
+    Area,
+    AreaBudget,
+    BudgetRubric,
+    ExpenseExecution,
+    ExpenseRequest,
+    ExtraContribution,
+    SupplierPayment,
+)
 
 
 def _get_effective_execution_amount(execution):
@@ -116,37 +124,71 @@ def get_area_pending_amount(area):
 
 
 def get_area_committed_amount(area):
-    # exclude() correctly handles the NULL case: includes requests with no
-    # execution record AND requests whose execution is not yet EXECUTED.
-    return (
-        ExpenseRequest.objects.filter(
-            area=area,
-            status=ExpenseRequest.STATUS_APPROVED,
-        ).exclude(
-            execution__status=ExpenseExecution.STATUS_EXECUTED,
-        ).aggregate(total=Sum('amount'))['total']
-        or Decimal('0')
-    )
+    committed = Decimal('0')
+    requests = ExpenseRequest.objects.filter(
+        area=area,
+        status=ExpenseRequest.STATUS_APPROVED,
+    ).select_related('execution').prefetch_related('supplier_payments')
+    for expense_request in requests:
+        if expense_request.request_type == ExpenseExecution.TYPE_DIRECT_PAYMENT and expense_request.supplier_payments.exists():
+            paid_total = sum(
+                (
+                    Decimal(str(payment.amount))
+                    for payment in expense_request.supplier_payments.all()
+                    if payment.status == SupplierPayment.STATUS_PAID
+                ),
+                Decimal('0'),
+            )
+            committed += max(Decimal(str(expense_request.amount)) - paid_total, Decimal('0'))
+            continue
+        if getattr(getattr(expense_request, 'execution', None), 'status', None) != ExpenseExecution.STATUS_EXECUTED:
+            committed += Decimal(str(expense_request.amount))
+    return committed
 
 
 def get_rubric_committed_amount(rubric):
-    return (
-        ExpenseRequest.objects.filter(
-            rubric=rubric,
-            status=ExpenseRequest.STATUS_APPROVED,
-        ).exclude(
-            execution__status=ExpenseExecution.STATUS_EXECUTED,
-        ).aggregate(total=Sum('amount'))['total']
-        or Decimal('0')
-    )
+    committed = Decimal('0')
+    requests = ExpenseRequest.objects.filter(
+        rubric=rubric,
+        status=ExpenseRequest.STATUS_APPROVED,
+    ).select_related('execution').prefetch_related('supplier_payments')
+    for expense_request in requests:
+        if expense_request.request_type == ExpenseExecution.TYPE_DIRECT_PAYMENT and expense_request.supplier_payments.exists():
+            paid_total = sum(
+                (
+                    Decimal(str(payment.amount))
+                    for payment in expense_request.supplier_payments.all()
+                    if payment.status == SupplierPayment.STATUS_PAID
+                ),
+                Decimal('0'),
+            )
+            committed += max(Decimal(str(expense_request.amount)) - paid_total, Decimal('0'))
+            continue
+        if getattr(getattr(expense_request, 'execution', None), 'status', None) != ExpenseExecution.STATUS_EXECUTED:
+            committed += Decimal(str(expense_request.amount))
+    return committed
 
 
 def get_area_executed_amount(area):
-    executions = ExpenseExecution.objects.filter(
+    execution_queryset = ExpenseExecution.objects.filter(
         expense_request__area=area,
         status=ExpenseExecution.STATUS_EXECUTED,
+    ).exclude(
+        expense_request__request_type=ExpenseExecution.TYPE_DIRECT_PAYMENT,
+        expense_request__supplier_payments__isnull=False,
+    ).distinct()
+    execution_total = sum((_get_effective_execution_amount(execution) for execution in execution_queryset), Decimal('0'))
+    supplier_total = sum(
+        (
+            Decimal(str(payment.amount))
+            for payment in SupplierPayment.objects.filter(
+                expense_request__area=area,
+                status=SupplierPayment.STATUS_PAID,
+            )
+        ),
+        Decimal('0'),
     )
-    return sum((_get_effective_execution_amount(execution) for execution in executions), Decimal('0'))
+    return execution_total + supplier_total
 
 
 def get_area_summary(area):
@@ -179,6 +221,19 @@ def get_rubric_summary(rubric):
             for execution in ExpenseExecution.objects.filter(
                 expense_request__rubric=rubric,
                 status=ExpenseExecution.STATUS_EXECUTED,
+            ).exclude(
+                expense_request__request_type=ExpenseExecution.TYPE_DIRECT_PAYMENT,
+                expense_request__supplier_payments__isnull=False,
+            ).distinct()
+        ),
+        Decimal('0'),
+    )
+    executed += sum(
+        (
+            Decimal(str(payment.amount))
+            for payment in SupplierPayment.objects.filter(
+                expense_request__rubric=rubric,
+                status=SupplierPayment.STATUS_PAID,
             )
         ),
         Decimal('0'),

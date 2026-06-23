@@ -24,6 +24,7 @@ import AdminSocialQuota from './pages/AdminSocialQuota'
 import AdminWaitlist from './pages/AdminWaitlist'
 import AdminFinance from './pages/AdminFinance'
 import AdminFinanceApprovals from './pages/AdminFinanceApprovals'
+import AdminFinanceSupplierCalendar from './pages/AdminFinanceSupplierCalendar'
 import WaitlistSignup from './pages/WaitlistSignup'
 import WaitlistConfirmation from './pages/WaitlistConfirmation'
 import WaitlistInvite from './pages/WaitlistInvite'
@@ -144,6 +145,14 @@ function App() {
             element={
               <AdminRoute requireFinanceManage>
                 <AdminFinanceApprovals />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/finance/suppliers"
+            element={
+              <AdminRoute requireFinanceManage>
+                <AdminFinanceSupplierCalendar />
               </AdminRoute>
             }
           />

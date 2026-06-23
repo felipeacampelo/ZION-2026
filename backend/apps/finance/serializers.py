@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Sum
 from rest_framework import serializers
 
 from .models import (
@@ -14,6 +15,8 @@ from .models import (
     ExpenseExecution,
     ExpenseRequest,
     ExtraContribution,
+    Supplier,
+    SupplierPayment,
 )
 from .constants import AREA_LEADERS_GROUP_NAME
 from .permissions import can_manage_finance
@@ -294,6 +297,134 @@ class BudgetRubricSerializer(serializers.ModelSerializer):
                 'allocated_amount': 'A soma das rubricas da área não pode ultrapassar o orçamento da área.'
             })
         return attrs
+
+
+class SupplierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = ['id', 'name', 'notes', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class SupplierPaymentExpenseRequestSummarySerializer(serializers.ModelSerializer):
+    area_name = serializers.CharField(source='area.name', read_only=True)
+    rubric_name = serializers.CharField(source='rubric.name', read_only=True)
+    request_type_display = serializers.SerializerMethodField()
+    scheduled_amount = serializers.SerializerMethodField()
+    paid_amount = serializers.SerializerMethodField()
+    remaining_amount = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ExpenseRequest
+        fields = [
+            'id',
+            'area',
+            'area_name',
+            'rubric',
+            'rubric_name',
+            'amount',
+            'request_type',
+            'request_type_display',
+            'recipient_name',
+            'description',
+            'approved_at',
+            'scheduled_amount',
+            'paid_amount',
+            'remaining_amount',
+        ]
+
+    def get_request_type_display(self, obj):
+        return obj.get_request_type_display()
+
+    def get_scheduled_amount(self, obj):
+        total = obj.supplier_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        return str(total)
+
+    def get_paid_amount(self, obj):
+        total = obj.supplier_payments.filter(status=SupplierPayment.STATUS_PAID).aggregate(
+            total=Sum('amount')
+        )['total'] or Decimal('0')
+        return str(total)
+
+    def get_remaining_amount(self, obj):
+        scheduled_total = obj.supplier_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        return str(max(Decimal(str(obj.amount)) - Decimal(str(scheduled_total)), Decimal('0')))
+
+
+class SupplierPaymentSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.CharField(source='supplier.name', read_only=True)
+    expense_request_summary = SupplierPaymentExpenseRequestSummarySerializer(source='expense_request', read_only=True)
+    area = serializers.IntegerField(source='expense_request.area_id', read_only=True)
+    area_name = serializers.CharField(source='expense_request.area.name', read_only=True)
+    rubric = serializers.IntegerField(source='expense_request.rubric_id', read_only=True)
+    rubric_name = serializers.CharField(source='expense_request.rubric.name', read_only=True)
+    paid_by_email = serializers.EmailField(source='paid_by.email', read_only=True)
+
+    class Meta:
+        model = SupplierPayment
+        fields = [
+            'id',
+            'supplier',
+            'supplier_name',
+            'expense_request',
+            'expense_request_summary',
+            'area',
+            'area_name',
+            'rubric',
+            'rubric_name',
+            'amount',
+            'scheduled_date',
+            'paid_on',
+            'status',
+            'notes',
+            'paid_by_email',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = [
+            'paid_on',
+            'status',
+            'paid_by_email',
+            'created_at',
+            'updated_at',
+        ]
+
+    def validate(self, attrs):
+        if self.instance and self.instance.status == SupplierPayment.STATUS_PAID:
+            raise serializers.ValidationError('Pagamentos já quitados não podem ser alterados.')
+        expense_request = attrs.get('expense_request', self.instance.expense_request if self.instance else None)
+        supplier = attrs.get('supplier', self.instance.supplier if self.instance else None)
+        amount = Decimal(str(attrs.get('amount', self.instance.amount if self.instance else 0)))
+        if not expense_request:
+            raise serializers.ValidationError({'expense_request': 'Informe a solicitação aprovada.'})
+        if expense_request.status != ExpenseRequest.STATUS_APPROVED:
+            raise serializers.ValidationError({'expense_request': 'A solicitação vinculada precisa estar aprovada.'})
+        if expense_request.request_type != ExpenseExecution.TYPE_DIRECT_PAYMENT:
+            raise serializers.ValidationError({'expense_request': 'Somente solicitações de pagamento direto podem ser vinculadas.'})
+        if (
+            getattr(getattr(expense_request, 'execution', None), 'status', None) == ExpenseExecution.STATUS_EXECUTED
+            and not expense_request.supplier_payments.exclude(
+                id=self.instance.id if self.instance else None
+            ).exists()
+        ):
+            raise serializers.ValidationError({
+                'expense_request': 'Esta solicitação já foi executada fora do calendário e não pode receber novos lançamentos.'
+            })
+        if supplier and not supplier.is_active:
+            raise serializers.ValidationError({'supplier': 'Selecione um fornecedor ativo.'})
+
+        scheduled_total = expense_request.supplier_payments.exclude(
+            id=self.instance.id if self.instance else None
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        if scheduled_total + amount > Decimal(str(expense_request.amount)):
+            raise serializers.ValidationError({
+                'amount': 'A soma dos lançamentos não pode ultrapassar o valor aprovado da solicitação.'
+            })
+        return attrs
+
+
+class SupplierPaymentMarkPaidSerializer(serializers.Serializer):
+    paid_on = serializers.DateField(required=False)
 
 
 class ExpenseRequestSerializer(serializers.ModelSerializer):

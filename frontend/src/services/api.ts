@@ -432,6 +432,52 @@ export interface FinanceExpenseRequest {
   audit_logs: FinanceAuditLog[];
 }
 
+export interface FinanceSupplier {
+  id: number;
+  name: string;
+  notes: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinanceSupplierEligibleRequest {
+  id: number;
+  area: number;
+  area_name: string;
+  rubric: number;
+  rubric_name: string;
+  amount: string;
+  request_type: 'DIRECT_PAYMENT';
+  request_type_display: string;
+  recipient_name: string;
+  description: string;
+  approved_at: string | null;
+  scheduled_amount: string;
+  paid_amount: string;
+  remaining_amount: string;
+}
+
+export interface FinanceSupplierPayment {
+  id: number;
+  supplier: number;
+  supplier_name: string;
+  expense_request: number;
+  expense_request_summary: FinanceSupplierEligibleRequest;
+  area: number;
+  area_name: string;
+  rubric: number;
+  rubric_name: string;
+  amount: string;
+  scheduled_date: string;
+  paid_on: string | null;
+  status: 'PENDING' | 'PAID';
+  notes: string;
+  paid_by_email: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ExtraContribution {
   id: number;
   label: string;
@@ -896,7 +942,11 @@ export const updateFinanceRubric = (id: number, data: Partial<{
 export const deleteFinanceRubric = (id: number) =>
   api.delete(`/finance/rubrics/${id}/`);
 
-export const getFinanceRequests = (params?: { area?: number; status?: string }) =>
+export const getFinanceRequests = (params?: {
+  area?: number;
+  status?: string;
+  request_type?: 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT';
+}) =>
   api.get<FinanceExpenseRequest[]>('/finance/requests/', { params });
 
 export const createFinanceRequest = (data: {
@@ -985,6 +1035,52 @@ export const getMyFinanceDashboard = () =>
 
 export const getExtraContributions = () =>
   api.get<ExtraContribution[]>('/finance/contributions/');
+
+export const getFinanceSuppliers = (params?: { active?: boolean; search?: string }) =>
+  api.get<FinanceSupplier[]>('/finance/suppliers/', { params });
+
+export const createFinanceSupplier = (data: {
+  name: string;
+  notes?: string;
+  is_active?: boolean;
+}) => api.post<FinanceSupplier>('/finance/suppliers/', data);
+
+export const updateFinanceSupplier = (
+  id: number,
+  data: Partial<{ name: string; notes: string; is_active: boolean }>
+) => api.patch<FinanceSupplier>(`/finance/suppliers/${id}/`, data);
+
+export const deleteFinanceSupplier = (id: number) =>
+  api.delete(`/finance/suppliers/${id}/`);
+
+export const getFinanceSupplierPayments = (params?: {
+  month?: string;
+  supplier?: number;
+  rubric?: number;
+  status?: 'PENDING' | 'PAID';
+}) => api.get<FinanceSupplierPayment[]>('/finance/supplier-payments/', { params });
+
+export const getFinanceSupplierEligibleRequests = () =>
+  api.get<FinanceSupplierEligibleRequest[]>('/finance/supplier-payments/eligible-requests/');
+
+export const createFinanceSupplierPayment = (data: {
+  supplier: number;
+  expense_request: number;
+  amount: string;
+  scheduled_date: string;
+  notes?: string;
+}) => api.post<FinanceSupplierPayment>('/finance/supplier-payments/', data);
+
+export const updateFinanceSupplierPayment = (
+  id: number,
+  data: Partial<{ supplier: number; amount: string; scheduled_date: string; notes: string }>
+) => api.patch<FinanceSupplierPayment>(`/finance/supplier-payments/${id}/`, data);
+
+export const deleteFinanceSupplierPayment = (id: number) =>
+  api.delete(`/finance/supplier-payments/${id}/`);
+
+export const markFinanceSupplierPaymentPaid = (id: number, data?: { paid_on?: string }) =>
+  api.post<FinanceSupplierPayment>(`/finance/supplier-payments/${id}/mark-paid/`, data || {});
 
 export const createExtraContribution = (data: {
   label: string;

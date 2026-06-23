@@ -9,6 +9,8 @@ from .models import (
     ExpenseAuditLog,
     ExpenseExecution,
     ExpenseRequest,
+    Supplier,
+    SupplierPayment,
 )
 
 
@@ -61,3 +63,17 @@ class ExpenseAuditLogAdmin(admin.ModelAdmin):
     list_display = ['expense_request', 'action', 'actor', 'created_at']
     list_filter = ['action']
     search_fields = ['expense_request__id', 'actor__email', 'note']
+
+
+@admin.register(Supplier)
+class SupplierAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_active', 'updated_at']
+    list_filter = ['is_active']
+    search_fields = ['name', 'notes']
+
+
+@admin.register(SupplierPayment)
+class SupplierPaymentAdmin(admin.ModelAdmin):
+    list_display = ['supplier', 'expense_request', 'amount', 'scheduled_date', 'status', 'paid_on']
+    list_filter = ['status', 'scheduled_date', 'supplier']
+    search_fields = ['supplier__name', 'expense_request__id', 'expense_request__description']

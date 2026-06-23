@@ -3,11 +3,12 @@ import csv
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models.deletion import ProtectedError
 from django.db.models import Q
+from django.db.models import Sum
+from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
 from django.utils import timezone
-from rest_framework import mixins, permissions, status, viewsets
+from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -21,6 +22,8 @@ from .models import (
     ExpenseExecution,
     ExpenseRequest,
     ExtraContribution,
+    Supplier,
+    SupplierPayment,
 )
 from .email_service import (
     send_finance_request_approved_notification,
@@ -40,6 +43,10 @@ from .serializers import (
     ExpenseRequestReviewSerializer,
     ExpenseRequestSerializer,
     ExtraContributionSerializer,
+    SupplierPaymentExpenseRequestSummarySerializer,
+    SupplierPaymentMarkPaidSerializer,
+    SupplierPaymentSerializer,
+    SupplierSerializer,
     get_eligible_area_leaders_queryset,
 )
 from .services import build_finance_report, get_area_summary, get_extra_contributions_total, get_realized_net_revenue, get_rubric_summary
@@ -171,6 +178,9 @@ class ExpenseRequestViewSet(
         status_param = self.request.query_params.get('status')
         if status_param:
             queryset = queryset.filter(status=status_param)
+        request_type = self.request.query_params.get('request_type')
+        if request_type:
+            queryset = queryset.filter(request_type=request_type)
         if can_manage_finance(user):
             area_id = self.request.query_params.get('area')
             if area_id:
@@ -341,6 +351,11 @@ class ExpenseRequestViewSet(
         expense_request = self.get_object()
         if expense_request.status != ExpenseRequest.STATUS_APPROVED:
             return Response({'detail': 'Apenas solicitações aprovadas podem ser executadas.'}, status=status.HTTP_400_BAD_REQUEST)
+        if expense_request.request_type == ExpenseExecution.TYPE_DIRECT_PAYMENT:
+            return Response(
+                {'detail': 'Pagamentos diretos devem ser executados pelo calendário de fornecedores.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         serializer = ExpenseRequestExecuteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -675,6 +690,203 @@ class ExtraContributionViewSet(viewsets.ModelViewSet):
     serializer_class = ExtraContributionSerializer
     permission_classes = [permissions.IsAuthenticated, CanManageFinanceAdmin]
     pagination_class = None
+
+
+class SupplierViewSet(viewsets.ModelViewSet):
+    queryset = Supplier.objects.all()
+    serializer_class = SupplierSerializer
+    permission_classes = [permissions.IsAuthenticated, CanManageFinanceAdmin]
+    pagination_class = None
+
+    def get_queryset(self):
+        queryset = Supplier.objects.all()
+        active = self.request.query_params.get('active')
+        if active == 'true':
+            queryset = queryset.filter(is_active=True)
+        elif active == 'false':
+            queryset = queryset.filter(is_active=False)
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        return queryset
+
+
+class SupplierPaymentViewSet(viewsets.ModelViewSet):
+    serializer_class = SupplierPaymentSerializer
+    permission_classes = [permissions.IsAuthenticated, CanManageFinanceAdmin]
+    pagination_class = None
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        queryset = SupplierPayment.objects.select_related(
+            'supplier',
+            'expense_request',
+            'expense_request__area',
+            'expense_request__rubric',
+            'paid_by',
+        ).prefetch_related('expense_request__supplier_payments')
+        month = self.request.query_params.get('month')
+        if month:
+            try:
+                year_str, month_str = month.split('-', 1)
+                queryset = queryset.filter(
+                    scheduled_date__year=int(year_str),
+                    scheduled_date__month=int(month_str),
+                )
+            except (TypeError, ValueError):
+                queryset = queryset.none()
+        supplier_id = self.request.query_params.get('supplier')
+        if supplier_id:
+            queryset = queryset.filter(supplier_id=supplier_id)
+        rubric_id = self.request.query_params.get('rubric')
+        if rubric_id:
+            queryset = queryset.filter(expense_request__rubric_id=rubric_id)
+        status_param = self.request.query_params.get('status')
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        return queryset
+
+    @action(detail=False, methods=['get'], url_path='eligible-requests')
+    def eligible_requests(self, request):
+        queryset = ExpenseRequest.objects.select_related(
+            'area',
+            'rubric',
+            'execution',
+        ).prefetch_related(
+            'supplier_payments',
+        ).filter(
+            status=ExpenseRequest.STATUS_APPROVED,
+            request_type=ExpenseExecution.TYPE_DIRECT_PAYMENT,
+        ).order_by('-approved_at', '-id')
+        payload = []
+        for expense_request in queryset:
+            if (
+                getattr(getattr(expense_request, 'execution', None), 'status', None) == ExpenseExecution.STATUS_EXECUTED
+                and not expense_request.supplier_payments.exists()
+            ):
+                continue
+            scheduled_total = expense_request.supplier_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            if scheduled_total >= Decimal(str(expense_request.amount)):
+                continue
+            payload.append(
+                SupplierPaymentExpenseRequestSummarySerializer(
+                    expense_request,
+                    context=self.get_serializer_context(),
+                ).data
+            )
+        return Response(payload)
+
+    @action(detail=True, methods=['post'], url_path='mark-paid')
+    @transaction.atomic
+    def mark_paid(self, request, pk=None):
+        payment = self.get_object()
+        if payment.status == SupplierPayment.STATUS_PAID:
+            return Response({'detail': 'Este pagamento já foi marcado como pago.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = SupplierPaymentMarkPaidSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        paid_on = serializer.validated_data.get('paid_on') or timezone.localdate()
+        payment.status = SupplierPayment.STATUS_PAID
+        payment.paid_on = paid_on
+        payment.paid_by = request.user
+        payment.save(update_fields=['status', 'paid_on', 'paid_by', 'updated_at'])
+
+        execution, _ = ExpenseExecution.objects.get_or_create(
+            expense_request=payment.expense_request,
+            defaults={
+                'execution_type': ExpenseExecution.TYPE_DIRECT_PAYMENT,
+                'amount': payment.expense_request.amount,
+                'status': ExpenseExecution.STATUS_NOT_EXECUTED,
+            },
+        )
+        execution.execution_type = ExpenseExecution.TYPE_DIRECT_PAYMENT
+        execution.amount = payment.expense_request.amount
+        execution.notes = 'Pagamento registrado pelo calendário de fornecedores.'
+        total_paid = payment.expense_request.supplier_payments.filter(status=SupplierPayment.STATUS_PAID).aggregate(
+            total=Sum('amount')
+        )['total'] or Decimal('0')
+        is_fully_paid = total_paid >= Decimal(str(payment.expense_request.amount))
+        execution.status = (
+            ExpenseExecution.STATUS_EXECUTED
+            if is_fully_paid
+            else ExpenseExecution.STATUS_NOT_EXECUTED
+        )
+        execution.settlement_status = ExpenseExecution.SETTLEMENT_NOT_REQUIRED
+        execution.executed_by = request.user if is_fully_paid else None
+        execution.executed_at = timezone.now() if is_fully_paid else None
+        execution.save(
+            update_fields=[
+                'execution_type',
+                'amount',
+                'notes',
+                'status',
+                'settlement_status',
+                'executed_by',
+                'executed_at',
+                'updated_at',
+            ]
+        )
+        ExpenseAuditLog.objects.create(
+            expense_request=payment.expense_request,
+            actor=request.user,
+            action=ExpenseAuditLog.ACTION_SUPPLIER_PAYMENT_PAID,
+            note=f'Pagamento do fornecedor {payment.supplier.name} marcado como pago.',
+            metadata={
+                'supplier_payment_id': payment.id,
+                'amount': str(payment.amount),
+                'paid_on': str(payment.paid_on),
+            },
+        )
+        return Response(self.get_serializer(payment).data)
+
+    def perform_create(self, serializer):
+        payment = serializer.save()
+        ExpenseAuditLog.objects.create(
+            expense_request=payment.expense_request,
+            actor=self.request.user,
+            action=ExpenseAuditLog.ACTION_SUPPLIER_PAYMENT_SCHEDULED,
+            note=f'Pagamento agendado para {payment.supplier.name}.',
+            metadata={
+                'supplier_payment_id': payment.id,
+                'supplier_id': payment.supplier_id,
+                'scheduled_date': str(payment.scheduled_date),
+                'amount': str(payment.amount),
+            },
+        )
+
+    def perform_update(self, serializer):
+        payment = serializer.save()
+        ExpenseAuditLog.objects.create(
+            expense_request=payment.expense_request,
+            actor=self.request.user,
+            action=ExpenseAuditLog.ACTION_SUPPLIER_PAYMENT_UPDATED,
+            note=f'Pagamento do fornecedor {payment.supplier.name} atualizado.',
+            metadata={
+                'supplier_payment_id': payment.id,
+                'supplier_id': payment.supplier_id,
+                'scheduled_date': str(payment.scheduled_date),
+                'amount': str(payment.amount),
+                'status': payment.status,
+            },
+        )
+
+    def perform_destroy(self, instance):
+        if instance.status == SupplierPayment.STATUS_PAID:
+            raise serializers.ValidationError('Pagamentos já quitados não podem ser removidos.')
+        ExpenseAuditLog.objects.create(
+            expense_request=instance.expense_request,
+            actor=self.request.user,
+            action=ExpenseAuditLog.ACTION_SUPPLIER_PAYMENT_UPDATED,
+            note=f'Pagamento do fornecedor {instance.supplier.name} removido do calendário.',
+            metadata={
+                'supplier_payment_id': instance.id,
+                'supplier_id': instance.supplier_id,
+                'scheduled_date': str(instance.scheduled_date),
+                'amount': str(instance.amount),
+                'removed': True,
+            },
+        )
+        super().perform_destroy(instance)
 
 
 @api_view(['GET'])

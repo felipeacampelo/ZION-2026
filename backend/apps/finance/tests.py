@@ -15,7 +15,17 @@ from apps.products.models import Batch, Product
 
 from .constants import AREA_LEADERS_GROUP_NAME, FINANCE_NOTIFICATION_RECIPIENTS_GROUP_NAME, FINANCE_VIEWERS_GROUP_NAME
 from .email_service import _get_finance_notification_emails
-from .models import Area, AreaBudget, AreaLeaderAssignment, BudgetRubric, ExpenseAuditLog, ExpenseExecution, ExpenseRequest
+from .models import (
+    Area,
+    AreaBudget,
+    AreaLeaderAssignment,
+    BudgetRubric,
+    ExpenseAuditLog,
+    ExpenseExecution,
+    ExpenseRequest,
+    Supplier,
+    SupplierPayment,
+)
 
 
 User = get_user_model()
@@ -34,6 +44,7 @@ class FinanceFlowTests(APITestCase):
         self.leader.groups.add(self.area_leaders_group)
         self.second_leader.groups.add(self.area_leaders_group)
         self.viewer.groups.add(self.finance_viewers_group)
+        self.supplier = Supplier.objects.create(name='Fornecedor Base')
 
         self.product = Product.objects.create(
             name='Produto Financeiro',
@@ -151,6 +162,24 @@ class FinanceFlowTests(APITestCase):
         AreaLeaderAssignment.objects.create(area=area, user=self.leader)
         rubric = BudgetRubric.objects.create(area=area, name='Som', description='Som', allocated_amount=Decimal('50.00'))
         return area, rubric
+
+    def _create_approved_direct_payment_request(self, amount=Decimal('18.00')):
+        _, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': str(amount),
+                'request_type': 'DIRECT_PAYMENT',
+                'description': 'Pagamento de contrato',
+            },
+            format='json',
+        )
+        request_id = create_response.data['id']
+        self.client.force_authenticate(self.admin)
+        self.client.post(reverse('finance:finance-request-approve', args=[request_id]), {}, format='json')
+        return ExpenseRequest.objects.get(id=request_id)
 
     def test_leader_dashboard_is_scoped_to_own_area(self):
         area, rubric = self._create_area_and_rubric()
@@ -740,3 +769,229 @@ class FinanceFlowTests(APITestCase):
 
         self.assertEqual(attachment_response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(attachment_response.data['file'].startswith('/media/finance/'))
+
+    def test_supplier_payment_requires_approved_direct_payment_request(self):
+        _, rubric = self._create_area_and_rubric()
+        pending_request = ExpenseRequest.objects.create(
+            area=rubric.area,
+            rubric=rubric,
+            requester=self.leader,
+            amount=Decimal('10.00'),
+            request_type='DIRECT_PAYMENT',
+            description='Pendente',
+        )
+        advance_request = ExpenseRequest.objects.create(
+            area=rubric.area,
+            rubric=rubric,
+            requester=self.leader,
+            amount=Decimal('10.00'),
+            request_type='ADVANCE',
+            recipient_name='Lider Financeiro',
+            pix_key='lider@pix.test',
+            description='Adiantamento',
+            status=ExpenseRequest.STATUS_APPROVED,
+        )
+
+        self.client.force_authenticate(self.admin)
+        without_request = self.client.post(
+            reverse('finance:finance-supplier-payment-list'),
+            {
+                'supplier': self.supplier.id,
+                'amount': '10.00',
+                'scheduled_date': '2026-06-30',
+            },
+            format='json',
+        )
+        self.assertEqual(without_request.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('expense_request', without_request.data)
+
+        pending_response = self.client.post(
+            reverse('finance:finance-supplier-payment-list'),
+            {
+                'supplier': self.supplier.id,
+                'expense_request': pending_request.id,
+                'amount': '10.00',
+                'scheduled_date': '2026-06-30',
+            },
+            format='json',
+        )
+        self.assertEqual(pending_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('expense_request', pending_response.data)
+
+        advance_response = self.client.post(
+            reverse('finance:finance-supplier-payment-list'),
+            {
+                'supplier': self.supplier.id,
+                'expense_request': advance_request.id,
+                'amount': '10.00',
+                'scheduled_date': '2026-06-30',
+            },
+            format='json',
+        )
+        self.assertEqual(advance_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('expense_request', advance_response.data)
+
+    def test_supplier_payment_allows_multiple_launches_for_same_request(self):
+        expense_request = self._create_approved_direct_payment_request(amount=Decimal('18.00'))
+
+        self.client.force_authenticate(self.admin)
+        first_response = self.client.post(
+            reverse('finance:finance-supplier-payment-list'),
+            {
+                'supplier': self.supplier.id,
+                'expense_request': expense_request.id,
+                'amount': '8.00',
+                'scheduled_date': '2026-06-28',
+            },
+            format='json',
+        )
+        second_response = self.client.post(
+            reverse('finance:finance-supplier-payment-list'),
+            {
+                'supplier': self.supplier.id,
+                'expense_request': expense_request.id,
+                'amount': '10.00',
+                'scheduled_date': '2026-06-30',
+            },
+            format='json',
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(SupplierPayment.objects.filter(expense_request=expense_request).count(), 2)
+
+    def test_supplier_payment_cannot_exceed_request_amount(self):
+        expense_request = self._create_approved_direct_payment_request(amount=Decimal('18.00'))
+        SupplierPayment.objects.create(
+            supplier=self.supplier,
+            expense_request=expense_request,
+            amount=Decimal('12.00'),
+            scheduled_date=timezone.localdate(),
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            reverse('finance:finance-supplier-payment-list'),
+            {
+                'supplier': self.supplier.id,
+                'expense_request': expense_request.id,
+                'amount': '7.00',
+                'scheduled_date': '2026-06-30',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('amount', response.data)
+
+    def test_marking_supplier_payment_as_paid_updates_execution_and_budget(self):
+        expense_request = self._create_approved_direct_payment_request(amount=Decimal('18.00'))
+        payment = SupplierPayment.objects.create(
+            supplier=self.supplier,
+            expense_request=expense_request,
+            amount=Decimal('8.00'),
+            scheduled_date=timezone.localdate(),
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            reverse('finance:finance-supplier-payment-mark-paid', args=[payment.id]),
+            {'paid_on': '2026-06-23'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SupplierPayment.STATUS_PAID)
+        self.assertEqual(str(payment.paid_on), '2026-06-23')
+
+        execution = ExpenseExecution.objects.get(expense_request=expense_request)
+        self.assertEqual(execution.status, ExpenseExecution.STATUS_NOT_EXECUTED)
+        self.assertEqual(execution.execution_type, ExpenseExecution.TYPE_DIRECT_PAYMENT)
+
+        expense_request.refresh_from_db()
+        summary = self.client.get(reverse('finance:admin-summary'))
+        self.assertEqual(summary.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(self.leader)
+        dashboard = self.client.get(reverse('finance:my-dashboard'))
+        self.assertEqual(dashboard.status_code, status.HTTP_200_OK)
+        self.assertEqual(dashboard.data['summary']['committed_amount'], '10.00')
+        self.assertEqual(dashboard.data['summary']['executed_amount'], '8.00')
+        self.assertTrue(
+            ExpenseAuditLog.objects.filter(
+                expense_request=expense_request,
+                action=ExpenseAuditLog.ACTION_SUPPLIER_PAYMENT_PAID,
+            ).exists()
+        )
+
+    def test_supplier_payment_marks_request_executed_only_after_full_settlement(self):
+        expense_request = self._create_approved_direct_payment_request(amount=Decimal('18.00'))
+        first_payment = SupplierPayment.objects.create(
+            supplier=self.supplier,
+            expense_request=expense_request,
+            amount=Decimal('8.00'),
+            scheduled_date=timezone.localdate(),
+        )
+        second_payment = SupplierPayment.objects.create(
+            supplier=self.supplier,
+            expense_request=expense_request,
+            amount=Decimal('10.00'),
+            scheduled_date=timezone.localdate(),
+        )
+
+        self.client.force_authenticate(self.admin)
+        first_response = self.client.post(
+            reverse('finance:finance-supplier-payment-mark-paid', args=[first_payment.id]),
+            {'paid_on': '2026-06-23'},
+            format='json',
+        )
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        execution = ExpenseExecution.objects.get(expense_request=expense_request)
+        self.assertEqual(execution.status, ExpenseExecution.STATUS_NOT_EXECUTED)
+        self.assertIsNone(execution.executed_at)
+
+        second_response = self.client.post(
+            reverse('finance:finance-supplier-payment-mark-paid', args=[second_payment.id]),
+            {'paid_on': '2026-06-24'},
+            format='json',
+        )
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        execution.refresh_from_db()
+        self.assertEqual(execution.status, ExpenseExecution.STATUS_EXECUTED)
+        self.assertIsNotNone(execution.executed_at)
+
+    def test_direct_payment_cannot_be_executed_outside_supplier_calendar(self):
+        expense_request = self._create_approved_direct_payment_request(amount=Decimal('18.00'))
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            reverse('finance:finance-request-execute', args=[expense_request.id]),
+            {'execution_type': 'DIRECT_PAYMENT'},
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['detail'],
+            'Pagamentos diretos devem ser executados pelo calendário de fornecedores.',
+        )
+
+    def test_supplier_payments_are_restricted_to_finance_admin(self):
+        expense_request = self._create_approved_direct_payment_request(amount=Decimal('18.00'))
+        self.client.force_authenticate(self.viewer)
+        response = self.client.get(reverse('finance:finance-supplier-payment-list'))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-supplier-payment-list'),
+            {
+                'supplier': self.supplier.id,
+                'expense_request': expense_request.id,
+                'amount': '8.00',
+                'scheduled_date': '2026-06-30',
+            },
+            format='json',
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_403_FORBIDDEN)

@@ -356,6 +356,82 @@ class ExpenseAttachment(models.Model):
         return self.file.name
 
 
+class Supplier(models.Model):
+    name = models.CharField(_('Nome'), max_length=160, unique=True)
+    notes = models.TextField(_('Observações'), blank=True)
+    is_active = models.BooleanField(_('Ativo'), default=True)
+    created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Fornecedor')
+        verbose_name_plural = _('Fornecedores')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class SupplierPayment(models.Model):
+    STATUS_PENDING = 'PENDING'
+    STATUS_PAID = 'PAID'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, _('Pendente')),
+        (STATUS_PAID, _('Pago')),
+    ]
+
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.PROTECT,
+        related_name='payments',
+        verbose_name=_('Fornecedor'),
+    )
+    expense_request = models.ForeignKey(
+        ExpenseRequest,
+        on_delete=models.CASCADE,
+        related_name='supplier_payments',
+        verbose_name=_('Solicitação'),
+    )
+    amount = models.DecimalField(
+        _('Valor'),
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0.01)],
+    )
+    scheduled_date = models.DateField(_('Data prevista'))
+    paid_on = models.DateField(_('Data efetiva de pagamento'), null=True, blank=True)
+    status = models.CharField(
+        _('Status'),
+        max_length=12,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    notes = models.TextField(_('Observações'), blank=True)
+    paid_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='supplier_payments_paid',
+        verbose_name=_('Pago por'),
+    )
+    created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Pagamento de Fornecedor')
+        verbose_name_plural = _('Pagamentos de Fornecedores')
+        ordering = ['scheduled_date', 'id']
+        indexes = [
+            models.Index(fields=['scheduled_date', 'status']),
+            models.Index(fields=['expense_request', 'status']),
+            models.Index(fields=['supplier', 'status']),
+        ]
+
+    def __str__(self):
+        return f'{self.supplier} - {self.amount} - {self.scheduled_date}'
+
+
 class ExtraContribution(models.Model):
     SOURCE_OFFERING = 'OFFERING'
     SOURCE_INVESTOR = 'INVESTOR'
@@ -408,6 +484,9 @@ class ExpenseAuditLog(models.Model):
     ACTION_ADVANCE_SETTLEMENT_SUBMITTED = 'ADVANCE_SETTLEMENT_SUBMITTED'
     ACTION_ADVANCE_RETURN_CONFIRMED = 'ADVANCE_RETURN_CONFIRMED'
     ACTION_ADVANCE_MANUALLY_CLOSED = 'ADVANCE_MANUALLY_CLOSED'
+    ACTION_SUPPLIER_PAYMENT_SCHEDULED = 'SUPPLIER_PAYMENT_SCHEDULED'
+    ACTION_SUPPLIER_PAYMENT_UPDATED = 'SUPPLIER_PAYMENT_UPDATED'
+    ACTION_SUPPLIER_PAYMENT_PAID = 'SUPPLIER_PAYMENT_PAID'
     ACTION_CHOICES = [
         (ACTION_CREATED, _('Criada')),
         (ACTION_UNDER_REVIEW, _('Em análise')),
@@ -421,6 +500,9 @@ class ExpenseAuditLog(models.Model):
         (ACTION_ADVANCE_SETTLEMENT_SUBMITTED, _('Prestação enviada')),
         (ACTION_ADVANCE_RETURN_CONFIRMED, _('Devolução confirmada')),
         (ACTION_ADVANCE_MANUALLY_CLOSED, _('Encerrado manualmente')),
+        (ACTION_SUPPLIER_PAYMENT_SCHEDULED, _('Pagamento de fornecedor agendado')),
+        (ACTION_SUPPLIER_PAYMENT_UPDATED, _('Pagamento de fornecedor atualizado')),
+        (ACTION_SUPPLIER_PAYMENT_PAID, _('Pagamento de fornecedor marcado como pago')),
     ]
 
     expense_request = models.ForeignKey(

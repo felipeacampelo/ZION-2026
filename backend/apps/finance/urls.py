@@ -6,6 +6,8 @@ from .views import (
     BudgetRubricViewSet,
     ExpenseRequestViewSet,
     ExtraContributionViewSet,
+    SupplierPaymentViewSet,
+    SupplierViewSet,
     admin_finance_summary,
     finance_leader_candidates,
     finance_reports,
@@ -21,6 +23,8 @@ router.register(r'areas', AreaViewSet, basename='finance-area')
 router.register(r'rubrics', BudgetRubricViewSet, basename='finance-rubric')
 router.register(r'requests', ExpenseRequestViewSet, basename='finance-request')
 router.register(r'contributions', ExtraContributionViewSet, basename='extra-contribution')
+router.register(r'suppliers', SupplierViewSet, basename='finance-supplier')
+router.register(r'supplier-payments', SupplierPaymentViewSet, basename='finance-supplier-payment')
 
 urlpatterns = [
     path('admin/summary/', admin_finance_summary, name='admin-summary'),
