@@ -180,7 +180,7 @@ class ExpenseRequestViewSet(
         assignment = user.finance_area_assignments.select_related('area').first()
         if not assignment:
             return ExpenseRequest.objects.none()
-        return queryset.filter(area=assignment.area)
+        return queryset.filter(area=assignment.area, requester=user)
 
     def perform_create(self, serializer):
         expense_request = serializer.save()
@@ -213,8 +213,7 @@ class ExpenseRequestViewSet(
         user = request.user
         if can_manage_finance(user):
             return None
-        assignment = user.finance_area_assignments.select_related('area').first()
-        if assignment and assignment.area_id == expense_request.area_id:
+        if expense_request.requester_id == user.id:
             return None
         return Response({'detail': 'Sem permissão para prestar contas desta solicitação.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -373,7 +372,11 @@ class ExpenseRequestViewSet(
         if uploaded_file:
             attachment = ExpenseAttachment.objects.create(
                 execution=execution,
-                category=ExpenseAttachment.CATEGORY_RECEIPT,
+                category=(
+                    ExpenseAttachment.CATEGORY_DEPOSIT_RECEIPT
+                    if execution.execution_type == ExpenseExecution.TYPE_ADVANCE
+                    else ExpenseAttachment.CATEGORY_RECEIPT
+                ),
                 file=uploaded_file,
                 uploaded_by=request.user,
             )
@@ -436,21 +439,24 @@ class ExpenseRequestViewSet(
             ]
         )
 
-        uploaded_file = serializer.validated_data.get('file')
-        attachment_id = None
-        if uploaded_file:
+        uploaded_files = request.FILES.getlist('files') or []
+        single_file = request.FILES.get('file')
+        if single_file:
+            uploaded_files.append(single_file)
+        attachment_ids = []
+        for uploaded_file in uploaded_files:
             attachment = ExpenseAttachment.objects.create(
                 execution=execution,
-                category=ExpenseAttachment.CATEGORY_ADVANCE_SETTLEMENT,
+                category=ExpenseAttachment.CATEGORY_SETTLEMENT_PROOF,
                 file=uploaded_file,
                 uploaded_by=request.user,
             )
-            attachment_id = attachment.id
+            attachment_ids.append(attachment.id)
             ExpenseAuditLog.objects.create(
                 expense_request=expense_request,
                 actor=request.user,
                 action=ExpenseAuditLog.ACTION_ATTACHMENT_ADDED,
-                note='Comprovante enviado na prestação de contas do adiantamento.',
+                note='Comprovante de compra enviado na prestação de contas do adiantamento.',
                 metadata={'attachment_id': attachment.id},
             )
 
@@ -462,10 +468,54 @@ class ExpenseRequestViewSet(
             metadata={
                 'spent_amount': str(execution.spent_amount),
                 'returned_amount': str(execution.returned_amount),
-                'attachment_id': attachment_id,
+                'attachment_ids': attachment_ids,
             },
         )
         return Response(self.get_serializer(expense_request).data)
+
+    @action(detail=True, methods=['post'], url_path='return-receipt', parser_classes=[MultiPartParser, FormParser])
+    @transaction.atomic
+    def return_receipt(self, request, pk=None):
+        expense_request = self.get_object()
+        forbidden = self._ensure_area_leader_or_admin(request, expense_request)
+        if forbidden:
+            return forbidden
+
+        execution = getattr(expense_request, 'execution', None)
+        if not execution or execution.execution_type != ExpenseExecution.TYPE_ADVANCE:
+            return Response({'detail': 'Comprovante de devolução só se aplica a adiantamentos.'}, status=status.HTTP_400_BAD_REQUEST)
+        if execution.status != ExpenseExecution.STATUS_EXECUTED:
+            return Response({'detail': 'A solicitação precisa estar executada antes de anexar a devolução.'}, status=status.HTTP_400_BAD_REQUEST)
+        if execution.returned_amount in [None, Decimal('0')]:
+            return Response({'detail': 'Não existe valor devolvido para esta solicitação.'}, status=status.HTTP_400_BAD_REQUEST)
+        if execution.settlement_status not in [
+            ExpenseExecution.SETTLEMENT_PENDING_RETURN,
+            ExpenseExecution.SETTLEMENT_SETTLED,
+        ]:
+            return Response({'detail': 'A devolução só pode ser anexada após a prestação indicar saldo restante.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return Response({'file': ['Arquivo obrigatório.']}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing = execution.attachments.filter(category=ExpenseAttachment.CATEGORY_RETURN_RECEIPT).first()
+        if existing:
+            return Response({'detail': 'Esta solicitação já possui comprovante de devolução.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        attachment = ExpenseAttachment.objects.create(
+            execution=execution,
+            category=ExpenseAttachment.CATEGORY_RETURN_RECEIPT,
+            file=uploaded_file,
+            uploaded_by=request.user,
+        )
+        ExpenseAuditLog.objects.create(
+            expense_request=expense_request,
+            actor=request.user,
+            action=ExpenseAuditLog.ACTION_ATTACHMENT_ADDED,
+            note='Comprovante de devolução anexado.',
+            metadata={'attachment_id': attachment.id},
+        )
+        return Response(ExpenseAttachmentSerializer(attachment, context=self.get_serializer_context()).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='confirm-return', url_name='confirm-return')
     @transaction.atomic
@@ -711,9 +761,10 @@ def my_finance_dashboard(request):
     summary = get_area_summary(area)
     requests = ExpenseRequest.objects.select_related(
         'rubric',
+        'requester',
         'execution',
         'execution__executed_by',
-    ).prefetch_related('attachments', 'execution__attachments', 'audit_logs').filter(area=area)
+    ).prefetch_related('attachments', 'execution__attachments', 'audit_logs').filter(area=area, requester=user)
     rubrics = BudgetRubric.objects.filter(area=area, is_active=True)
     return Response({
         'area': AreaSerializer(area).data,

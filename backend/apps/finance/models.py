@@ -166,7 +166,6 @@ class ExpenseRequest(models.Model):
     recipient_name = models.CharField(_('Nome do Favorecido'), max_length=160, blank=True)
     pix_key = models.CharField(_('Chave PIX'), max_length=160, blank=True)
     description = models.TextField(_('Descrição'))
-    justification = models.TextField(_('Justificativa'))
     status = models.CharField(_('Status'), max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     rejection_reason = models.TextField(_('Justificativa da Rejeição'), blank=True)
     reviewed_by = models.ForeignKey(
@@ -309,11 +308,15 @@ class ExpenseExecution(models.Model):
 class ExpenseAttachment(models.Model):
     CATEGORY_SUPPORTING = 'SUPPORTING'
     CATEGORY_RECEIPT = 'RECEIPT'
-    CATEGORY_ADVANCE_SETTLEMENT = 'ADVANCE_SETTLEMENT'
+    CATEGORY_DEPOSIT_RECEIPT = 'DEPOSIT_RECEIPT'
+    CATEGORY_SETTLEMENT_PROOF = 'SETTLEMENT_PROOF'
+    CATEGORY_RETURN_RECEIPT = 'RETURN_RECEIPT'
     CATEGORY_CHOICES = [
         (CATEGORY_SUPPORTING, _('Suporte')),
         (CATEGORY_RECEIPT, _('Comprovante')),
-        (CATEGORY_ADVANCE_SETTLEMENT, _('Prestação de contas')),
+        (CATEGORY_DEPOSIT_RECEIPT, _('Comprovante de Depósito')),
+        (CATEGORY_SETTLEMENT_PROOF, _('Comprovante de Compra')),
+        (CATEGORY_RETURN_RECEIPT, _('Comprovante de Devolução')),
     ]
 
     expense_request = models.ForeignKey(

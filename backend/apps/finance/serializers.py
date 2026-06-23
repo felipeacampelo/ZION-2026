@@ -320,7 +320,6 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
             'recipient_name',
             'pix_key',
             'description',
-            'justification',
             'status',
             'rejection_reason',
             'reviewed_at',
@@ -424,7 +423,6 @@ class ExpenseRequestExecuteSerializer(serializers.Serializer):
 class ExpenseAdvanceSettlementSerializer(serializers.Serializer):
     spent_amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'))
     settlement_notes = serializers.CharField(required=False, allow_blank=True)
-    file = serializers.FileField(required=False)
 
     def validate(self, attrs):
         execution = self.context['execution']

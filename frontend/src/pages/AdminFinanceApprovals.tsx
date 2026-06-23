@@ -32,14 +32,20 @@ const getAttachmentName = (fileUrl: string) => {
   return decodeURIComponent(lastSegment.split('?')[0]);
 };
 
-const getRequestReceipt = (request: FinanceExpenseRequest) =>
+const getDepositReceipt = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.find((a) => a.category === 'DEPOSIT_RECEIPT') || null;
+
+const getExecutionReceipt = (request: FinanceExpenseRequest) =>
   request.execution?.attachments.find((a) => a.category === 'RECEIPT') || null;
 
-const getAdvanceSettlementAttachment = (request: FinanceExpenseRequest) =>
-  request.execution?.attachments.find((a) => a.category === 'ADVANCE_SETTLEMENT') || null;
+const getSettlementProofs = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.filter((a) => a.category === 'SETTLEMENT_PROOF') || [];
+
+const getReturnReceipt = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.find((a) => a.category === 'RETURN_RECEIPT') || null;
 
 const getSupportingAttachments = (request: FinanceExpenseRequest) =>
-  request.attachments.filter((a) => a.category !== 'RECEIPT');
+  request.attachments.filter((a) => a.category === 'SUPPORTING');
 
 const getAttachmentMap = (request: FinanceExpenseRequest) =>
   new Map(
@@ -130,6 +136,7 @@ export default function AdminFinanceApprovals() {
   const [manualCloseRequestId, setManualCloseRequestId] = useState<number | null>(null);
   const [manualCloseNote, setManualCloseNote] = useState('');
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
+  const [historyOpenIds, setHistoryOpenIds] = useState<Record<number, boolean>>({});
 
   const loadData = async () => {
     setError('');
@@ -422,12 +429,14 @@ export default function AdminFinanceApprovals() {
                       {rubricGroup.requests.map((item) => {
                         const isAwaitingExecution = item.status === 'APPROVED' && item.execution?.status === 'NOT_EXECUTED';
                         const expanded = isRequestExpanded(item);
-                        const receipt = getRequestReceipt(item);
-                        const settlementAttachment = getAdvanceSettlementAttachment(item);
+                        const depositReceipt = getDepositReceipt(item);
+                        const executionReceipt = getExecutionReceipt(item);
+                        const settlementProofs = getSettlementProofs(item);
+                        const returnReceipt = getReturnReceipt(item);
                         const supportingAttachments = getSupportingAttachments(item);
                         const attachmentMap = getAttachmentMap(item);
                         const settlementConfig = getSettlementStatusConfig(item.execution?.settlement_status);
-                        const settlementAttachmentUrl = settlementAttachment ? resolveMediaUrl(settlementAttachment.file) : '';
+                        const historyOpen = Boolean(historyOpenIds[item.id]);
 
                         return (
                           <div key={item.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
@@ -553,43 +562,91 @@ export default function AdminFinanceApprovals() {
                                   </div>
                                 )}
 
-                                {/* Receipt */}
-                                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
-                                  <p className="text-sm font-semibold text-emerald-900">Comprovante</p>
-                                  {receipt ? (
-                                    <>
-                                      <p className="mt-1 text-sm text-emerald-800">{getAttachmentName(receipt.file)} • {formatDateTime(receipt.created_at)}</p>
-                                      <div className="mt-2 flex flex-wrap gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => setPreviewFile({ name: getAttachmentName(receipt.file), url: resolveMediaUrl(receipt.file) })}
-                                          className="rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
-                                        >
-                                          Visualizar
-                                        </button>
-                                        <a href={resolveMediaUrl(receipt.file)} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700">Nova aba</a>
-                                        <a href={resolveMediaUrl(receipt.file)} download className="rounded-xl border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800">Baixar</a>
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <p className="mt-1 text-sm text-emerald-700">Nenhum comprovante de execução ainda.</p>
-                                  )}
-                                </div>
+                                {item.request_type === 'ADVANCE' ? (
+                                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
+                                    <p className="text-sm font-semibold text-emerald-900">Comprovante de depósito do financeiro</p>
+                                    {depositReceipt ? (
+                                      <>
+                                        <p className="mt-1 text-sm text-emerald-800">{getAttachmentName(depositReceipt.file)} • {formatDateTime(depositReceipt.created_at)}</p>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => setPreviewFile({ name: getAttachmentName(depositReceipt.file), url: resolveMediaUrl(depositReceipt.file) })}
+                                            className="rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
+                                          >
+                                            Visualizar
+                                          </button>
+                                          <a href={resolveMediaUrl(depositReceipt.file)} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700">Nova aba</a>
+                                          <a href={resolveMediaUrl(depositReceipt.file)} download className="rounded-xl border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800">Baixar</a>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <p className="mt-1 text-sm text-emerald-700">Nenhum comprovante de depósito anexado ainda.</p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3">
+                                    <p className="text-sm font-semibold text-emerald-900">Comprovante</p>
+                                    {executionReceipt ? (
+                                      <>
+                                        <p className="mt-1 text-sm text-emerald-800">{getAttachmentName(executionReceipt.file)} • {formatDateTime(executionReceipt.created_at)}</p>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => setPreviewFile({ name: getAttachmentName(executionReceipt.file), url: resolveMediaUrl(executionReceipt.file) })}
+                                            className="rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
+                                          >
+                                            Visualizar
+                                          </button>
+                                          <a href={resolveMediaUrl(executionReceipt.file)} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700">Nova aba</a>
+                                          <a href={resolveMediaUrl(executionReceipt.file)} download className="rounded-xl border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800">Baixar</a>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <p className="mt-1 text-sm text-emerald-700">Nenhum comprovante de execução ainda.</p>
+                                    )}
+                                  </div>
+                                )}
 
-                                {settlementAttachment && (
+                                {settlementProofs.length > 0 && (
                                   <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3">
-                                    <p className="text-sm font-semibold text-amber-900">Comprovante da prestação</p>
-                                    <p className="mt-1 text-sm text-amber-800">{getAttachmentName(settlementAttachment.file)} • {formatDateTime(settlementAttachment.created_at)}</p>
+                                    <p className="text-sm font-semibold text-amber-900">Comprovantes de compra</p>
+                                    <div className="mt-2 space-y-2">
+                                      {settlementProofs.map((attachment) => (
+                                        <div key={attachment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-100 bg-white px-3 py-2">
+                                          <div>
+                                            <p className="text-sm font-medium text-gray-900">{getAttachmentName(attachment.file)}</p>
+                                            <p className="text-xs text-amber-800">Anexado em {formatDateTime(attachment.created_at)}</p>
+                                          </div>
+                                          <div className="flex flex-wrap gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => setPreviewFile({ name: getAttachmentName(attachment.file), url: resolveMediaUrl(attachment.file) })}
+                                              className="rounded-xl bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white"
+                                            >
+                                              Visualizar
+                                            </button>
+                                            <a href={resolveMediaUrl(attachment.file)} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700">Nova aba</a>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {returnReceipt && (
+                                  <div className="rounded-2xl border border-orange-200 bg-orange-50/80 px-4 py-3">
+                                    <p className="text-sm font-semibold text-orange-900">Comprovante de devolução</p>
+                                    <p className="mt-1 text-sm text-orange-800">{getAttachmentName(returnReceipt.file)} • {formatDateTime(returnReceipt.created_at)}</p>
                                     <div className="mt-2 flex flex-wrap gap-2">
                                       <button
                                         type="button"
-                                        onClick={() => setPreviewFile({ name: getAttachmentName(settlementAttachment.file), url: settlementAttachmentUrl })}
-                                        className="rounded-xl bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white"
+                                        onClick={() => setPreviewFile({ name: getAttachmentName(returnReceipt.file), url: resolveMediaUrl(returnReceipt.file) })}
+                                        className="rounded-xl bg-orange-700 px-3 py-1.5 text-xs font-semibold text-white"
                                       >
                                         Visualizar
                                       </button>
-                                      <a href={settlementAttachmentUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700">Nova aba</a>
-                                      <a href={settlementAttachmentUrl} download className="rounded-xl border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800">Baixar</a>
+                                      <a href={resolveMediaUrl(returnReceipt.file)} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700">Nova aba</a>
                                     </div>
                                   </div>
                                 )}
@@ -623,8 +680,15 @@ export default function AdminFinanceApprovals() {
 
                                 {/* Audit log */}
                                 <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                                  <p className="mb-2 text-sm font-semibold text-gray-900">Histórico</p>
-                                  <div className="space-y-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setHistoryOpenIds((current) => ({ ...current, [item.id]: !current[item.id] }))}
+                                    className="flex w-full items-center justify-between text-left"
+                                  >
+                                    <p className="text-sm font-semibold text-gray-900">Histórico</p>
+                                    <span className="text-xs font-semibold text-gray-500">{historyOpen ? 'Ocultar' : 'Mostrar'}</span>
+                                  </button>
+                                  {historyOpen && <div className="mt-2 space-y-2">
                                     {item.audit_logs.map((log) => {
                                       const linkedAttachment = ['ATTACHMENT_ADDED', 'ADVANCE_SETTLEMENT_SUBMITTED'].includes(log.action)
                                         ? attachmentMap.get(Number(log.metadata?.attachment_id))
@@ -640,11 +704,15 @@ export default function AdminFinanceApprovals() {
                                           {linkedAttachment && (
                                             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                                               <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">
-                                                {linkedAttachment.category === 'RECEIPT'
-                                                  ? 'Comprovante'
-                                                  : linkedAttachment.category === 'ADVANCE_SETTLEMENT'
-                                                    ? 'Prestação'
-                                                    : 'Anexo'}
+                                                {linkedAttachment.category === 'DEPOSIT_RECEIPT'
+                                                  ? 'Depósito'
+                                                  : linkedAttachment.category === 'SETTLEMENT_PROOF'
+                                                    ? 'Compra'
+                                                    : linkedAttachment.category === 'RETURN_RECEIPT'
+                                                      ? 'Devolução'
+                                                      : linkedAttachment.category === 'RECEIPT'
+                                                        ? 'Comprovante'
+                                                        : 'Anexo'}
                                               </span>
                                               <button
                                                 type="button"
@@ -658,7 +726,7 @@ export default function AdminFinanceApprovals() {
                                         </div>
                                       );
                                     })}
-                                  </div>
+                                  </div>}
                                 </div>
 
                                 {/* Rejection form */}
@@ -699,7 +767,9 @@ export default function AdminFinanceApprovals() {
                                     <p className="mt-1 text-xs text-emerald-700">
                                       {executionType === 'REIMBURSEMENT'
                                         ? 'Reembolso exige comprovante no momento da execução.'
-                                        : 'Anexe um comprovante se quiser documentar a transferência.'}
+                                        : executionType === 'ADVANCE'
+                                          ? 'Anexe o comprovante do depósito feito pelo financeiro.'
+                                          : 'Anexe um comprovante se quiser documentar a execução.'}
                                     </p>
                                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                                       <select className={inputClass} value={executionType} onChange={(e) => setExecutionType(e.target.value as 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT')}>

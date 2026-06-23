@@ -10,6 +10,7 @@ import {
   replaceFinanceRequestAttachment,
   resolveMediaUrl,
   submitFinanceAdvanceSettlement,
+  uploadFinanceAdvanceReturnReceipt,
   type FinanceAttachment,
   type FinanceAuditLog,
   type FinanceExpenseRequest,
@@ -27,14 +28,20 @@ const getAttachmentName = (fileUrl: string) => {
   return decodeURIComponent(lastSegment.split('?')[0]);
 };
 
-const getRequestReceipt = (request: FinanceExpenseRequest) =>
+const getDepositReceipt = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.find((attachment) => attachment.category === 'DEPOSIT_RECEIPT') || null;
+
+const getExecutionReceipt = (request: FinanceExpenseRequest) =>
   request.execution?.attachments.find((attachment) => attachment.category === 'RECEIPT') || null;
 
-const getAdvanceSettlementAttachment = (request: FinanceExpenseRequest) =>
-  request.execution?.attachments.find((attachment) => attachment.category === 'ADVANCE_SETTLEMENT') || null;
+const getSettlementProofs = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.filter((attachment) => attachment.category === 'SETTLEMENT_PROOF') || [];
+
+const getReturnReceipt = (request: FinanceExpenseRequest) =>
+  request.execution?.attachments.find((attachment) => attachment.category === 'RETURN_RECEIPT') || null;
 
 const getSupportingAttachments = (request: FinanceExpenseRequest) =>
-  request.attachments.filter((attachment) => attachment.category !== 'RECEIPT');
+  request.attachments.filter((attachment) => attachment.category === 'SUPPORTING');
 
 const getAttachmentMap = (request: FinanceExpenseRequest) =>
   new Map(
@@ -113,7 +120,6 @@ export default function FinanceWorkspace() {
     recipient_name: '',
     pix_key: '',
     description: '',
-    justification: '',
   });
   const [attachmentFiles, setAttachmentFiles] = useState<Record<number, File | null>>({});
   const [attachmentStates, setAttachmentStates] = useState<Record<number, UploadState>>({});
@@ -122,9 +128,13 @@ export default function FinanceWorkspace() {
   const [replacementStates, setReplacementStates] = useState<Record<number, UploadState>>({});
   const [replacementInputKeys, setReplacementInputKeys] = useState<Record<number, number>>({});
   const [settlementForms, setSettlementForms] = useState<Record<number, { spent_amount: string; settlement_notes: string }>>({});
-  const [settlementFiles, setSettlementFiles] = useState<Record<number, File | null>>({});
+  const [settlementFiles, setSettlementFiles] = useState<Record<number, File[]>>({});
   const [settlementStates, setSettlementStates] = useState<Record<number, UploadState>>({});
   const [settlementInputKeys, setSettlementInputKeys] = useState<Record<number, number>>({});
+  const [returnReceiptFiles, setReturnReceiptFiles] = useState<Record<number, File | null>>({});
+  const [returnReceiptStates, setReturnReceiptStates] = useState<Record<number, UploadState>>({});
+  const [returnReceiptInputKeys, setReturnReceiptInputKeys] = useState<Record<number, number>>({});
+  const [historyOpenIds, setHistoryOpenIds] = useState<Record<number, boolean>>({});
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
@@ -155,7 +165,6 @@ export default function FinanceWorkspace() {
         recipient_name: form.recipient_name,
         pix_key: form.pix_key,
         description: form.description,
-        justification: form.justification,
       });
       setForm({
         rubric: '',
@@ -164,7 +173,6 @@ export default function FinanceWorkspace() {
         recipient_name: '',
         pix_key: '',
         description: '',
-        justification: '',
       });
       setSuccessMessage('Solicitação enviada com sucesso.');
       await loadData();
@@ -276,30 +284,30 @@ export default function FinanceWorkspace() {
 
   const handleSettlement = async (request: FinanceExpenseRequest) => {
     const values = settlementForms[request.id] || { spent_amount: '', settlement_notes: '' };
-    const file = settlementFiles[request.id];
+    const files = settlementFiles[request.id] || [];
     setSettlementStates((current) => ({
       ...current,
       [request.id]: {
         status: 'uploading',
         message: 'Enviando prestação de contas...',
-        fileName: file?.name || '',
+        fileName: files.map((file) => file.name).join(', '),
       },
     }));
     try {
       await submitFinanceAdvanceSettlement(request.id, {
         spent_amount: values.spent_amount,
         settlement_notes: values.settlement_notes,
-        file,
+        files,
       });
       setSettlementStates((current) => ({
         ...current,
         [request.id]: {
           status: 'success',
           message: 'Prestação de contas enviada com sucesso.',
-          fileName: file?.name || '',
+          fileName: files.map((file) => file.name).join(', '),
         },
       }));
-      setSettlementFiles((current) => ({ ...current, [request.id]: null }));
+      setSettlementFiles((current) => ({ ...current, [request.id]: [] }));
       setSettlementInputKeys((current) => ({ ...current, [request.id]: (current[request.id] || 0) + 1 }));
       await loadData();
     } catch (settlementError: any) {
@@ -308,26 +316,67 @@ export default function FinanceWorkspace() {
         [request.id]: {
           status: 'error',
           message: getErrorMessage(settlementError),
-          fileName: file?.name || '',
+          fileName: files.map((file) => file.name).join(', '),
+        },
+      }));
+    }
+  };
+
+  const handleReturnReceiptUpload = async (requestId: number) => {
+    const file = returnReceiptFiles[requestId];
+    if (!file) return;
+    setReturnReceiptStates((current) => ({
+      ...current,
+      [requestId]: {
+        status: 'uploading',
+        message: 'Enviando comprovante de devolução...',
+        fileName: file.name,
+      },
+    }));
+    try {
+      await uploadFinanceAdvanceReturnReceipt(requestId, file);
+      setReturnReceiptFiles((current) => ({ ...current, [requestId]: null }));
+      setReturnReceiptInputKeys((current) => ({ ...current, [requestId]: (current[requestId] || 0) + 1 }));
+      setReturnReceiptStates((current) => ({
+        ...current,
+        [requestId]: {
+          status: 'success',
+          message: 'Comprovante de devolução anexado com sucesso.',
+          fileName: file.name,
+        },
+      }));
+      await loadData();
+    } catch (uploadError: any) {
+      setReturnReceiptStates((current) => ({
+        ...current,
+        [requestId]: {
+          status: 'error',
+          message: getErrorMessage(uploadError),
+          fileName: file.name,
         },
       }));
     }
   };
 
   const renderRequest = (request: FinanceExpenseRequest) => {
-    const receipt = getRequestReceipt(request);
-    const settlementAttachment = getAdvanceSettlementAttachment(request);
+    const depositReceipt = getDepositReceipt(request);
+    const executionReceipt = getExecutionReceipt(request);
+    const settlementProofs = getSettlementProofs(request);
+    const returnReceipt = getReturnReceipt(request);
     const supportingAttachments = getSupportingAttachments(request);
     const attachmentMap = getAttachmentMap(request);
     const uploadState = attachmentStates[request.id];
     const selectedFile = attachmentFiles[request.id];
-    const receiptUrl = receipt ? resolveMediaUrl(receipt.file) : '';
-    const settlementUrl = settlementAttachment ? resolveMediaUrl(settlementAttachment.file) : '';
+    const depositReceiptUrl = depositReceipt ? resolveMediaUrl(depositReceipt.file) : '';
+    const executionReceiptUrl = executionReceipt ? resolveMediaUrl(executionReceipt.file) : '';
     const settlementState = settlementStates[request.id];
     const settlementForm = settlementForms[request.id] || { spent_amount: '', settlement_notes: '' };
-    const selectedSettlementFile = settlementFiles[request.id];
+    const selectedSettlementFiles = settlementFiles[request.id] || [];
     const settlementConfig = getSettlementStatusConfig(request.execution?.settlement_status);
     const hasAdvanceSettlementFlow = request.execution?.execution_type === 'ADVANCE' && request.execution?.status === 'EXECUTED';
+    const historyOpen = Boolean(historyOpenIds[request.id]);
+    const returnReceiptState = returnReceiptStates[request.id];
+    const selectedReturnReceiptFile = returnReceiptFiles[request.id];
 
     return (
       <div key={request.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
@@ -342,7 +391,6 @@ export default function FinanceWorkspace() {
             <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{request.status}</p>
           </div>
         </div>
-        <p className="mt-3 text-sm text-gray-700">{request.justification}</p>
         {(request.request_type !== 'DIRECT_PAYMENT' || request.recipient_name || request.pix_key) && (
           <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
             <p><span className="font-semibold text-gray-900">Favorecido:</span> {request.recipient_name || 'Não informado'}</p>
@@ -351,25 +399,54 @@ export default function FinanceWorkspace() {
         )}
         {request.rejection_reason && <p className="mt-2 text-sm font-medium text-red-600">{request.rejection_reason}</p>}
 
-        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
-          <p className="text-sm font-semibold text-emerald-900">Comprovante</p>
-          {receipt ? (
+        {request.request_type === 'ADVANCE' ? (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+            <p className="text-sm font-semibold text-emerald-900">Comprovante de depósito do financeiro</p>
+            {depositReceipt ? (
+              <>
+                <p className="mt-1 text-sm text-emerald-800">
+                  {getAttachmentName(depositReceipt.file)} • enviado em {formatDateTime(depositReceipt.created_at)}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewFile({ name: getAttachmentName(depositReceipt.file), url: depositReceiptUrl })}
+                    className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white"
+                  >
+                    Visualizar
+                  </button>
+                  <a href={depositReceiptUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">
+                    Nova aba
+                  </a>
+                  <a href={depositReceiptUrl} download className="rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800">
+                    Baixar comprovante
+                  </a>
+                </div>
+              </>
+            ) : (
+              <p className="mt-1 text-sm text-emerald-800">O financeiro ainda não anexou o comprovante de depósito.</p>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
+            <p className="text-sm font-semibold text-emerald-900">Comprovante</p>
+            {executionReceipt ? (
             <>
               <p className="mt-1 text-sm text-emerald-800">
-                {getAttachmentName(receipt.file)} • enviado em {formatDateTime(receipt.created_at)}
+                {getAttachmentName(executionReceipt.file)} • enviado em {formatDateTime(executionReceipt.created_at)}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setPreviewFile({ name: getAttachmentName(receipt.file), url: receiptUrl })}
+                  onClick={() => setPreviewFile({ name: getAttachmentName(executionReceipt.file), url: executionReceiptUrl })}
                   className="rounded-xl bg-emerald-700 px-3 py-2 text-xs font-semibold text-white"
                 >
                   Visualizar
                 </button>
-                <a href={receiptUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">
+                <a href={executionReceiptUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">
                   Nova aba
                 </a>
-                <a href={receiptUrl} download className="rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800">
+                <a href={executionReceiptUrl} download className="rounded-xl border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-800">
                   Baixar comprovante
                 </a>
               </div>
@@ -377,7 +454,8 @@ export default function FinanceWorkspace() {
           ) : (
             <p className="mt-1 text-sm text-emerald-800">Nenhum comprovante de execução anexado ainda.</p>
           )}
-        </div>
+          </div>
+        )}
 
         {hasAdvanceSettlementFlow && (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
@@ -404,30 +482,95 @@ export default function FinanceWorkspace() {
             {request.execution?.settlement_notes && (
               <p className="mt-3 text-sm text-amber-900">{request.execution.settlement_notes}</p>
             )}
-            {settlementAttachment ? (
-              <div className="mt-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
-                <p className="text-sm font-semibold text-amber-900">Comprovante da prestação</p>
-                <p className="mt-1 text-sm text-amber-800">
-                  {getAttachmentName(settlementAttachment.file)} • enviado em {formatDateTime(settlementAttachment.created_at)}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewFile({ name: getAttachmentName(settlementAttachment.file), url: settlementUrl })}
-                    className="rounded-xl bg-amber-700 px-3 py-2 text-xs font-semibold text-white"
-                  >
-                    Visualizar
-                  </button>
-                  <a href={settlementUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">
-                    Nova aba
-                  </a>
-                  <a href={settlementUrl} download className="rounded-xl border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800">
-                    Baixar comprovante
-                  </a>
+            <div className="mt-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
+              <p className="text-sm font-semibold text-amber-900">Comprovantes de compra</p>
+              {settlementProofs.length > 0 ? (
+                <div className="mt-3 space-y-2">
+                  {settlementProofs.map((attachment) => (
+                    <div key={attachment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-100 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{getAttachmentName(attachment.file)}</p>
+                        <p className="text-xs text-amber-800">Enviado em {formatDateTime(attachment.created_at)}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewFile({ name: getAttachmentName(attachment.file), url: resolveMediaUrl(attachment.file) })}
+                          className="rounded-xl bg-amber-700 px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Visualizar
+                        </button>
+                        <a href={resolveMediaUrl(attachment.file)} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">
+                          Nova aba
+                        </a>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              ) : (
+                <p className="mt-2 text-sm text-amber-800">Nenhum comprovante de compra anexado ainda.</p>
+              )}
+            </div>
+
+            {(request.execution?.returned_amount && Number(request.execution.returned_amount) > 0) && (
+              <div className="mt-3 rounded-2xl border border-orange-200 bg-white px-4 py-3">
+                <p className="text-sm font-semibold text-orange-900">Comprovante de devolução</p>
+                {returnReceipt ? (
+                  <>
+                    <p className="mt-1 text-sm text-orange-800">
+                      {getAttachmentName(returnReceipt.file)} • enviado em {formatDateTime(returnReceipt.created_at)}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewFile({ name: getAttachmentName(returnReceipt.file), url: resolveMediaUrl(returnReceipt.file) })}
+                        className="rounded-xl bg-orange-700 px-3 py-2 text-xs font-semibold text-white"
+                      >
+                        Visualizar
+                      </button>
+                      <a href={resolveMediaUrl(returnReceipt.file)} target="_blank" rel="noreferrer" className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700">
+                        Nova aba
+                      </a>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-1 text-sm text-orange-800">Anexe o comprovante da devolução do saldo restante.</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <input
+                        key={`${request.id}-${returnReceiptInputKeys[request.id] || 0}`}
+                        type="file"
+                        className="text-sm text-gray-600"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] || null;
+                          setReturnReceiptFiles((current) => ({ ...current, [request.id]: file }));
+                          setReturnReceiptStates((current) => ({
+                            ...current,
+                            [request.id]: {
+                              status: 'idle',
+                              message: file ? 'Arquivo pronto para envio.' : '',
+                              fileName: file?.name || '',
+                            },
+                          }));
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleReturnReceiptUpload(request.id)}
+                        disabled={!selectedReturnReceiptFile || returnReceiptState?.status === 'uploading'}
+                        className="rounded-xl bg-orange-700 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {returnReceiptState?.status === 'uploading' ? 'Enviando...' : 'Anexar devolução'}
+                      </button>
+                    </div>
+                    {returnReceiptState?.message && (
+                      <p className={`mt-3 text-xs ${returnReceiptState.status === 'error' ? 'text-red-600' : returnReceiptState.status === 'success' ? 'text-emerald-700' : 'text-gray-600'}`}>
+                        {returnReceiptState.message}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
-            ) : (
-              <p className="mt-3 text-sm text-amber-800">Nenhum comprovante de prestação anexado ainda.</p>
             )}
 
             {request.execution?.can_submit_settlement && request.execution.settlement_status !== 'SETTLED' && request.execution.settlement_status !== 'MANUALLY_CLOSED' && (
@@ -452,16 +595,17 @@ export default function FinanceWorkspace() {
                   <input
                     key={`${request.id}-${settlementInputKeys[request.id] || 0}`}
                     type="file"
+                    multiple
                     className="text-sm text-gray-600"
                     onChange={(event) => {
-                      const file = event.target.files?.[0] || null;
-                      setSettlementFiles((current) => ({ ...current, [request.id]: file }));
+                      const files = Array.from(event.target.files || []);
+                      setSettlementFiles((current) => ({ ...current, [request.id]: files }));
                       setSettlementStates((current) => ({
                         ...current,
                         [request.id]: {
                           status: 'idle',
-                          message: file ? 'Arquivo pronto para envio.' : '',
-                          fileName: file?.name || '',
+                          message: files.length ? `${files.length} arquivo(s) pronto(s) para envio.` : '',
+                          fileName: files.map((file) => file.name).join(', '),
                         },
                       }));
                     }}
@@ -488,7 +632,7 @@ export default function FinanceWorkspace() {
                   >
                     {settlementState?.status === 'uploading' ? 'Enviando...' : 'Enviar prestação'}
                   </button>
-                  {selectedSettlementFile && <p className="text-xs text-gray-600">Arquivo selecionado: {selectedSettlementFile.name}</p>}
+                  {selectedSettlementFiles.length > 0 && <p className="text-xs text-gray-600">Arquivos selecionados: {selectedSettlementFiles.map((file) => file.name).join(', ')}</p>}
                 </div>
                 {settlementState?.message && (
                   <p
@@ -656,9 +800,17 @@ export default function FinanceWorkspace() {
         </div>
 
         <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-          <p className="text-sm font-semibold text-gray-900">Histórico de ações</p>
-          <div className="mt-3 space-y-3">
-            {request.audit_logs.map((log) => {
+          <button
+            type="button"
+            onClick={() => setHistoryOpenIds((current) => ({ ...current, [request.id]: !current[request.id] }))}
+            className="flex w-full items-center justify-between text-left"
+          >
+            <p className="text-sm font-semibold text-gray-900">Histórico de ações</p>
+            <span className="text-xs font-semibold text-gray-500">{historyOpen ? 'Ocultar' : 'Mostrar'}</span>
+          </button>
+          {historyOpen && (
+            <div className="mt-3 space-y-3">
+              {request.audit_logs.map((log) => {
               const linkedAttachment = ['ATTACHMENT_ADDED', 'ADVANCE_SETTLEMENT_SUBMITTED'].includes(log.action)
                 ? attachmentMap.get(Number(log.metadata?.attachment_id))
                 : null;
@@ -673,11 +825,15 @@ export default function FinanceWorkspace() {
                   {linkedAttachment && (
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-700">
-                        {linkedAttachment.category === 'RECEIPT'
-                          ? 'Comprovante'
-                          : linkedAttachment.category === 'ADVANCE_SETTLEMENT'
-                            ? 'Prestação'
-                            : 'Anexo de suporte'}
+                        {linkedAttachment.category === 'DEPOSIT_RECEIPT'
+                          ? 'Depósito'
+                          : linkedAttachment.category === 'SETTLEMENT_PROOF'
+                            ? 'Compra'
+                            : linkedAttachment.category === 'RETURN_RECEIPT'
+                              ? 'Devolução'
+                              : linkedAttachment.category === 'RECEIPT'
+                                ? 'Comprovante'
+                                : 'Anexo de suporte'}
                       </span>
                       <button
                         type="button"
@@ -690,8 +846,9 @@ export default function FinanceWorkspace() {
                   )}
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -787,8 +944,7 @@ export default function FinanceWorkspace() {
                       <input className={inputClass} placeholder="Chave PIX" value={form.pix_key} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, pix_key: e.target.value })); }} />
                     </>
                   )}
-                  <textarea className={`${inputClass} min-h-[100px]`} placeholder="Descrição detalhada" value={form.description} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, description: e.target.value })); }} />
-                  <textarea className={`${inputClass} min-h-[120px]`} placeholder="Justificativa obrigatória" value={form.justification} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, justification: e.target.value })); }} />
+                  <textarea className={`${inputClass} min-h-[120px]`} placeholder="Descrição da verba solicitada" value={form.description} onChange={(e) => { setSuccessMessage(''); setForm((current) => ({ ...current, description: e.target.value })); }} />
                   <button className="rounded-2xl bg-dark px-4 py-3 text-sm font-semibold text-white" type="submit">Enviar solicitação</button>
                 </form>
               </div>
@@ -815,10 +971,10 @@ export default function FinanceWorkspace() {
             </section>
 
             <section className={cardClass}>
-              <h2 className="text-lg font-black text-gray-950">Histórico</h2>
+              <h2 className="text-lg font-black text-gray-950">Solicitações</h2>
               <div className="mt-4 space-y-3">
                 {dashboard.requests.map(renderRequest)}
-                {!loading && dashboard.requests.length === 0 && <p className="text-sm text-gray-500">Nenhuma solicitação registrada para a sua área.</p>}
+                {!loading && dashboard.requests.length === 0 && <p className="text-sm text-gray-500">Nenhuma solicitação registrada por você ainda.</p>}
               </div>
             </section>
           </>

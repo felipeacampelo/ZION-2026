@@ -369,7 +369,7 @@ export interface FinanceRubric {
 
 export interface FinanceAttachment {
   id: number;
-  category: 'SUPPORTING' | 'RECEIPT' | 'ADVANCE_SETTLEMENT';
+  category: 'SUPPORTING' | 'RECEIPT' | 'DEPOSIT_RECEIPT' | 'SETTLEMENT_PROOF' | 'RETURN_RECEIPT';
   file: string;
   uploaded_by_email: string;
   can_manage: boolean;
@@ -419,7 +419,6 @@ export interface FinanceExpenseRequest {
   recipient_name: string;
   pix_key: string;
   description: string;
-  justification: string;
   status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   rejection_reason: string;
   reviewed_at: string | null;
@@ -907,7 +906,6 @@ export const createFinanceRequest = (data: {
   recipient_name: string;
   pix_key: string;
   description: string;
-  justification: string;
 }) => api.post<FinanceExpenseRequest>('/finance/requests/', data);
 
 export const reviewFinanceRequest = (id: number, note?: string) =>
@@ -937,13 +935,21 @@ export const executeFinanceRequest = (
 
 export const submitFinanceAdvanceSettlement = (
   id: number,
-  data: { spent_amount: string; settlement_notes?: string; file?: File | null }
+  data: { spent_amount: string; settlement_notes?: string; files?: File[] }
 ) => {
   const formData = new FormData();
   formData.append('spent_amount', data.spent_amount);
   if (data.settlement_notes) formData.append('settlement_notes', data.settlement_notes);
-  if (data.file) formData.append('file', data.file);
+  data.files?.forEach((file) => formData.append('files', file));
   return api.post<FinanceExpenseRequest>(`/finance/requests/${id}/settlement/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+export const uploadFinanceAdvanceReturnReceipt = (id: number, file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api.post<FinanceAttachment>(`/finance/requests/${id}/return-receipt/`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };

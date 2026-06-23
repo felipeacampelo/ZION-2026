@@ -15,7 +15,7 @@ from apps.products.models import Batch, Product
 
 from .constants import AREA_LEADERS_GROUP_NAME, FINANCE_NOTIFICATION_RECIPIENTS_GROUP_NAME, FINANCE_VIEWERS_GROUP_NAME
 from .email_service import _get_finance_notification_emails
-from .models import Area, AreaBudget, AreaLeaderAssignment, BudgetRubric, ExpenseAuditLog, ExpenseExecution
+from .models import Area, AreaBudget, AreaLeaderAssignment, BudgetRubric, ExpenseAuditLog, ExpenseExecution, ExpenseRequest
 
 
 User = get_user_model()
@@ -184,7 +184,6 @@ class FinanceFlowTests(APITestCase):
                 'rubric': rubric.id,
                 'amount': '10.00',
                 'description': 'Tentativa',
-                'justification': 'Nao deveria passar',
             },
             format='json',
         )
@@ -251,7 +250,6 @@ class FinanceFlowTests(APITestCase):
                 'rubric': rubric.id,
                 'amount': '70.00',
                 'description': 'Locação',
-                'justification': 'Precisamos do equipamento',
             },
             format='json',
         )
@@ -270,7 +268,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Compra já realizada',
-                'justification': 'Pagamento com recurso próprio',
             },
             format='json',
         )
@@ -291,7 +288,6 @@ class FinanceFlowTests(APITestCase):
                 'amount': '18.00',
                 'request_type': 'DIRECT_PAYMENT',
                 'description': 'Pagamento para fornecedor',
-                'justification': 'Compra com pagamento direto',
             },
             format='json',
         )
@@ -313,7 +309,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Cabos novos',
-                'justification': 'Substituição urgente',
             },
             format='json',
         )
@@ -353,7 +348,6 @@ class FinanceFlowTests(APITestCase):
                 'amount': '12.00',
                 'request_type': 'DIRECT_PAYMENT',
                 'description': 'Fornecedor',
-                'justification': 'Pagamento direto',
             },
             format='json',
         )
@@ -379,7 +373,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Frete',
-                'justification': 'Entrega',
             },
             format='json',
         )
@@ -413,7 +406,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Compra externa',
-                'justification': 'Pagamento rápido',
             },
             format='json',
         )
@@ -442,7 +434,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Material',
-                'justification': 'Compra local',
             },
             format='json',
         )
@@ -462,7 +453,10 @@ class FinanceFlowTests(APITestCase):
             {
                 'spent_amount': '17.00',
                 'settlement_notes': 'Gastei menos do que o previsto',
-                'file': SimpleUploadedFile('nota.pdf', b'%PDF-1.4 nota', content_type='application/pdf'),
+                'files': [
+                    SimpleUploadedFile('nota-1.pdf', b'%PDF-1.4 nota-1', content_type='application/pdf'),
+                    SimpleUploadedFile('nota-2.pdf', b'%PDF-1.4 nota-2', content_type='application/pdf'),
+                ],
             },
             format='multipart',
         )
@@ -471,11 +465,9 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(settlement_response.data['execution']['settlement_status'], 'PENDING_RETURN')
         self.assertEqual(settlement_response.data['execution']['spent_amount'], '17.00')
         self.assertEqual(settlement_response.data['execution']['returned_amount'], '3.00')
-        self.assertTrue(
-            any(
-                attachment['category'] == 'ADVANCE_SETTLEMENT'
-                for attachment in settlement_response.data['execution']['attachments']
-            )
+        self.assertEqual(
+            sum(1 for attachment in settlement_response.data['execution']['attachments'] if attachment['category'] == 'SETTLEMENT_PROOF'),
+            2,
         )
 
         leader_dashboard = self.client.get(reverse('finance:my-dashboard'))
@@ -499,7 +491,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Material',
-                'justification': 'Compra local',
             },
             format='json',
         )
@@ -540,6 +531,87 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(leader_dashboard.data['summary']['executed_amount'], '17.00')
         self.assertEqual(leader_dashboard.data['summary']['available_amount'], '33.00')
 
+    def test_leader_can_attach_return_receipt_after_settlement(self):
+        _, rubric = self._create_area_and_rubric()
+        self.client.force_authenticate(self.leader)
+        create_response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '20.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Material',
+            },
+            format='json',
+        )
+        request_id = create_response.data['id']
+
+        self.client.force_authenticate(self.admin)
+        self.client.post(reverse('finance:finance-request-approve', args=[request_id]), {}, format='json')
+        self.client.post(
+            reverse('finance:finance-request-execute', args=[request_id]),
+            {
+                'execution_type': 'ADVANCE',
+                'notes': 'Transferido',
+                'file': SimpleUploadedFile('deposito.pdf', b'%PDF-1.4 deposito', content_type='application/pdf'),
+            },
+            format='multipart',
+        )
+
+        self.client.force_authenticate(self.leader)
+        self.client.post(
+            reverse('finance:finance-request-settlement', args=[request_id]),
+            {'spent_amount': '17.00', 'settlement_notes': 'Sobrou valor'},
+            format='multipart',
+        )
+        return_receipt_response = self.client.post(
+            reverse('finance:finance-request-return-receipt', args=[request_id]),
+            {
+                'file': SimpleUploadedFile('devolucao.pdf', b'%PDF-1.4 devolucao', content_type='application/pdf'),
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(return_receipt_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(return_receipt_response.data['category'], 'RETURN_RECEIPT')
+
+    def test_leader_dashboard_only_returns_own_requests(self):
+        area, rubric = self._create_area_and_rubric()
+        other_leader = User.objects.create_user(email='other-leader@example.com', password='password123', first_name='Outro')
+        other_leader.groups.add(self.area_leaders_group)
+
+        ExpenseRequest.objects.create(
+            area=area,
+            rubric=rubric,
+            requester=other_leader,
+            amount=Decimal('10.00'),
+            request_type='ADVANCE',
+            recipient_name='Outro Lider',
+            pix_key='outro@pix.test',
+            description='Pedido criado para outro usuário',
+        )
+
+        self.client.force_authenticate(self.leader)
+        self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': rubric.id,
+                'amount': '12.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Pedido do líder autenticado',
+            },
+            format='json',
+        )
+
+        dashboard_response = self.client.get(reverse('finance:my-dashboard'))
+
+        self.assertEqual(dashboard_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(dashboard_response.data['area']['id'], area.id)
+        self.assertEqual(len(dashboard_response.data['requests']), 1)
+        self.assertEqual(dashboard_response.data['requests'][0]['requester_email'], self.leader.email)
+
     def test_advance_settlement_rejects_spent_amount_above_execution_total(self):
         _, rubric = self._create_area_and_rubric()
         self.client.force_authenticate(self.leader)
@@ -551,7 +623,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Material',
-                'justification': 'Compra local',
             },
             format='json',
         )
@@ -585,7 +656,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Material',
-                'justification': 'Compra local',
             },
             format='json',
         )
@@ -618,7 +688,6 @@ class FinanceFlowTests(APITestCase):
                 'recipient_name': 'Lider Financeiro',
                 'pix_key': 'lider@pix.test',
                 'description': 'Anexo',
-                'justification': 'Teste de comprovante',
             },
             format='json',
         )
