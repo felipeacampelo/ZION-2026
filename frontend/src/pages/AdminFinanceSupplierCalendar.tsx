@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, Clock3, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Clock3, Trash2 } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import {
   createFinanceSupplier,
@@ -20,6 +20,7 @@ import {
 const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.07)]';
 const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
 const weekdayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 const formatCurrency = (value?: string) =>
   Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -161,6 +162,17 @@ export default function AdminFinanceSupplierCalendar() {
 
   const calendarDays = useMemo(() => buildCalendar(month), [month]);
 
+  const todayIso = getTodayDate();
+
+  const navigateMonth = (direction: -1 | 1) => {
+    const [year, monthNum] = month.split('-').map(Number);
+    const date = new Date(year, monthNum - 1 + direction, 1);
+    setMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  const [calYear, calMonthNum] = month.split('-').map(Number);
+  const monthLabel = `${monthNames[calMonthNum - 1]} ${calYear}`;
+
   const summary = useMemo(() => {
     const pending = visiblePayments.filter((payment) => payment.status === 'PENDING');
     const paid = visiblePayments.filter((payment) => payment.status === 'PAID');
@@ -264,14 +276,24 @@ export default function AdminFinanceSupplierCalendar() {
                 Controle os pagamentos previstos e pagos dos contratos, sempre vinculados a uma solicitação financeira já aprovada.
               </p>
             </div>
-            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-              <CalendarDays className="h-5 w-5 text-dark" />
-              <input
-                className="bg-transparent text-sm font-semibold text-gray-900 outline-none"
-                type="month"
-                value={month}
-                onChange={(event) => setMonth(event.target.value)}
-              />
+            <div className="flex items-center gap-1 rounded-2xl border border-gray-200 bg-gray-50 p-1">
+              <button
+                type="button"
+                onClick={() => navigateMonth(-1)}
+                className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-white hover:text-gray-900 hover:shadow-sm"
+                aria-label="Mês anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-[148px] text-center text-sm font-bold text-gray-950">{monthLabel}</span>
+              <button
+                type="button"
+                onClick={() => navigateMonth(1)}
+                className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-white hover:text-gray-900 hover:shadow-sm"
+                aria-label="Próximo mês"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
           </div>
           {error && <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
@@ -434,90 +456,121 @@ export default function AdminFinanceSupplierCalendar() {
           </div>
         </section>
 
-        <section className={`${cardClass} space-y-4`}>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <select className={inputClass} value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)}>
-              <option value="">Todos os fornecedores</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-              ))}
-            </select>
-            <select className={inputClass} value={rubricFilter} onChange={(event) => setRubricFilter(event.target.value)}>
-              <option value="">Todas as rubricas</option>
-              {rubrics.map((rubric) => (
-                <option key={rubric.id} value={rubric.id}>{rubric.name}</option>
-              ))}
-            </select>
-            <select className={inputClass} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'PENDING' | 'PAID' | '')}>
-              <option value="">Todos os status</option>
-              <option value="PENDING">Pendentes</option>
-              <option value="PAID">Pagos</option>
-            </select>
-          </div>
-        </section>
-
         <section className={`${cardClass} overflow-hidden`}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-bold text-gray-950">
+              {monthLabel}
+              {visiblePayments.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-gray-400">{visiblePayments.length} lançamento{visiblePayments.length !== 1 ? 's' : ''}</span>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <select
+                className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 outline-none focus:border-dark"
+                value={supplierFilter}
+                onChange={(event) => setSupplierFilter(event.target.value)}
+              >
+                <option value="">Todos os fornecedores</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                ))}
+              </select>
+              <select
+                className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 outline-none focus:border-dark"
+                value={rubricFilter}
+                onChange={(event) => setRubricFilter(event.target.value)}
+              >
+                <option value="">Todas as rubricas</option>
+                {rubrics.map((rubric) => (
+                  <option key={rubric.id} value={rubric.id}>{rubric.name}</option>
+                ))}
+              </select>
+              <select
+                className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 outline-none focus:border-dark"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as 'PENDING' | 'PAID' | '')}
+              >
+                <option value="">Todos os status</option>
+                <option value="PENDING">Pendentes</option>
+                <option value="PAID">Pagos</option>
+              </select>
+            </div>
+          </div>
+
           {loading ? (
-            <p className="p-6 text-sm text-gray-500">Carregando calendário...</p>
+            <p className="py-10 text-center text-sm text-gray-400">Carregando calendário...</p>
           ) : (
-            <div className="grid gap-px overflow-hidden rounded-3xl bg-gray-200 lg:grid-cols-7">
+            <div className="grid gap-px overflow-hidden rounded-2xl border border-gray-100 bg-gray-100 lg:grid-cols-7">
               {weekdayLabels.map((label) => (
-                <div key={label} className="bg-gray-100 px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+                <div key={label} className="bg-gray-50 px-2 py-2.5 text-center text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">
                   {label}
                 </div>
               ))}
               {calendarDays.map((day) => {
                 const items = paymentCountByDay.get(day.isoDate) || [];
+                const isToday = day.isoDate === todayIso;
                 return (
                   <div
                     key={day.key}
-                    className={`min-h-[190px] bg-white p-3 align-top ${day.inCurrentMonth ? '' : 'bg-gray-50 text-gray-400'}`}
+                    className={`min-h-[110px] bg-white p-2 ${!day.inCurrentMonth ? 'bg-gray-50/70' : ''}`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-black ${day.inCurrentMonth ? 'text-gray-950' : 'text-gray-400'}`}>{day.dayNumber}</span>
-                      {!!items.length && (
-                        <span className="rounded-full bg-dark/10 px-2 py-0.5 text-[11px] font-semibold text-dark">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                        isToday
+                          ? 'bg-dark text-white'
+                          : day.inCurrentMonth
+                            ? 'text-gray-800'
+                            : 'text-gray-300'
+                      }`}>
+                        {day.dayNumber}
+                      </span>
+                      {items.length > 1 && (
+                        <span className="rounded-full bg-dark/8 px-1.5 py-0.5 text-[10px] font-semibold text-dark">
                           {items.length}
                         </span>
                       )}
                     </div>
-                    <div className="mt-3 space-y-2">
+                    <div className="space-y-1">
                       {items.map((payment) => (
-                        <div key={payment.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-semibold text-gray-950">{payment.supplier_name}</p>
-                              <p className="text-xs text-gray-500">{payment.rubric_name}</p>
-                            </div>
-                            <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${payment.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {payment.status === 'PAID' ? 'Pago' : 'Pendente'}
-                            </span>
+                        <div
+                          key={payment.id}
+                          className={`overflow-hidden rounded-lg border text-[11px] ${
+                            payment.status === 'PAID'
+                              ? 'border-emerald-100 bg-emerald-50'
+                              : 'border-amber-100 bg-amber-50'
+                          }`}
+                        >
+                          <div className="px-2 py-1.5">
+                            <p className="truncate font-semibold text-gray-900">{payment.supplier_name}</p>
+                            <p className={`font-bold ${payment.status === 'PAID' ? 'text-emerald-800' : 'text-amber-800'}`}>
+                              R$ {formatCurrency(payment.amount)}
+                            </p>
                           </div>
-                          <p className="mt-2 text-sm font-semibold text-gray-950">R$ {formatCurrency(payment.amount)}</p>
-                          <p className="mt-1 text-xs text-gray-500">Solicitação #{payment.expense_request}</p>
-                          {payment.notes && <p className="mt-1 text-xs text-gray-500">{payment.notes}</p>}
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <div className={`flex items-center gap-2 border-t px-2 py-1 ${
+                            payment.status === 'PAID' ? 'border-emerald-100' : 'border-amber-100'
+                          }`}>
                             {payment.status === 'PAID' ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Pago em {formatDate(payment.paid_on)}
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+                                <CheckCircle2 className="h-3 w-3" />
+                                {formatDate(payment.paid_on)}
                               </span>
                             ) : (
                               <>
                                 <button
-                                  className="inline-flex items-center gap-1 rounded-full bg-dark px-3 py-1.5 text-[11px] font-semibold text-white"
+                                  type="button"
                                   onClick={() => handleMarkPaid(payment.id)}
-                                  type="button"
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-dark hover:underline"
                                 >
-                                  <Clock3 className="h-3.5 w-3.5" />
-                                  Dar check
+                                  <Clock3 className="h-3 w-3" />
+                                  Pagar
                                 </button>
+                                <span className="text-gray-300">·</span>
                                 <button
-                                  className="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 text-[11px] font-semibold text-red-700"
-                                  onClick={() => handleDeletePayment(payment.id)}
                                   type="button"
+                                  onClick={() => handleDeletePayment(payment.id)}
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-red-600 hover:underline"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Trash2 className="h-3 w-3" />
                                   Remover
                                 </button>
                               </>
