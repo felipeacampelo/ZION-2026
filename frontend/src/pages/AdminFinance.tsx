@@ -573,36 +573,51 @@ export default function AdminFinance() {
 
                   {/* Inline area edit form */}
                   {canManageFinance && editingAreaId === area.id && (
-                    <div className="border-t border-gray-100 bg-white px-4 py-4">
+                    <div className="border-t border-gray-200 bg-slate-50/60 px-4 py-5">
+                      <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-gray-400">Editando área</p>
                       <form
-                        className="space-y-3"
+                        className="grid gap-5 lg:grid-cols-[1fr_260px]"
                         onSubmit={async (event) => { event.preventDefault(); await saveAreaEdit(area.id); }}
                       >
-                        <input className={`${inputClass} max-w-[420px]`} placeholder="Nome da área" value={editingAreaName} onChange={(e) => setEditingAreaName(e.target.value)} />
-                        <textarea className={`${inputClass} min-h-[80px] max-w-[520px]`} placeholder="Descrição" value={editingAreaDescription} onChange={(e) => setEditingAreaDescription(e.target.value)} />
-                        <input className={`${inputClass} max-w-[220px]`} placeholder="Valor orçado" value={editingAreaAmount} onChange={(e) => setEditingAreaAmount(e.target.value)} />
-                        <div className="max-w-[520px] rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                          <p className="text-sm font-semibold text-gray-900">Líderes da área</p>
-                          <p className="mt-1 text-xs text-gray-500">Selecione até 2 líderes.</p>
-                          <div className="mt-3 space-y-2">
-                            {area.leaders_have_ineligible && (
-                              <p className="text-xs text-amber-700">Os líderes fora do grupo atual precisam ser substituídos antes de salvar.</p>
-                            )}
+                        <div className="space-y-3">
+                          <input className={inputClass} placeholder="Nome da área" value={editingAreaName} onChange={(e) => setEditingAreaName(e.target.value)} />
+                          <textarea className={`${inputClass} min-h-[80px]`} placeholder="Descrição" value={editingAreaDescription} onChange={(e) => setEditingAreaDescription(e.target.value)} />
+                          <div>
+                            <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Valor orçado</p>
+                            <input className={inputClass} placeholder="0,00" value={editingAreaAmount} onChange={(e) => setEditingAreaAmount(e.target.value)} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Líderes da área</p>
+                          <p className="mb-3 text-xs text-gray-500">Selecione até 2.</p>
+                          {area.leaders_have_ineligible && (
+                            <p className="mb-3 text-xs text-amber-700">Os líderes fora do grupo atual precisam ser substituídos antes de salvar.</p>
+                          )}
+                          <div className="space-y-2">
                             {leaders.map((leader) => (
-                              <label key={leader.id} className="flex items-start gap-3 text-sm text-gray-700">
+                              <label
+                                key={leader.id}
+                                className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 transition-colors hover:border-gray-300 has-[:checked]:border-dark has-[:checked]:bg-dark/[0.04]"
+                              >
                                 <input
                                   type="checkbox"
+                                  className="accent-dark"
                                   checked={editingAreaLeaderIds.includes(String(leader.id))}
                                   onChange={() => setEditingAreaLeaderIds((current) => toggleLeaderId(current, String(leader.id)))}
                                 />
-                                <span>{leader.name} ({leader.email})</span>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-gray-900">{leader.name}</p>
+                                  <p className="truncate text-xs text-gray-400">{leader.email}</p>
+                                </div>
                               </label>
                             ))}
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button type="submit" className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white">Salvar</button>
-                          <button type="button" onClick={() => setEditingAreaId(null)} className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
+
+                        <div className="flex flex-wrap gap-2 lg:col-span-2">
+                          <button type="submit" className="rounded-xl bg-dark px-4 py-2 text-xs font-semibold text-white">Salvar alterações</button>
+                          <button type="button" onClick={() => setEditingAreaId(null)} className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-600">Cancelar</button>
                         </div>
                       </form>
                     </div>
