@@ -873,7 +873,13 @@ export default function FinanceWorkspace() {
               </p>
             )}
           </div>
-          <Link to="/" className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm">Voltar ao site</Link>
+          <div className="flex items-center gap-4">
+            <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-right shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">CNPJ da Igreja</p>
+              <p className="mt-0.5 font-mono text-sm font-bold text-gray-900">00.353.219/0001-74</p>
+            </div>
+            <Link to="/" className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm">Voltar ao site</Link>
+          </div>
         </div>
 
         {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
