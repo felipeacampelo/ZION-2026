@@ -884,6 +884,20 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('amount', response.data)
 
+    def test_executed_direct_payment_still_appears_as_calendar_eligible_when_it_has_remaining_balance(self):
+        expense_request = self._create_approved_direct_payment_request(amount=Decimal('18.00'))
+        execution = ExpenseExecution.objects.get(expense_request=expense_request)
+        execution.status = ExpenseExecution.STATUS_EXECUTED
+        execution.executed_by = self.admin
+        execution.executed_at = timezone.now()
+        execution.save(update_fields=['status', 'executed_by', 'executed_at', 'updated_at'])
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(reverse('finance:finance-supplier-payment-eligible-requests'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(any(item['id'] == expense_request.id for item in response.data))
+
     def test_marking_supplier_payment_as_paid_updates_execution_and_budget(self):
         expense_request = self._create_approved_direct_payment_request(amount=Decimal('18.00'))
         payment = SupplierPayment.objects.create(

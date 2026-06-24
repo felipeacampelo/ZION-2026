@@ -760,11 +760,6 @@ class SupplierPaymentViewSet(viewsets.ModelViewSet):
         ).order_by('-approved_at', '-id')
         payload = []
         for expense_request in queryset:
-            if (
-                getattr(getattr(expense_request, 'execution', None), 'status', None) == ExpenseExecution.STATUS_EXECUTED
-                and not expense_request.supplier_payments.exists()
-            ):
-                continue
             scheduled_total = expense_request.supplier_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0')
             if scheduled_total >= Decimal(str(expense_request.amount)):
                 continue

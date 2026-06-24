@@ -62,7 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
         children: [
           { to: '/admin/finance', label: 'Visão geral', end: true },
           { to: '/admin/finance/approvals', label: 'Aprovações', end: false },
-          { to: '/admin/finance/suppliers', label: 'Fornecedores', end: false },
+          { to: '/admin/finance/suppliers', label: 'Calendário', end: false },
         ],
       },
     ],

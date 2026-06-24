@@ -401,15 +401,6 @@ class SupplierPaymentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'expense_request': 'A solicitação vinculada precisa estar aprovada.'})
         if expense_request.request_type != ExpenseExecution.TYPE_DIRECT_PAYMENT:
             raise serializers.ValidationError({'expense_request': 'Somente solicitações de pagamento direto podem ser vinculadas.'})
-        if (
-            getattr(getattr(expense_request, 'execution', None), 'status', None) == ExpenseExecution.STATUS_EXECUTED
-            and not expense_request.supplier_payments.exclude(
-                id=self.instance.id if self.instance else None
-            ).exists()
-        ):
-            raise serializers.ValidationError({
-                'expense_request': 'Esta solicitação já foi executada fora do calendário e não pode receber novos lançamentos.'
-            })
         if supplier and not supplier.is_active:
             raise serializers.ValidationError({'supplier': 'Selecione um fornecedor ativo.'})
 
