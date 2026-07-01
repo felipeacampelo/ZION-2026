@@ -16,8 +16,7 @@ from .email_service import (
 from .models import Enrollment, Settings, WaitlistEntry
 
 
-RESERVATION_WINDOW_HOURS = 24  # legado — prazo agora é data/hora fixa abaixo
-RESERVATION_FIXED_DEADLINE = datetime(2026, 7, 1, 22, 0, 0)  # 01/07/2026 às 22:00 (horário local)
+RESERVATION_WINDOW_HOURS = 48
 
 
 def _get_latest_sold_out_batch(product: Product) -> Optional[Batch]:
@@ -133,9 +132,7 @@ def invite_waitlist_entry(entry: WaitlistEntry, batch: Optional[Batch] = None) -
         return None
 
     now = timezone.now()
-    # Prazo fixo: 01/07/2026 às 22:00 (horário local do servidor)
-    local_tz = timezone.get_current_timezone()
-    reservation_expires_at = timezone.make_aware(RESERVATION_FIXED_DEADLINE, local_tz)
+    reservation_expires_at = now + timedelta(hours=RESERVATION_WINDOW_HOURS)
     enrollment = Enrollment.objects.create(
         user=entry.user,
         product=entry.product,
