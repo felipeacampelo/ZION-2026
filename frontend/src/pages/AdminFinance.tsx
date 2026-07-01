@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import { useAuth } from '../contexts/AuthContext';
+import { formatCurrencyBRL, normalizeCurrencyInput, toCurrencyInputValue } from '../utils/currency';
 import {
   createExtraContribution,
   createFinanceArea,
@@ -25,21 +26,16 @@ import {
   type FinanceUserOption,
 } from '../services/api';
 
-const formatCurrency = (value?: string) =>
-  Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 const renderCurrencyValue = (value?: string, positiveClassName = 'text-gray-950') => {
   const amount = Number(value || 0);
   const isNegative = amount < 0;
   return (
     <span className={isNegative ? 'text-red-600' : positiveClassName}>
       {isNegative ? '- R$ ' : 'R$ '}
-      {formatCurrency(String(Math.abs(amount)))}
+      {formatCurrencyBRL(Math.abs(amount))}
     </span>
   );
 };
-
-const normalizeAmountInput = (value: string) => value.replace(/\./g, '').replace(',', '.').trim();
 
 const getErrorMessage = (error: any) => {
   const payload = error?.response?.data;
@@ -77,11 +73,11 @@ function BudgetCols({ allocated, pending, committed, executed, available, size =
   const committedPct = allocatedNum > 0 ? Math.min(100, (Number(committed || 0) / allocatedNum) * 100) : 0;
   return (
     <div className="grid grid-cols-5 gap-x-4 text-right">
-      <div><p className={`${labelClass} text-gray-400`}>Orçado</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrency(allocated)}</p></div>
-      <div><p className={`${labelClass} text-gray-400`}>Pendente</p><p className={`${valueClass} text-amber-700`}>R$ {formatCurrency(pending)}</p></div>
-      <div><p className={`${labelClass} text-gray-400`}>Comprometido</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrency(committed)}</p></div>
-      <div><p className={`${labelClass} text-gray-400`}>Executado</p><p className={`${valueClass} text-blue-700`}>R$ {formatCurrency(executed)}</p></div>
-      <div><p className={`${labelClass} text-gray-400`}>Disponível</p><p className={`${valueClass} text-gold-700`}>R$ {formatCurrency(available)}</p></div>
+      <div><p className={`${labelClass} text-gray-400`}>Orçado</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrencyBRL(allocated)}</p></div>
+      <div><p className={`${labelClass} text-gray-400`}>Pendente</p><p className={`${valueClass} text-amber-700`}>R$ {formatCurrencyBRL(pending)}</p></div>
+      <div><p className={`${labelClass} text-gray-400`}>Comprometido</p><p className={`${valueClass} text-gray-700`}>R$ {formatCurrencyBRL(committed)}</p></div>
+      <div><p className={`${labelClass} text-gray-400`}>Executado</p><p className={`${valueClass} text-blue-700`}>R$ {formatCurrencyBRL(executed)}</p></div>
+      <div><p className={`${labelClass} text-gray-400`}>Disponível</p><p className={`${valueClass} text-gold-700`}>R$ {formatCurrencyBRL(available)}</p></div>
       {showBar && allocatedNum > 0 && (
         <div className="col-span-5 mt-2">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
@@ -205,7 +201,11 @@ export default function AdminFinance() {
   const handleCreateArea = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
-      await createFinanceArea({ ...areaForm, leader_ids: areaForm.leader_ids.map(Number) });
+      await createFinanceArea({
+        ...areaForm,
+        allocated_amount: normalizeCurrencyInput(areaForm.allocated_amount),
+        leader_ids: areaForm.leader_ids.map(Number),
+      });
       setAreaForm({ name: '', description: '', allocated_amount: '', leader_ids: [] });
       setShowCreateAreaForm(false);
       await loadData();
@@ -221,7 +221,7 @@ export default function AdminFinance() {
         area: Number(rubricForm.area),
         name: rubricForm.name,
         description: rubricForm.description,
-        allocated_amount: rubricForm.allocated_amount,
+        allocated_amount: normalizeCurrencyInput(rubricForm.allocated_amount),
       });
       cancelRubricCreate();
       await loadData();
@@ -234,7 +234,7 @@ export default function AdminFinance() {
     setEditingAreaId(area.id);
     setEditingAreaName(area.name);
     setEditingAreaDescription(area.description || '');
-    setEditingAreaAmount(area.budget.allocated_amount);
+    setEditingAreaAmount(toCurrencyInputValue(area.budget.allocated_amount));
     setEditingAreaLeaderIds(area.leaders.map((leader) => String(leader.id)));
   };
 
@@ -244,7 +244,7 @@ export default function AdminFinance() {
       await updateFinanceArea(areaId, {
         name: editingAreaName,
         description: editingAreaDescription,
-        allocated_amount: normalizeAmountInput(editingAreaAmount),
+        allocated_amount: normalizeCurrencyInput(editingAreaAmount),
         leader_ids: editingAreaLeaderIds.map(Number),
       });
       setEditingAreaId(null);
@@ -258,7 +258,7 @@ export default function AdminFinance() {
     setEditingRubricId(rubric.id);
     setEditingRubricName(rubric.name);
     setEditingRubricDescription(rubric.description || '');
-    setEditingRubricAmount(rubric.allocated_amount);
+    setEditingRubricAmount(toCurrencyInputValue(rubric.allocated_amount));
   };
 
   const saveRubricEdit = async (rubricId: number) => {
@@ -267,7 +267,7 @@ export default function AdminFinance() {
       await updateFinanceRubric(rubricId, {
         name: editingRubricName,
         description: editingRubricDescription,
-        allocated_amount: normalizeAmountInput(editingRubricAmount),
+        allocated_amount: normalizeCurrencyInput(editingRubricAmount),
       });
       setEditingRubricId(null);
       await loadData();
@@ -280,7 +280,10 @@ export default function AdminFinance() {
     event.preventDefault();
     try {
       setSuccessMessage('');
-      await createExtraContribution(contributionForm);
+      await createExtraContribution({
+        ...contributionForm,
+        amount: normalizeCurrencyInput(contributionForm.amount),
+      });
       setContributionForm({ label: '', amount: '', source_type: 'OTHER', date: '', notes: '' });
       await loadData();
     } catch (submitError: any) {
@@ -408,7 +411,7 @@ export default function AdminFinance() {
                     {item.notes && <p className="mt-1 text-xs text-gray-500">{item.notes}</p>}
                   </div>
                   <div className="flex items-center gap-3">
-                    <p className="text-lg font-black text-gray-950">R$ {formatCurrency(item.amount)}</p>
+                    <p className="text-lg font-black text-gray-950">R$ {formatCurrencyBRL(item.amount)}</p>
                     {canManageFinance && deletingContributionId === item.id ? (
                       <div className="flex items-center gap-2">
                         <p className="text-xs font-semibold text-red-700">Confirmar exclusão?</p>
@@ -430,7 +433,7 @@ export default function AdminFinance() {
             <h2 className="text-lg font-black text-gray-950">Novo aporte</h2>
             <form onSubmit={handleCreateContribution} className="mt-4 space-y-3">
               <input className={inputClass} placeholder="Descrição (ex: Oferta do culto de domingo)" value={contributionForm.label} onChange={(e) => setContributionForm((c) => ({ ...c, label: e.target.value }))} required />
-              <input className={inputClass} placeholder="Valor (ex: 1500.00)" value={contributionForm.amount} onChange={(e) => setContributionForm((c) => ({ ...c, amount: e.target.value }))} required />
+              <input className={inputClass} placeholder="Valor (ex: 1.500,00)" value={contributionForm.amount} onChange={(e) => setContributionForm((c) => ({ ...c, amount: e.target.value }))} required />
               <select className={inputClass} value={contributionForm.source_type} onChange={(e) => setContributionForm((c) => ({ ...c, source_type: e.target.value as ExtraContribution['source_type'] }))}>
                 <option value="OFFERING">Oferta</option>
                 <option value="INVESTOR">Investidor</option>
@@ -775,22 +778,22 @@ export default function AdminFinance() {
                       <>
                         <tr key={`area-${area.id}`} className={areaIdx > 0 ? 'border-t-2 border-gray-200' : ''}>
                           <td className="bg-gray-50 py-2.5 pl-2 font-bold text-gray-950">{area.name}</td>
-                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.allocated_amount)}</td>
-                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-amber-700">R$ {formatCurrency(area.summary.pending_amount)}</td>
-                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrency(area.summary.committed_amount)}</td>
-                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-blue-700">R$ {formatCurrency(area.summary.executed_amount)}</td>
-                          <td className="bg-gray-50 py-2.5 text-right font-bold text-gold-700">R$ {formatCurrency(area.summary.available_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrencyBRL(area.summary.allocated_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-amber-700">R$ {formatCurrencyBRL(area.summary.pending_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-gray-700">R$ {formatCurrencyBRL(area.summary.committed_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 pr-4 text-right font-semibold text-blue-700">R$ {formatCurrencyBRL(area.summary.executed_amount)}</td>
+                          <td className="bg-gray-50 py-2.5 text-right font-bold text-gold-700">R$ {formatCurrencyBRL(area.summary.available_amount)}</td>
                         </tr>
                         {areaRubrics.map((rubric) => (
                           <tr key={`rubric-${rubric.id}`} className="border-t border-gray-100">
                             <td className="py-2 pl-7 text-gray-600">
                               <span className="mr-2 text-gray-300">└</span>{rubric.name}
                             </td>
-                            <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrency(rubric.summary.allocated_amount)}</td>
-                            <td className="py-2 pr-4 text-right text-amber-600">R$ {formatCurrency(rubric.summary.pending_amount)}</td>
-                            <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrency(rubric.summary.committed_amount)}</td>
-                            <td className="py-2 pr-4 text-right text-blue-600">R$ {formatCurrency(rubric.summary.executed_amount)}</td>
-                            <td className="py-2 text-right font-semibold text-gold-600">R$ {formatCurrency(rubric.summary.available_amount)}</td>
+                            <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrencyBRL(rubric.summary.allocated_amount)}</td>
+                            <td className="py-2 pr-4 text-right text-amber-600">R$ {formatCurrencyBRL(rubric.summary.pending_amount)}</td>
+                            <td className="py-2 pr-4 text-right text-gray-500">R$ {formatCurrencyBRL(rubric.summary.committed_amount)}</td>
+                            <td className="py-2 pr-4 text-right text-blue-600">R$ {formatCurrencyBRL(rubric.summary.executed_amount)}</td>
+                            <td className="py-2 text-right font-semibold text-gold-600">R$ {formatCurrencyBRL(rubric.summary.available_amount)}</td>
                           </tr>
                         ))}
                       </>

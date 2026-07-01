@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, CheckCircle2, Clock3, Trash2 } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
+import { formatCurrencyBRL, normalizeCurrencyInput, toCurrencyInputValue } from '../utils/currency';
 import {
   createFinanceSupplier,
   createFinanceSupplierPayment,
@@ -21,9 +22,6 @@ const cardClass = 'rounded-3xl border border-white/80 bg-white/95 p-5 shadow-[0_
 const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-dark';
 const weekdayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-const formatCurrency = (value?: string) =>
-  Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const formatDate = (value?: string | null) => {
   if (!value) return 'Sem data';
@@ -215,7 +213,7 @@ export default function AdminFinanceSupplierCalendar() {
       await createFinanceSupplierPayment({
         supplier: Number(paymentForm.supplier),
         expense_request: Number(paymentForm.expense_request),
-        amount: paymentForm.amount,
+        amount: normalizeCurrencyInput(paymentForm.amount),
         scheduled_date: paymentForm.scheduled_date,
         notes: paymentForm.notes || undefined,
       });
@@ -238,7 +236,7 @@ export default function AdminFinanceSupplierCalendar() {
     setPaymentForm((current) => ({
       ...current,
       expense_request: requestId,
-      amount: requestSummary?.remaining_amount || current.amount,
+      amount: requestSummary ? toCurrencyInputValue(requestSummary.remaining_amount) : current.amount,
     }));
   };
 
@@ -304,12 +302,12 @@ export default function AdminFinanceSupplierCalendar() {
           <div className={cardClass}>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400">Pendentes</p>
             <p className="mt-3 text-3xl font-black text-amber-700">{summary.pendingCount}</p>
-            <p className="mt-2 text-sm text-gray-500">R$ {formatCurrency(String(summary.pendingAmount))}</p>
+            <p className="mt-2 text-sm text-gray-500">R$ {formatCurrencyBRL(summary.pendingAmount)}</p>
           </div>
           <div className={cardClass}>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400">Pagos</p>
             <p className="mt-3 text-3xl font-black text-emerald-700">{summary.paidCount}</p>
-            <p className="mt-2 text-sm text-gray-500">R$ {formatCurrency(String(summary.paidAmount))}</p>
+            <p className="mt-2 text-sm text-gray-500">R$ {formatCurrencyBRL(summary.paidAmount)}</p>
           </div>
           <div className={cardClass}>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-400">Fornecedores ativos</p>
@@ -342,7 +340,7 @@ export default function AdminFinanceSupplierCalendar() {
                     <option value="">Selecione</option>
                     {eligibleRequests.map((request) => (
                       <option key={request.id} value={request.id}>
-                        #{request.id} • {request.rubric_name} • saldo R$ {formatCurrency(request.remaining_amount)}
+                        #{request.id} • {request.rubric_name} • saldo R$ {formatCurrencyBRL(request.remaining_amount)}
                       </option>
                     ))}
                   </select>
@@ -370,7 +368,7 @@ export default function AdminFinanceSupplierCalendar() {
                     {selectedRequest.area_name} • {selectedRequest.rubric_name}
                   </p>
                   <p className="mt-2">
-                    Aprovado: R$ {formatCurrency(selectedRequest.amount)} • Já agendado: R$ {formatCurrency(selectedRequest.scheduled_amount)} • Disponível para lançar: R$ {formatCurrency(selectedRequest.remaining_amount)}
+                    Aprovado: R$ {formatCurrencyBRL(selectedRequest.amount)} • Já agendado: R$ {formatCurrencyBRL(selectedRequest.scheduled_amount)} • Disponível para lançar: R$ {formatCurrencyBRL(selectedRequest.remaining_amount)}
                   </p>
                 </div>
               )}
@@ -381,7 +379,7 @@ export default function AdminFinanceSupplierCalendar() {
                     className={inputClass}
                     value={paymentForm.amount}
                     onChange={(event) => setPaymentForm((current) => ({ ...current, amount: event.target.value }))}
-                    placeholder="0.00"
+                    placeholder="0,00"
                     required
                   />
                 </div>
@@ -543,7 +541,7 @@ export default function AdminFinanceSupplierCalendar() {
                           <div className="px-2 py-1.5">
                             <p className="truncate font-semibold text-gray-900">{payment.supplier_name}</p>
                             <p className={`font-bold ${payment.status === 'PAID' ? 'text-emerald-800' : 'text-amber-800'}`}>
-                              R$ {formatCurrency(payment.amount)}
+                              R$ {formatCurrencyBRL(payment.amount)}
                             </p>
                           </div>
                           <div className={`flex items-center gap-2 border-t px-2 py-1 ${
