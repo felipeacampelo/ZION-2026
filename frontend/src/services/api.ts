@@ -802,6 +802,9 @@ export const getAdminWaitlist = (params?: { product?: number }) =>
 export const inviteAdminWaitlistEntry = (id: number) =>
   api.post<{ detail: string; enrollment_id: number }>(`/users/admin/waitlist/${id}/invite/`, {});
 
+export const extendAdminWaitlistDeadline = (id: number, data: { expires_at: string }) =>
+  api.post<WaitlistEntry>(`/users/admin/waitlist/${id}/extend-deadline/`, data);
+
 export const deleteAdminWaitlistEntry = (id: number) =>
   api.delete(`/users/admin/waitlist/${id}/delete/`);
 

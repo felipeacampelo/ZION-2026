@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Loader2, Mail, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, CalendarClock, Loader2, Mail, Trash2, X } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import {
   deleteAdminWaitlistEntry,
+  extendAdminWaitlistDeadline,
   getAdminProducts,
   getAdminWaitlist,
   inviteAdminWaitlistEntry,
@@ -43,6 +44,11 @@ const WAITLIST_STATUS_ORDER: Record<string, number> = {
   REMOVED: 4,
 };
 
+const toDatetimeLocalValue = (date: Date) => {
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 16);
+};
+
 export default function AdminWaitlist() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<number | ''>('');
@@ -52,6 +58,8 @@ export default function AdminWaitlist() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [deadlineEntry, setDeadlineEntry] = useState<WaitlistEntry | null>(null);
+  const [deadlineValue, setDeadlineValue] = useState('');
 
   const waitingEntries = useMemo(
     () => entries.filter((entry) => entry.status === 'WAITING'),
@@ -160,6 +168,44 @@ export default function AdminWaitlist() {
       await loadData(selectedProduct);
     } catch (err) {
       setError('Não foi possível remover a entrada.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openDeadlineModal = (entry: WaitlistEntry) => {
+    const currentDeadline = entry.invite_expires_at ? new Date(entry.invite_expires_at) : null;
+    const fallbackDeadline = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    setDeadlineEntry(entry);
+    setDeadlineValue(toDatetimeLocalValue(currentDeadline && currentDeadline > new Date() ? currentDeadline : fallbackDeadline));
+    setError('');
+  };
+
+  const closeDeadlineModal = () => {
+    setDeadlineEntry(null);
+    setDeadlineValue('');
+  };
+
+  const handleExtendDeadline = async () => {
+    if (!deadlineEntry || !deadlineValue) return;
+
+    const selectedDate = new Date(deadlineValue);
+    if (Number.isNaN(selectedDate.getTime()) || selectedDate <= new Date()) {
+      setError('Escolha uma data e hora futura para o prazo.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      await extendAdminWaitlistDeadline(deadlineEntry.id, {
+        expires_at: selectedDate.toISOString(),
+      });
+      setSuccess(deadlineEntry.status === 'EXPIRED' ? 'Convite prorrogado e reenviado com sucesso.' : 'Prazo atualizado com sucesso.');
+      closeDeadlineModal();
+      await loadData(selectedProduct);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || err.response?.data?.expires_at?.[0] || 'Não foi possível atualizar o prazo.');
     } finally {
       setSaving(false);
     }
@@ -301,6 +347,18 @@ export default function AdminWaitlist() {
                               Convocar
                             </button>
                           )}
+                          {entry.status === 'INVITED' && (
+                            <button type="button" onClick={() => openDeadlineModal(entry)} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Alterar prazo
+                            </button>
+                          )}
+                          {entry.status === 'EXPIRED' && (
+                            <button type="button" onClick={() => openDeadlineModal(entry)} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-orange-200 px-3 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-50">
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Prorrogar
+                            </button>
+                          )}
                           <button type="button" onClick={() => handleDelete(entry.id)} disabled={saving} className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">
                             <Trash2 className="h-3.5 w-3.5" />
                             Remover
@@ -316,6 +374,54 @@ export default function AdminWaitlist() {
           )}
         </div>
       </div>
+      {deadlineEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Prazo do convite</p>
+                <h2 className="mt-2 text-xl font-bold text-gray-950">
+                  {deadlineEntry.status === 'EXPIRED' ? 'Prorrogar convite' : 'Alterar prazo'}
+                </h2>
+              </div>
+              <button type="button" onClick={closeDeadlineModal} className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <div className="font-semibold text-gray-950">{deadlineEntry.participant_name}</div>
+                <div className="text-sm text-gray-500">{deadlineEntry.email}</div>
+              </div>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-gray-700">Novo prazo</span>
+                <input
+                  type="datetime-local"
+                  value={deadlineValue}
+                  onChange={(event) => setDeadlineValue(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 focus:border-dark focus:outline-none"
+                />
+              </label>
+              <p className="text-sm text-gray-600">
+                {deadlineEntry.status === 'EXPIRED'
+                  ? 'Ao confirmar, um novo link será gerado e o email de convite será reenviado.'
+                  : 'Ao confirmar, o link atual continua válido até o novo prazo. Nenhum email será enviado automaticamente.'}
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={closeDeadlineModal} disabled={saving} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleExtendDeadline} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-dark px-4 py-2 text-sm font-semibold text-white">
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminShell>
   );
 }
