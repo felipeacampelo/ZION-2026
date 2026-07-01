@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Optional
 
 from django.db import transaction
@@ -16,7 +16,7 @@ from .email_service import (
 from .models import Enrollment, Settings, WaitlistEntry
 
 
-RESERVATION_WINDOW_HOURS = 24
+RESERVATION_WINDOW_HOURS = 48
 
 
 def _get_latest_sold_out_batch(product: Product) -> Optional[Batch]:
