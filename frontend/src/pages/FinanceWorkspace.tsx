@@ -108,6 +108,7 @@ const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3
 
 export default function FinanceWorkspace() {
   const [dashboard, setDashboard] = useState<FinanceMyDashboardResponse | null>(null);
+  const [selectedAreaId, setSelectedAreaId] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -136,11 +137,12 @@ export default function FinanceWorkspace() {
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
-  const loadData = async () => {
+  const loadData = async (areaId?: number) => {
     setError('');
     try {
-      const response = await getMyFinanceDashboard();
+      const response = await getMyFinanceDashboard(areaId ? { area: areaId } : undefined);
       setDashboard(response.data);
+      setSelectedAreaId(String(response.data.area.id));
     } catch (loadError: any) {
       setError(loadError.response?.data?.detail || 'Você ainda não possui área financeira vinculada.');
     } finally {
@@ -151,6 +153,13 @@ export default function FinanceWorkspace() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleAreaChange = async (nextAreaId: string) => {
+    setSuccessMessage('');
+    setSelectedAreaId(nextAreaId);
+    setLoading(true);
+    await loadData(Number(nextAreaId));
+  };
 
   const handleCreateRequest = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -866,9 +875,24 @@ export default function FinanceWorkspace() {
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-dark/70">Meu Financeiro</p>
             <h1 className="mt-2 text-3xl font-black text-gray-950">Solicitações da sua área</h1>
             {dashboard && (
-              <p className="mt-2 text-sm text-gray-600">
-                Área vinculada: <span className="font-semibold text-gray-900">{dashboard.area.name}</span>
-              </p>
+              dashboard.areas.length > 1 ? (
+                <div className="mt-3 max-w-xs">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Área</label>
+                  <select
+                    className={inputClass}
+                    value={selectedAreaId}
+                    onChange={(event) => { void handleAreaChange(event.target.value); }}
+                  >
+                    {dashboard.areas.map((area) => (
+                      <option key={area.id} value={area.id}>{area.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-gray-600">
+                  Área vinculada: <span className="font-semibold text-gray-900">{dashboard.area.name}</span>
+                </p>
+              )
             )}
           </div>
           <div className="flex items-center gap-4">

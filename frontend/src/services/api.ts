@@ -540,6 +540,10 @@ export interface FinanceReportResponse extends FinanceGlobalSummary {
 }
 
 export interface FinanceMyDashboardResponse {
+  areas: Array<{
+    id: number;
+    name: string;
+  }>;
   area: FinanceArea;
   summary: FinanceBudgetSummary;
   requests: FinanceExpenseRequest[];
@@ -1033,8 +1037,8 @@ export const replaceFinanceRequestAttachment = (requestId: number, attachmentId:
 export const deleteFinanceRequestAttachment = (requestId: number, attachmentId: number) =>
   api.delete(`/finance/requests/${requestId}/attachments/${attachmentId}/`);
 
-export const getMyFinanceDashboard = () =>
-  api.get<FinanceMyDashboardResponse>('/finance/my/dashboard/');
+export const getMyFinanceDashboard = (params?: { area?: number }) =>
+  api.get<FinanceMyDashboardResponse>('/finance/my/dashboard/', { params });
 
 export const getExtraContributions = () =>
   api.get<ExtraContribution[]>('/finance/contributions/');

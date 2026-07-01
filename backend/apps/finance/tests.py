@@ -678,6 +678,77 @@ class FinanceFlowTests(APITestCase):
         self.assertEqual(len(dashboard_response.data['requests']), 1)
         self.assertEqual(dashboard_response.data['requests'][0]['requester_email'], self.leader.email)
 
+    def test_leader_dashboard_returns_available_areas_when_user_has_multiple_assignments(self):
+        first_area = Area.objects.create(name='Zeladoria', description='Área B')
+        AreaBudget.objects.create(area=first_area, allocated_amount=Decimal('20.00'))
+        AreaLeaderAssignment.objects.create(area=first_area, user=self.leader)
+        BudgetRubric.objects.create(area=first_area, name='Limpeza', description='Limpeza', allocated_amount=Decimal('10.00'))
+
+        second_area = Area.objects.create(name='Acolhimento', description='Área A')
+        AreaBudget.objects.create(area=second_area, allocated_amount=Decimal('30.00'))
+        AreaLeaderAssignment.objects.create(area=second_area, user=self.leader)
+        BudgetRubric.objects.create(
+            area=second_area,
+            name='Recepção',
+            description='Recepção',
+            allocated_amount=Decimal('15.00'),
+        )
+
+        self.client.force_authenticate(self.leader)
+        response = self.client.get(reverse('finance:my-dashboard'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['areas']), 2)
+        self.assertEqual(response.data['areas'][0]['name'], second_area.name)
+        self.assertEqual(response.data['areas'][1]['name'], first_area.name)
+
+    def test_leader_dashboard_allows_selecting_area_when_user_has_multiple_assignments(self):
+        first_area = Area.objects.create(name='Zeladoria', description='Área B')
+        AreaBudget.objects.create(area=first_area, allocated_amount=Decimal('20.00'))
+        AreaLeaderAssignment.objects.create(area=first_area, user=self.leader)
+        first_rubric = BudgetRubric.objects.create(area=first_area, name='Limpeza', description='Limpeza', allocated_amount=Decimal('10.00'))
+
+        second_area = Area.objects.create(name='Acolhimento', description='Área A')
+        AreaBudget.objects.create(area=second_area, allocated_amount=Decimal('30.00'))
+        AreaLeaderAssignment.objects.create(area=second_area, user=self.leader)
+        BudgetRubric.objects.create(area=second_area, name='Recepção', description='Recepção', allocated_amount=Decimal('15.00'))
+
+        self.client.force_authenticate(self.leader)
+        response = self.client.get(reverse('finance:my-dashboard'), {'area': first_area.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['area']['id'], first_area.id)
+        self.assertEqual(len(response.data['rubrics']), 1)
+        self.assertEqual(response.data['rubrics'][0]['id'], first_rubric.id)
+
+    def test_leader_can_create_request_for_any_assigned_area(self):
+        first_area = Area.objects.create(name='Zeladoria', description='Área B')
+        AreaBudget.objects.create(area=first_area, allocated_amount=Decimal('20.00'))
+        AreaLeaderAssignment.objects.create(area=first_area, user=self.leader)
+        BudgetRubric.objects.create(area=first_area, name='Limpeza', description='Limpeza', allocated_amount=Decimal('10.00'))
+
+        second_area = Area.objects.create(name='Acolhimento', description='Área A')
+        AreaBudget.objects.create(area=second_area, allocated_amount=Decimal('30.00'))
+        AreaLeaderAssignment.objects.create(area=second_area, user=self.leader)
+        second_rubric = BudgetRubric.objects.create(area=second_area, name='Recepção', description='Recepção', allocated_amount=Decimal('15.00'))
+
+        self.client.force_authenticate(self.leader)
+        response = self.client.post(
+            reverse('finance:finance-request-list'),
+            {
+                'rubric': second_rubric.id,
+                'amount': '12.00',
+                'recipient_name': 'Lider Financeiro',
+                'pix_key': 'lider@pix.test',
+                'description': 'Pedido em área secundária',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['area'], second_area.id)
+        self.assertEqual(response.data['rubric'], second_rubric.id)
+
     def test_advance_settlement_rejects_spent_amount_above_execution_total(self):
         _, rubric = self._create_area_and_rubric()
         self.client.force_authenticate(self.leader)
