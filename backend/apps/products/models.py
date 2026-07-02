@@ -69,11 +69,19 @@ class Product(models.Model):
         return self.name
     
     def has_waitlist_demand(self):
+        """
+        Whether there is unaddressed waitlist demand blocking public enrollment.
+
+        Only 'WAITING' counts: 'INVITED' entries already hold a reserved
+        PENDING_PAYMENT enrollment, which is already reflected in the batch's
+        current_enrollments/is_full, so they shouldn't keep blocking public
+        enrollment for any remaining capacity.
+        """
         from apps.enrollments.models import WaitlistEntry
 
         return WaitlistEntry.objects.filter(
             product=self,
-            status__in=['WAITING', 'INVITED'],
+            status='WAITING',
         ).exists()
 
     def get_active_batch(self, ignore_waitlist=False):
