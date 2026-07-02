@@ -474,7 +474,16 @@ export default function AdminFinanceApprovals() {
                                 {canManageFinance && ['PENDING', 'UNDER_REVIEW'].includes(item.status) && (
                                   <button
                                     type="button"
-                                    onClick={async () => { await approveFinanceRequest(item.id); await loadData(); }}
+                                    onClick={async () => {
+                                      try {
+                                        setError('');
+                                        await approveFinanceRequest(item.id);
+                                        setSuccessMessage('Solicitação aprovada com sucesso.');
+                                        await loadData();
+                                      } catch (approveError: any) {
+                                        setError(getErrorMessage(approveError));
+                                      }
+                                    }}
                                     className="rounded-xl bg-dark px-3 py-1.5 text-xs font-semibold text-white"
                                   >
                                     Aprovar
