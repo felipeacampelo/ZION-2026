@@ -22,6 +22,7 @@ from .constants import AREA_LEADERS_GROUP_NAME
 from .permissions import can_manage_finance
 from .services import (
     get_area_summary,
+    get_finance_area_assignments,
     get_rubric_summary,
     sum_allocated_rubrics,
 )
@@ -487,10 +488,10 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'rubric': 'Não é possível criar solicitações em rubricas inativas.'})
 
         if not can_manage_finance(user):
-            assignment = user.finance_area_assignments.select_related('area').first()
-            if not assignment:
+            assignments = get_finance_area_assignments(user)
+            if not assignments.exists():
                 raise serializers.ValidationError('Você não possui área financeira vinculada.')
-            if assignment.area_id != rubric.area_id:
+            if not assignments.filter(area_id=rubric.area_id).exists():
                 raise serializers.ValidationError({'rubric': 'Você só pode solicitar despesas para a sua área.'})
 
         area_summary = get_area_summary(rubric.area)

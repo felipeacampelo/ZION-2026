@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AttachmentPreviewModal from '../components/AttachmentPreviewModal';
+import { formatCurrencyBRL, normalizeCurrencyInput } from '../utils/currency';
 import {
   addFinanceRequestAttachment,
   cancelFinanceRequest,
@@ -16,9 +17,6 @@ import {
   type FinanceExpenseRequest,
   type FinanceMyDashboardResponse,
 } from '../services/api';
-
-const formatCurrency = (value?: string) =>
-  Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const formatDateTime = (value?: string | null) =>
   value ? new Date(value).toLocaleString('pt-BR') : 'Sem data';
@@ -110,6 +108,7 @@ const inputClass = 'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3
 
 export default function FinanceWorkspace() {
   const [dashboard, setDashboard] = useState<FinanceMyDashboardResponse | null>(null);
+  const [selectedAreaId, setSelectedAreaId] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -138,11 +137,12 @@ export default function FinanceWorkspace() {
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
-  const loadData = async () => {
+  const loadData = async (areaId?: number) => {
     setError('');
     try {
-      const response = await getMyFinanceDashboard();
+      const response = await getMyFinanceDashboard(areaId ? { area: areaId } : undefined);
       setDashboard(response.data);
+      setSelectedAreaId(String(response.data.area.id));
     } catch (loadError: any) {
       setError(loadError.response?.data?.detail || 'Você ainda não possui área financeira vinculada.');
     } finally {
@@ -154,13 +154,20 @@ export default function FinanceWorkspace() {
     loadData();
   }, []);
 
+  const handleAreaChange = async (nextAreaId: string) => {
+    setSuccessMessage('');
+    setSelectedAreaId(nextAreaId);
+    setLoading(true);
+    await loadData(Number(nextAreaId));
+  };
+
   const handleCreateRequest = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
       setError('');
       await createFinanceRequest({
         rubric: Number(form.rubric),
-        amount: form.amount,
+        amount: normalizeCurrencyInput(form.amount),
         request_type: form.request_type,
         recipient_name: form.recipient_name,
         pix_key: form.pix_key,
@@ -295,7 +302,7 @@ export default function FinanceWorkspace() {
     }));
     try {
       await submitFinanceAdvanceSettlement(request.id, {
-        spent_amount: values.spent_amount,
+        spent_amount: normalizeCurrencyInput(values.spent_amount),
         settlement_notes: values.settlement_notes,
         files,
       });
@@ -387,7 +394,7 @@ export default function FinanceWorkspace() {
             <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{request.request_type_display}</p>
           </div>
           <div className="text-right">
-            <p className="font-semibold text-gray-950">R$ {formatCurrency(request.amount)}</p>
+            <p className="font-semibold text-gray-950">R$ {formatCurrencyBRL(request.amount)}</p>
             <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{request.status}</p>
           </div>
         </div>
@@ -468,15 +475,15 @@ export default function FinanceWorkspace() {
             <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm text-amber-900">
               <div className="rounded-2xl bg-white/80 px-3 py-2">
                 <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Adiantado</p>
-                <p className="mt-1 font-semibold">R$ {formatCurrency(request.execution?.amount)}</p>
+                <p className="mt-1 font-semibold">R$ {formatCurrencyBRL(request.execution?.amount)}</p>
               </div>
               <div className="rounded-2xl bg-white/80 px-3 py-2">
                 <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Gasto informado</p>
-                <p className="mt-1 font-semibold">R$ {formatCurrency(request.execution?.spent_amount || '0')}</p>
+                <p className="mt-1 font-semibold">R$ {formatCurrencyBRL(request.execution?.spent_amount || '0')}</p>
               </div>
               <div className="rounded-2xl bg-white/80 px-3 py-2">
                 <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Valor a devolver</p>
-                <p className="mt-1 font-semibold">R$ {formatCurrency(request.execution?.returned_amount || '0')}</p>
+                <p className="mt-1 font-semibold">R$ {formatCurrencyBRL(request.execution?.returned_amount || '0')}</p>
               </div>
             </div>
             {request.execution?.settlement_notes && (
@@ -868,9 +875,24 @@ export default function FinanceWorkspace() {
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-dark/70">Meu Financeiro</p>
             <h1 className="mt-2 text-3xl font-black text-gray-950">Solicitações da sua área</h1>
             {dashboard && (
-              <p className="mt-2 text-sm text-gray-600">
-                Área vinculada: <span className="font-semibold text-gray-900">{dashboard.area.name}</span>
-              </p>
+              dashboard.areas.length > 1 ? (
+                <div className="mt-3 max-w-xs">
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Área</label>
+                  <select
+                    className={inputClass}
+                    value={selectedAreaId}
+                    onChange={(event) => { void handleAreaChange(event.target.value); }}
+                  >
+                    {dashboard.areas.map((area) => (
+                      <option key={area.id} value={area.id}>{area.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-gray-600">
+                  Área vinculada: <span className="font-semibold text-gray-900">{dashboard.area.name}</span>
+                </p>
+              )
             )}
           </div>
           <div className="flex items-center gap-4">
@@ -893,9 +915,9 @@ export default function FinanceWorkspace() {
           <>
             <section className="grid gap-4 lg:grid-cols-4">
               <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Área</p><p className="mt-3 text-2xl font-black text-gray-950">{dashboard.area.name}</p></div>
-              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Disponível</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.available_amount)}</p></div>
-              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Em análise</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.pending_amount)}</p></div>
-              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Comprometido</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrency(dashboard.summary.committed_amount)}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Disponível</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrencyBRL(dashboard.summary.available_amount)}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Em análise</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrencyBRL(dashboard.summary.pending_amount)}</p></div>
+              <div className={cardClass}><p className="text-xs uppercase tracking-[0.18em] text-gray-500">Comprometido</p><p className="mt-3 text-2xl font-black text-gray-950">R$ {formatCurrencyBRL(dashboard.summary.committed_amount)}</p></div>
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
@@ -906,7 +928,7 @@ export default function FinanceWorkspace() {
                     <option value="">Selecione a rubrica</option>
                     {dashboard.rubrics.map((rubric) => (
                       <option key={rubric.id} value={rubric.id}>
-                        {rubric.name} • disponível R$ {formatCurrency(rubric.summary.available_amount)}
+                        {rubric.name} • disponível R$ {formatCurrencyBRL(rubric.summary.available_amount)}
                       </option>
                     ))}
                   </select>
@@ -966,7 +988,7 @@ export default function FinanceWorkspace() {
                           <p className="text-sm text-gray-500">{rubric.description || 'Sem descrição'}</p>
                         </div>
                         <div className="text-right text-sm">
-                          <p className="font-semibold text-gray-950">R$ {formatCurrency(rubric.summary.available_amount)}</p>
+                          <p className="font-semibold text-gray-950">R$ {formatCurrencyBRL(rubric.summary.available_amount)}</p>
                           <p className="text-gray-500">Disponível</p>
                         </div>
                       </div>

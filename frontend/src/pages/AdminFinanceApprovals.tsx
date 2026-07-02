@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import AttachmentPreviewModal from '../components/AttachmentPreviewModal';
 import AdminShell from '../components/AdminShell';
+import { formatCurrencyBRL } from '../utils/currency';
 import {
   approveFinanceRequest,
   confirmFinanceAdvanceReturn,
@@ -20,9 +21,6 @@ import {
   type FinanceExpenseRequest,
   type FinanceRubric,
 } from '../services/api';
-
-const formatCurrency = (value?: string) =>
-  Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const formatDateTime = (value?: string | null) =>
   value ? new Date(value).toLocaleString('pt-BR') : 'Sem data';
@@ -331,27 +329,27 @@ export default function AdminFinanceApprovals() {
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Em análise</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{pendingCount}</p>
-            {pendingCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(pendingItems)))}</p>}
+            {pendingCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrencyBRL(sumAmount(pendingItems))}</p>}
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Aprovadas</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{approvedCount}</p>
-            {approvedCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(approvedItems)))}</p>}
+            {approvedCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrencyBRL(sumAmount(approvedItems))}</p>}
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Aguardando execução</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{awaitingExecutionCount}</p>
-            {awaitingExecutionCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(awaitingExecutionItems)))}</p>}
+            {awaitingExecutionCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrencyBRL(sumAmount(awaitingExecutionItems))}</p>}
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Pendente de prestação</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{pendingProofCount}</p>
-            {pendingProofCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(pendingProofItems)))}</p>}
+            {pendingProofCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrencyBRL(sumAmount(pendingProofItems))}</p>}
           </div>
           <div className={cardClass}>
             <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Pendente de devolução</p>
             <p className="mt-3 text-2xl font-black text-gray-950">{pendingReturnCount}</p>
-            {pendingReturnCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrency(String(sumAmount(pendingReturnItems)))}</p>}
+            {pendingReturnCount > 0 && <p className="mt-1 text-xs text-gray-400">R$ {formatCurrencyBRL(sumAmount(pendingReturnItems))}</p>}
           </div>
         </section>
 
@@ -460,7 +458,7 @@ export default function AdminFinanceApprovals() {
                                 <p className="text-xs text-gray-400">{item.requester_email} • {item.request_type_display}</p>
                               </div>
                               <div className="flex flex-shrink-0 flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                <p className="text-sm font-bold text-gray-950">R$ {formatCurrency(item.amount)}</p>
+                                <p className="text-sm font-bold text-gray-950">R$ {formatCurrencyBRL(item.amount)}</p>
                                 <StatusBadge status={item.status} isAwaitingExecution={isAwaitingExecution} />
                                 {canManageFinance && item.status === 'PENDING' && (
                                   <button
@@ -564,15 +562,15 @@ export default function AdminFinanceApprovals() {
                                     <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm text-amber-900">
                                       <div className="rounded-2xl bg-white/80 px-3 py-2">
                                         <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Adiantado</p>
-                                        <p className="mt-1 font-semibold">R$ {formatCurrency(item.execution.amount)}</p>
+                                        <p className="mt-1 font-semibold">R$ {formatCurrencyBRL(item.execution.amount)}</p>
                                       </div>
                                       <div className="rounded-2xl bg-white/80 px-3 py-2">
                                         <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Gasto informado</p>
-                                        <p className="mt-1 font-semibold">R$ {formatCurrency(item.execution.spent_amount || '0')}</p>
+                                        <p className="mt-1 font-semibold">R$ {formatCurrencyBRL(item.execution.spent_amount || '0')}</p>
                                       </div>
                                       <div className="rounded-2xl bg-white/80 px-3 py-2">
                                         <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Valor a devolver</p>
-                                        <p className="mt-1 font-semibold">R$ {formatCurrency(item.execution.returned_amount || '0')}</p>
+                                        <p className="mt-1 font-semibold">R$ {formatCurrencyBRL(item.execution.returned_amount || '0')}</p>
                                       </div>
                                     </div>
                                     {item.execution.settlement_notes && (

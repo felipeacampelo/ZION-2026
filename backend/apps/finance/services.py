@@ -7,12 +7,31 @@ from apps.payments.models import Payment
 from .models import (
     Area,
     AreaBudget,
+    AreaLeaderAssignment,
     BudgetRubric,
     ExpenseExecution,
     ExpenseRequest,
     ExtraContribution,
     SupplierPayment,
 )
+
+
+def get_finance_area_assignments(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return AreaLeaderAssignment.objects.none()
+
+    return (
+        AreaLeaderAssignment.objects.select_related('area', 'area__budget', 'user')
+        .filter(user=user)
+        .order_by('area__name', 'area_id', 'id')
+    )
+
+
+def get_finance_area_assignment(user, area_id=None):
+    assignments = get_finance_area_assignments(user)
+    if area_id:
+        assignments = assignments.filter(area_id=area_id)
+    return assignments.first()
 
 
 def _get_effective_execution_amount(execution):

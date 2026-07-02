@@ -49,7 +49,15 @@ from .serializers import (
     SupplierSerializer,
     get_eligible_area_leaders_queryset,
 )
-from .services import build_finance_report, get_area_summary, get_extra_contributions_total, get_realized_net_revenue, get_rubric_summary
+from .services import (
+    build_finance_report,
+    get_area_summary,
+    get_finance_area_assignment,
+    get_finance_area_assignments,
+    get_extra_contributions_total,
+    get_realized_net_revenue,
+    get_rubric_summary,
+)
 
 User = get_user_model()
 
@@ -129,7 +137,7 @@ class BudgetRubricViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(area_id=area_id)
             return queryset
 
-        assignment = user.finance_area_assignments.select_related('area').first()
+        assignment = get_finance_area_assignment(user, self.request.query_params.get('area'))
         if not assignment:
             return BudgetRubric.objects.none()
         return queryset.filter(area=assignment.area, is_active=True)
@@ -187,7 +195,7 @@ class ExpenseRequestViewSet(
                 queryset = queryset.filter(area_id=area_id)
             return queryset
 
-        assignment = user.finance_area_assignments.select_related('area').first()
+        assignment = get_finance_area_assignment(user, self.request.query_params.get('area'))
         if not assignment:
             return ExpenseRequest.objects.none()
         return queryset.filter(area=assignment.area, requester=user)
@@ -958,10 +966,14 @@ def finance_leader_candidates(request):
 @permission_classes([permissions.IsAuthenticated, IsFinanceLeaderOrAdmin])
 def my_finance_dashboard(request):
     user = request.user
-    assignment = AreaLeaderAssignment.objects.select_related('area', 'area__budget', 'user').filter(user=user).first()
+    user_assignments = list(get_finance_area_assignments(user))
+    selected_area_id = request.query_params.get('area')
+    assignment = get_finance_area_assignment(user, selected_area_id)
     if not assignment:
         if can_view_finance_admin(user):
             return Response({'detail': 'Use o dashboard administrativo para administradores.'}, status=status.HTTP_400_BAD_REQUEST)
+        if user_assignments and selected_area_id:
+            return Response({'detail': 'Área financeira não vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'detail': 'Nenhuma área financeira vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
 
     area = assignment.area
@@ -974,6 +986,13 @@ def my_finance_dashboard(request):
     ).prefetch_related('attachments', 'execution__attachments', 'audit_logs').filter(area=area, requester=user)
     rubrics = BudgetRubric.objects.filter(area=area, is_active=True)
     return Response({
+        'areas': [
+            {
+                'id': item.area_id,
+                'name': item.area.name,
+            }
+            for item in user_assignments
+        ],
         'area': AreaSerializer(area).data,
         'summary': {key: str(value) for key, value in summary.items()},
         'requests': ExpenseRequestSerializer(requests, many=True, context={'request': request}).data,

@@ -160,6 +160,66 @@ def invite_waitlist_entry(entry: WaitlistEntry, batch: Optional[Batch] = None) -
     return enrollment
 
 
+@transaction.atomic
+def extend_waitlist_invite_deadline(entry: WaitlistEntry, expires_at: datetime) -> Optional[Enrollment]:
+    if entry.status not in ['INVITED', 'EXPIRED']:
+        return None
+
+    now = timezone.now()
+    if entry.status == 'INVITED':
+        enrollment = (
+            Enrollment.objects.filter(
+                waitlist_entry=entry,
+                source='WAITLIST',
+                status='PENDING_PAYMENT',
+                reservation_consumed_at__isnull=True,
+            )
+            .order_by('-created_at')
+            .first()
+        )
+        if not enrollment:
+            return None
+
+        enrollment.reservation_expires_at = expires_at
+        enrollment.save(update_fields=['reservation_expires_at', 'updated_at'])
+
+        entry.invite_expires_at = expires_at
+        entry.save(update_fields=['invite_expires_at', 'updated_at'])
+        return enrollment
+
+    batch = entry.product.get_active_batch(ignore_waitlist=True)
+    if not batch:
+        return None
+
+    enrollment = Enrollment.objects.create(
+        user=entry.user,
+        product=entry.product,
+        batch=batch,
+        form_data=entry.form_data,
+        status='PENDING_PAYMENT',
+        source='WAITLIST',
+        waitlist_entry=entry,
+        pricing_snapshot=entry.batch_snapshot,
+        total_amount=batch.price,
+        discount_amount=0,
+        final_amount=batch.price,
+        reservation_expires_at=expires_at,
+    )
+    enrollment.issue_reservation_token()
+    enrollment.save(update_fields=['reservation_token', 'updated_at'])
+
+    entry.status = 'INVITED'
+    entry.invited_at = now
+    entry.invite_expires_at = expires_at
+    entry.removed_at = None
+    entry.removal_reason = ''
+    entry.save(update_fields=['status', 'invited_at', 'invite_expires_at', 'removed_at', 'removal_reason', 'updated_at'])
+
+    send_waitlist_invited_email(entry, enrollment)
+    normalize_waitlist_positions(entry.product)
+    return enrollment
+
+
 def process_waitlist_for_product(product: Product) -> Optional[Enrollment]:
     settings = Settings.get_settings()
     if not settings.waitlist_auto_invite_enabled:

@@ -30,6 +30,7 @@ from apps.enrollments.email_service import NO_PAYMENT_YET
 from apps.enrollments.email_service import send_enrollment_expired_email
 from apps.enrollments.utils import SOCIAL_QUOTA_COUPON_PREFIX, build_social_quota_summary
 from apps.enrollments.waitlist_service import (
+    extend_waitlist_invite_deadline,
     sync_waitlist_entry_conversion,
     invite_waitlist_entry,
     normalize_waitlist_positions,
@@ -554,6 +555,15 @@ class AdminWaitlistListSerializer(serializers.ModelSerializer):
             return 'PENDING_PAYMENT'
 
         return 'PENDING_PAYMENT'
+
+
+class AdminWaitlistDeadlineSerializer(serializers.Serializer):
+    expires_at = serializers.DateTimeField()
+
+    def validate_expires_at(self, value):
+        if value <= timezone.now():
+            raise serializers.ValidationError('Informe uma data e hora futura.')
+        return value
 
 
 EMPIRE_KEYS = ['egito', 'persia', 'grecia', 'roma', 'none']
@@ -1715,6 +1725,36 @@ def admin_waitlist_delete(request, pk):
 
     remove_waitlist_entry(entry, reason='removed_by_admin')
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_waitlist_extend_deadline(request, pk):
+    serializer = AdminWaitlistDeadlineSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    try:
+        entry = WaitlistEntry.objects.select_related('product', 'user', 'reference_batch').get(pk=pk)
+    except WaitlistEntry.DoesNotExist:
+        return Response({'detail': 'Entrada da fila não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if entry.status not in ['INVITED', 'EXPIRED']:
+        return Response(
+            {'detail': 'Apenas convites ativos ou expirados podem ter o prazo alterado.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    enrollment = extend_waitlist_invite_deadline(entry, serializer.validated_data['expires_at'])
+    if not enrollment:
+        detail = (
+            'Nenhuma reserva ativa foi encontrada para este convite.'
+            if entry.status == 'INVITED'
+            else 'Nenhuma vaga disponível para prorrogar este convite no momento.'
+        )
+        return Response({'detail': detail}, status=status.HTTP_400_BAD_REQUEST)
+
+    entry.refresh_from_db()
+    return Response(AdminWaitlistListSerializer(entry).data)
 
 
 @api_view(['POST'])

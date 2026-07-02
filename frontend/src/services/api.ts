@@ -540,6 +540,10 @@ export interface FinanceReportResponse extends FinanceGlobalSummary {
 }
 
 export interface FinanceMyDashboardResponse {
+  areas: Array<{
+    id: number;
+    name: string;
+  }>;
   area: FinanceArea;
   summary: FinanceBudgetSummary;
   requests: FinanceExpenseRequest[];
@@ -802,6 +806,9 @@ export const getAdminWaitlist = (params?: { product?: number }) =>
 export const inviteAdminWaitlistEntry = (id: number) =>
   api.post<{ detail: string; enrollment_id: number }>(`/users/admin/waitlist/${id}/invite/`, {});
 
+export const extendAdminWaitlistDeadline = (id: number, data: { expires_at: string }) =>
+  api.post<WaitlistEntry>(`/users/admin/waitlist/${id}/extend-deadline/`, data);
+
 export const deleteAdminWaitlistEntry = (id: number) =>
   api.delete(`/users/admin/waitlist/${id}/delete/`);
 
@@ -1030,8 +1037,8 @@ export const replaceFinanceRequestAttachment = (requestId: number, attachmentId:
 export const deleteFinanceRequestAttachment = (requestId: number, attachmentId: number) =>
   api.delete(`/finance/requests/${requestId}/attachments/${attachmentId}/`);
 
-export const getMyFinanceDashboard = () =>
-  api.get<FinanceMyDashboardResponse>('/finance/my/dashboard/');
+export const getMyFinanceDashboard = (params?: { area?: number }) =>
+  api.get<FinanceMyDashboardResponse>('/finance/my/dashboard/', { params });
 
 export const getExtraContributions = () =>
   api.get<ExtraContribution[]>('/finance/contributions/');

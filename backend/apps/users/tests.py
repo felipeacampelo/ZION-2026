@@ -582,6 +582,103 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(waitlist_entry.status, 'CONVERTED')
         self.assertIsNotNone(self.member_enrollment.reservation_consumed_at)
 
+    def test_admin_waitlist_extend_deadline_updates_invited_reservation_without_email(self):
+        expires_at = timezone.now() + timedelta(hours=24)
+        new_expires_at = timezone.now() + timedelta(days=3)
+        waitlist_entry = WaitlistEntry.objects.create(
+            product=self.product,
+            user=self.member_user,
+            form_data={'nome_completo': 'Member Dashboard'},
+            status='INVITED',
+            position=1,
+            invited_at=timezone.now() - timedelta(hours=1),
+            invite_expires_at=expires_at,
+        )
+        enrollment = Enrollment.objects.create(
+            user=self.member_user,
+            product=self.product,
+            batch=self.batch,
+            form_data=waitlist_entry.form_data,
+            status='PENDING_PAYMENT',
+            source='WAITLIST',
+            waitlist_entry=waitlist_entry,
+            reservation_token='active-waitlist-token',
+            reservation_expires_at=expires_at,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        with patch('apps.enrollments.waitlist_service.send_waitlist_invited_email') as mock_send:
+            response = self.client.post(
+                reverse('users:admin-waitlist-extend-deadline', args=[waitlist_entry.id]),
+                {'expires_at': new_expires_at.isoformat()},
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_send.assert_not_called()
+        waitlist_entry.refresh_from_db()
+        enrollment.refresh_from_db()
+        self.assertEqual(waitlist_entry.status, 'INVITED')
+        self.assertEqual(waitlist_entry.invite_expires_at, new_expires_at)
+        self.assertEqual(enrollment.reservation_expires_at, new_expires_at)
+        self.assertEqual(enrollment.reservation_token, 'active-waitlist-token')
+
+    def test_admin_waitlist_extend_deadline_recreates_expired_reservation_and_sends_email(self):
+        new_expires_at = timezone.now() + timedelta(days=4)
+        waitlist_entry = WaitlistEntry.objects.create(
+            product=self.product,
+            user=self.member_user,
+            form_data={'nome_completo': 'Member Dashboard'},
+            status='EXPIRED',
+            position=1,
+            invited_at=timezone.now() - timedelta(days=3),
+            invite_expires_at=timezone.now() - timedelta(days=1),
+            removed_at=timezone.now() - timedelta(days=1),
+            removal_reason='expired',
+            batch_snapshot={'price': '100.00'},
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        with patch('apps.enrollments.waitlist_service.send_waitlist_invited_email') as mock_send:
+            response = self.client.post(
+                reverse('users:admin-waitlist-extend-deadline', args=[waitlist_entry.id]),
+                {'expires_at': new_expires_at.isoformat()},
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        waitlist_entry.refresh_from_db()
+        enrollment = Enrollment.objects.get(waitlist_entry=waitlist_entry, source='WAITLIST')
+        self.assertEqual(waitlist_entry.status, 'INVITED')
+        self.assertEqual(waitlist_entry.invite_expires_at, new_expires_at)
+        self.assertIsNone(waitlist_entry.removed_at)
+        self.assertEqual(waitlist_entry.removal_reason, '')
+        self.assertEqual(enrollment.reservation_expires_at, new_expires_at)
+        self.assertTrue(enrollment.reservation_token)
+        mock_send.assert_called_once_with(waitlist_entry, enrollment)
+
+    def test_admin_waitlist_extend_deadline_rejects_past_date(self):
+        waitlist_entry = WaitlistEntry.objects.create(
+            product=self.product,
+            user=self.member_user,
+            form_data={'nome_completo': 'Member Dashboard'},
+            status='INVITED',
+            position=1,
+            invite_expires_at=timezone.now() + timedelta(hours=1),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            reverse('users:admin-waitlist-extend-deadline', args=[waitlist_entry.id]),
+            {'expires_at': (timezone.now() - timedelta(minutes=5)).isoformat()},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class AdminSocialQuotaTests(APITestCase):
     def setUp(self):
