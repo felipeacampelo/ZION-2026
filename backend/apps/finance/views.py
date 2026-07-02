@@ -267,9 +267,14 @@ class ExpenseRequestViewSet(
 
         area_summary = get_area_summary(expense_request.area)
         rubric_summary = get_rubric_summary(expense_request.rubric)
-        if expense_request.amount > area_summary['available_amount']:
+        # available_amount already deducts this request's own amount (it's
+        # still PENDING/UNDER_REVIEW at this point), so add it back before
+        # checking, otherwise its amount would be subtracted twice.
+        area_available_for_request = area_summary['available_amount'] + expense_request.amount
+        rubric_available_for_request = rubric_summary['available_amount'] + expense_request.amount
+        if expense_request.amount > area_available_for_request:
             return Response({'detail': 'Saldo insuficiente na área para aprovar a solicitação.'}, status=status.HTTP_400_BAD_REQUEST)
-        if expense_request.amount > rubric_summary['available_amount']:
+        if expense_request.amount > rubric_available_for_request:
             return Response({'detail': 'Saldo insuficiente na rubrica para aprovar a solicitação.'}, status=status.HTTP_400_BAD_REQUEST)
 
         expense_request.status = ExpenseRequest.STATUS_APPROVED
