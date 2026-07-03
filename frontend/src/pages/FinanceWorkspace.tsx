@@ -430,6 +430,7 @@ export default function FinanceWorkspace() {
             <p className="font-bold text-gray-950">{request.rubric_name}</p>
             <p className="text-sm text-gray-500">{request.description}</p>
             <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{request.request_type_display}</p>
+            <p className="mt-1 text-xs text-gray-400">Solicitado por {request.requester_email}</p>
           </div>
           <div className="text-right">
             <p className="font-semibold text-gray-950">R$ {formatCurrencyBRL(request.amount)}</p>

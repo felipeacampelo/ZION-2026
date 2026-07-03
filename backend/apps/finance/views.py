@@ -1022,30 +1022,46 @@ def my_finance_dashboard(request):
     user_assignments = list(get_finance_area_assignments(user))
     selected_area_id = request.query_params.get('area')
     assignment = get_finance_area_assignment(user, selected_area_id)
-    if not assignment:
-        if can_view_finance_admin(user):
-            return Response({'detail': 'Use o dashboard administrativo para administradores.'}, status=status.HTTP_400_BAD_REQUEST)
+    is_manager = can_manage_finance(user)
+
+    area = None
+    if assignment:
+        area = assignment.area
+    elif is_manager:
+        # Managers/superusers aren't necessarily an assigned leader of any area,
+        # so they can browse any area's workspace via the area dropdown.
+        area_queryset = Area.objects.all().order_by('name')
+        if selected_area_id:
+            area = area_queryset.filter(id=selected_area_id).first()
+            if not area:
+                return Response({'detail': 'Área não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            area = area_queryset.first()
+
+    if not area:
+        if is_manager:
+            return Response({'detail': 'Nenhuma área cadastrada.'}, status=status.HTTP_404_NOT_FOUND)
         if user_assignments and selected_area_id:
             return Response({'detail': 'Área financeira não vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'detail': 'Nenhuma área financeira vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
 
-    area = assignment.area
     summary = get_area_summary(area)
     requests = ExpenseRequest.objects.select_related(
         'rubric',
         'requester',
         'execution',
         'execution__executed_by',
-    ).prefetch_related('attachments', 'execution__attachments', 'audit_logs').filter(area=area, requester=user)
+    ).prefetch_related('attachments', 'execution__attachments', 'audit_logs').filter(area=area)
+    if not is_manager:
+        requests = requests.filter(requester=user)
     rubrics = BudgetRubric.objects.filter(area=area, is_active=True)
+    areas_payload = (
+        [{'id': item.id, 'name': item.name} for item in Area.objects.all().order_by('name')]
+        if is_manager
+        else [{'id': item.area_id, 'name': item.area.name} for item in user_assignments]
+    )
     return Response({
-        'areas': [
-            {
-                'id': item.area_id,
-                'name': item.area.name,
-            }
-            for item in user_assignments
-        ],
+        'areas': areas_payload,
         'area': AreaSerializer(area).data,
         'summary': {key: str(value) for key, value in summary.items()},
         'requests': ExpenseRequestSerializer(requests, many=True, context={'request': request}).data,
