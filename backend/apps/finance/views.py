@@ -22,6 +22,7 @@ from .models import (
     ExpenseExecution,
     ExpenseRequest,
     ExtraContribution,
+    REQUEST_TYPE_CHOICES,
     Supplier,
     SupplierPayment,
 )
@@ -38,6 +39,7 @@ from .serializers import (
     ExpenseAdvanceManualCloseSerializer,
     ExpenseAdvanceSettlementSerializer,
     ExpenseAttachmentSerializer,
+    ExpenseRequestEditSerializer,
     ExpenseRequestExecuteSerializer,
     ExpenseRequestRejectSerializer,
     ExpenseRequestReviewSerializer,
@@ -234,6 +236,52 @@ class ExpenseRequestViewSet(
         if expense_request.requester_id == user.id:
             return None
         return Response({'detail': 'Sem permissão para prestar contas desta solicitação.'}, status=status.HTTP_403_FORBIDDEN)
+
+    @action(detail=True, methods=['patch'])
+    @transaction.atomic
+    def edit(self, request, pk=None):
+        expense_request = self.get_object()
+        user = request.user
+        if user != expense_request.requester and not can_manage_finance(user):
+            return Response({'detail': 'Sem permissão para editar esta solicitação.'}, status=status.HTTP_403_FORBIDDEN)
+        if expense_request.status not in [ExpenseRequest.STATUS_PENDING, ExpenseRequest.STATUS_UNDER_REVIEW]:
+            return Response(
+                {'detail': 'Apenas solicitações pendentes ou em análise podem ser editadas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ExpenseRequestEditSerializer(data=request.data, context={'expense_request': expense_request})
+        serializer.is_valid(raise_exception=True)
+
+        request_type_labels = dict(REQUEST_TYPE_CHOICES)
+        new_request_type = serializer.validated_data['request_type']
+        new_description = serializer.validated_data['description']
+        changes = []
+        if expense_request.request_type != new_request_type:
+            changes.append(
+                f'forma de pagamento: {request_type_labels[expense_request.request_type]} '
+                f'→ {request_type_labels[new_request_type]}'
+            )
+        if expense_request.description != new_description:
+            changes.append('observações atualizadas')
+
+        expense_request.request_type = new_request_type
+        expense_request.description = new_description
+        update_fields = ['request_type', 'description', 'updated_at']
+
+        if expense_request.status == ExpenseRequest.STATUS_UNDER_REVIEW:
+            expense_request.status = ExpenseRequest.STATUS_PENDING
+            update_fields.append('status')
+            changes.append('reenviada para análise')
+
+        expense_request.save(update_fields=update_fields)
+        ExpenseAuditLog.objects.create(
+            expense_request=expense_request,
+            actor=user,
+            action=ExpenseAuditLog.ACTION_UPDATED,
+            note='; '.join(changes) if changes else 'Solicitação editada sem alterações.',
+        )
+        return Response(self.get_serializer(expense_request).data)
 
     @action(detail=True, methods=['post'])
     def review(self, request, pk=None):
@@ -974,30 +1022,48 @@ def my_finance_dashboard(request):
     user_assignments = list(get_finance_area_assignments(user))
     selected_area_id = request.query_params.get('area')
     assignment = get_finance_area_assignment(user, selected_area_id)
-    if not assignment:
+    # Only superusers can browse any area's workspace without being an
+    # assigned leader; other finance managers still need an assignment.
+    is_manager = bool(user.is_superuser)
+
+    area = None
+    if assignment:
+        area = assignment.area
+    elif is_manager:
+        area_queryset = Area.objects.all().order_by('name')
+        if selected_area_id:
+            area = area_queryset.filter(id=selected_area_id).first()
+            if not area:
+                return Response({'detail': 'Área não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            area = area_queryset.first()
+
+    if not area:
+        if is_manager:
+            return Response({'detail': 'Nenhuma área cadastrada.'}, status=status.HTTP_404_NOT_FOUND)
         if can_view_finance_admin(user):
             return Response({'detail': 'Use o dashboard administrativo para administradores.'}, status=status.HTTP_400_BAD_REQUEST)
         if user_assignments and selected_area_id:
             return Response({'detail': 'Área financeira não vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'detail': 'Nenhuma área financeira vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
 
-    area = assignment.area
     summary = get_area_summary(area)
     requests = ExpenseRequest.objects.select_related(
         'rubric',
         'requester',
         'execution',
         'execution__executed_by',
-    ).prefetch_related('attachments', 'execution__attachments', 'audit_logs').filter(area=area, requester=user)
+    ).prefetch_related('attachments', 'execution__attachments', 'audit_logs').filter(area=area)
+    if not is_manager:
+        requests = requests.filter(requester=user)
     rubrics = BudgetRubric.objects.filter(area=area, is_active=True)
+    areas_payload = (
+        [{'id': item.id, 'name': item.name} for item in Area.objects.all().order_by('name')]
+        if is_manager
+        else [{'id': item.area_id, 'name': item.area.name} for item in user_assignments]
+    )
     return Response({
-        'areas': [
-            {
-                'id': item.area_id,
-                'name': item.area.name,
-            }
-            for item in user_assignments
-        ],
+        'areas': areas_payload,
         'area': AreaSerializer(area).data,
         'summary': {key: str(value) for key, value in summary.items()},
         'requests': ExpenseRequestSerializer(requests, many=True, context={'request': request}).data,
