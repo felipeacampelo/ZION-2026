@@ -473,6 +473,7 @@ class ExtraContribution(models.Model):
 
 class ExpenseAuditLog(models.Model):
     ACTION_CREATED = 'CREATED'
+    ACTION_UPDATED = 'UPDATED'
     ACTION_UNDER_REVIEW = 'UNDER_REVIEW'
     ACTION_APPROVED = 'APPROVED'
     ACTION_REJECTED = 'REJECTED'
@@ -489,6 +490,7 @@ class ExpenseAuditLog(models.Model):
     ACTION_SUPPLIER_PAYMENT_PAID = 'SUPPLIER_PAYMENT_PAID'
     ACTION_CHOICES = [
         (ACTION_CREATED, _('Criada')),
+        (ACTION_UPDATED, _('Atualizada')),
         (ACTION_UNDER_REVIEW, _('Em análise')),
         (ACTION_APPROVED, _('Aprovada')),
         (ACTION_REJECTED, _('Rejeitada')),

@@ -7,6 +7,7 @@ import {
   cancelFinanceRequest,
   createFinanceRequest,
   deleteFinanceRequestAttachment,
+  editFinanceRequest,
   getMyFinanceDashboard,
   replaceFinanceRequestAttachment,
   resolveMediaUrl,
@@ -49,6 +50,7 @@ const getAttachmentMap = (request: FinanceExpenseRequest) =>
 const getAuditLabel = (log: FinanceAuditLog) => {
   const labels: Record<string, string> = {
     CREATED: 'Solicitação criada',
+    UPDATED: 'Solicitação atualizada',
     UNDER_REVIEW: 'Solicitação em análise',
     APPROVED: 'Solicitação aprovada',
     REJECTED: 'Solicitação rejeitada',
@@ -135,6 +137,11 @@ export default function FinanceWorkspace() {
   const [returnReceiptInputKeys, setReturnReceiptInputKeys] = useState<Record<number, number>>({});
   const [historyOpenIds, setHistoryOpenIds] = useState<Record<number, boolean>>({});
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
+  const [editingRequestId, setEditingRequestId] = useState<number | null>(null);
+  const [editForms, setEditForms] = useState<
+    Record<number, { request_type: 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT'; description: string }>
+  >({});
+  const [editError, setEditError] = useState('');
   const needsBankDetails = form.request_type !== 'DIRECT_PAYMENT';
 
   const loadData = async (areaId?: number) => {
@@ -186,6 +193,34 @@ export default function FinanceWorkspace() {
     } catch (submitError: any) {
       setSuccessMessage('');
       setError(getErrorMessage(submitError));
+    }
+  };
+
+  const handleStartEdit = (request: FinanceExpenseRequest) => {
+    setEditError('');
+    setEditingRequestId(request.id);
+    setEditForms((current) => ({
+      ...current,
+      [request.id]: { request_type: request.request_type, description: request.description },
+    }));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRequestId(null);
+    setEditError('');
+  };
+
+  const handleSaveEdit = async (requestId: number) => {
+    const editForm = editForms[requestId];
+    if (!editForm) return;
+    try {
+      setEditError('');
+      await editFinanceRequest(requestId, editForm);
+      setEditingRequestId(null);
+      setSuccessMessage('Solicitação atualizada com sucesso.');
+      await loadData();
+    } catch (editErr: any) {
+      setEditError(getErrorMessage(editErr));
     }
   };
 
@@ -384,6 +419,9 @@ export default function FinanceWorkspace() {
     const historyOpen = Boolean(historyOpenIds[request.id]);
     const returnReceiptState = returnReceiptStates[request.id];
     const selectedReturnReceiptFile = returnReceiptFiles[request.id];
+    const isEditing = editingRequestId === request.id;
+    const editForm = editForms[request.id] || { request_type: request.request_type, description: request.description };
+    const canEdit = ['PENDING', 'UNDER_REVIEW'].includes(request.status);
 
     return (
       <div key={request.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
@@ -396,12 +434,78 @@ export default function FinanceWorkspace() {
           <div className="text-right">
             <p className="font-semibold text-gray-950">R$ {formatCurrencyBRL(request.amount)}</p>
             <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{request.status}</p>
+            {canEdit && !isEditing && (
+              <button
+                type="button"
+                onClick={() => handleStartEdit(request)}
+                className="mt-2 rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700"
+              >
+                Editar
+              </button>
+            )}
           </div>
         </div>
         {(request.request_type !== 'DIRECT_PAYMENT' || request.recipient_name || request.pix_key) && (
           <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
             <p><span className="font-semibold text-gray-900">Favorecido:</span> {request.recipient_name || 'Não informado'}</p>
             <p className="mt-1"><span className="font-semibold text-gray-900">Chave PIX:</span> {request.pix_key || 'Não informada'}</p>
+          </div>
+        )}
+        {isEditing && (
+          <div className="mt-3 rounded-2xl border border-dark/20 bg-white p-4">
+            <p className="text-sm font-semibold text-gray-900">Editar solicitação</p>
+            <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-700">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name={`edit-request-type-${request.id}`}
+                  checked={editForm.request_type === 'REIMBURSEMENT'}
+                  onChange={() => setEditForms((current) => ({ ...current, [request.id]: { ...editForm, request_type: 'REIMBURSEMENT' } }))}
+                />
+                Reembolso
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name={`edit-request-type-${request.id}`}
+                  checked={editForm.request_type === 'ADVANCE'}
+                  onChange={() => setEditForms((current) => ({ ...current, [request.id]: { ...editForm, request_type: 'ADVANCE' } }))}
+                />
+                Solicitação de transferência
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name={`edit-request-type-${request.id}`}
+                  checked={editForm.request_type === 'DIRECT_PAYMENT'}
+                  onChange={() => setEditForms((current) => ({ ...current, [request.id]: { ...editForm, request_type: 'DIRECT_PAYMENT' } }))}
+                />
+                Pagamento direto
+              </label>
+            </div>
+            <textarea
+              className={`${inputClass} mt-3 min-h-[100px]`}
+              placeholder="Observações"
+              value={editForm.description}
+              onChange={(event) => setEditForms((current) => ({ ...current, [request.id]: { ...editForm, description: event.target.value } }))}
+            />
+            {editError && <p className="mt-2 text-sm font-medium text-red-600">{editError}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleSaveEdit(request.id)}
+                className="rounded-xl bg-dark px-3 py-2 text-xs font-semibold text-white"
+              >
+                Salvar
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="rounded-xl border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700"
+              >
+                Cancelar edição
+              </button>
+            </div>
           </div>
         )}
         {request.rejection_reason && <p className="mt-2 text-sm font-medium text-red-600">{request.rejection_reason}</p>}

@@ -965,6 +965,11 @@ export const createFinanceRequest = (data: {
   description: string;
 }) => api.post<FinanceExpenseRequest>('/finance/requests/', data);
 
+export const editFinanceRequest = (
+  id: number,
+  data: { request_type: 'ADVANCE' | 'REIMBURSEMENT' | 'DIRECT_PAYMENT'; description: string }
+) => api.patch<FinanceExpenseRequest>(`/finance/requests/${id}/edit/`, data);
+
 export const reviewFinanceRequest = (id: number, note?: string) =>
   api.post<FinanceExpenseRequest>(`/finance/requests/${id}/review/`, { note });
 

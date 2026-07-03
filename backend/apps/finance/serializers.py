@@ -15,6 +15,7 @@ from .models import (
     ExpenseExecution,
     ExpenseRequest,
     ExtraContribution,
+    REQUEST_TYPE_CHOICES,
     Supplier,
     SupplierPayment,
 )
@@ -525,6 +526,22 @@ class ExpenseRequestSerializer(serializers.ModelSerializer):
             note='Solicitação criada.',
         )
         return expense_request
+
+
+class ExpenseRequestEditSerializer(serializers.Serializer):
+    request_type = serializers.ChoiceField(choices=REQUEST_TYPE_CHOICES)
+    description = serializers.CharField()
+
+    def validate(self, attrs):
+        expense_request = self.context['expense_request']
+        request_type = attrs['request_type']
+        if request_type != ExpenseExecution.TYPE_DIRECT_PAYMENT:
+            if not expense_request.recipient_name or not expense_request.pix_key:
+                raise serializers.ValidationError({
+                    'request_type': 'Esta solicitação não tem favorecido/chave PIX cadastrados; '
+                                     'não é possível mudar para este tipo de pagamento.',
+                })
+        return attrs
 
 
 class ExpenseRequestReviewSerializer(serializers.Serializer):

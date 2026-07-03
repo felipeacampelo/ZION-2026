@@ -53,6 +53,7 @@ const getAttachmentMap = (request: FinanceExpenseRequest) =>
 const getAuditLabel = (log: FinanceAuditLog) => {
   const labels: Record<string, string> = {
     CREATED: 'Solicitação criada',
+    UPDATED: 'Solicitação atualizada',
     UNDER_REVIEW: 'Em análise',
     APPROVED: 'Aprovada',
     REJECTED: 'Rejeitada',

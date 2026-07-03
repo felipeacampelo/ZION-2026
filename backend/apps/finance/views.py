@@ -22,6 +22,7 @@ from .models import (
     ExpenseExecution,
     ExpenseRequest,
     ExtraContribution,
+    REQUEST_TYPE_CHOICES,
     Supplier,
     SupplierPayment,
 )
@@ -38,6 +39,7 @@ from .serializers import (
     ExpenseAdvanceManualCloseSerializer,
     ExpenseAdvanceSettlementSerializer,
     ExpenseAttachmentSerializer,
+    ExpenseRequestEditSerializer,
     ExpenseRequestExecuteSerializer,
     ExpenseRequestRejectSerializer,
     ExpenseRequestReviewSerializer,
@@ -234,6 +236,52 @@ class ExpenseRequestViewSet(
         if expense_request.requester_id == user.id:
             return None
         return Response({'detail': 'Sem permissão para prestar contas desta solicitação.'}, status=status.HTTP_403_FORBIDDEN)
+
+    @action(detail=True, methods=['patch'])
+    @transaction.atomic
+    def edit(self, request, pk=None):
+        expense_request = self.get_object()
+        user = request.user
+        if user != expense_request.requester and not can_manage_finance(user):
+            return Response({'detail': 'Sem permissão para editar esta solicitação.'}, status=status.HTTP_403_FORBIDDEN)
+        if expense_request.status not in [ExpenseRequest.STATUS_PENDING, ExpenseRequest.STATUS_UNDER_REVIEW]:
+            return Response(
+                {'detail': 'Apenas solicitações pendentes ou em análise podem ser editadas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = ExpenseRequestEditSerializer(data=request.data, context={'expense_request': expense_request})
+        serializer.is_valid(raise_exception=True)
+
+        request_type_labels = dict(REQUEST_TYPE_CHOICES)
+        new_request_type = serializer.validated_data['request_type']
+        new_description = serializer.validated_data['description']
+        changes = []
+        if expense_request.request_type != new_request_type:
+            changes.append(
+                f'forma de pagamento: {request_type_labels[expense_request.request_type]} '
+                f'→ {request_type_labels[new_request_type]}'
+            )
+        if expense_request.description != new_description:
+            changes.append('observações atualizadas')
+
+        expense_request.request_type = new_request_type
+        expense_request.description = new_description
+        update_fields = ['request_type', 'description', 'updated_at']
+
+        if expense_request.status == ExpenseRequest.STATUS_UNDER_REVIEW:
+            expense_request.status = ExpenseRequest.STATUS_PENDING
+            update_fields.append('status')
+            changes.append('reenviada para análise')
+
+        expense_request.save(update_fields=update_fields)
+        ExpenseAuditLog.objects.create(
+            expense_request=expense_request,
+            actor=user,
+            action=ExpenseAuditLog.ACTION_UPDATED,
+            note='; '.join(changes) if changes else 'Solicitação editada sem alterações.',
+        )
+        return Response(self.get_serializer(expense_request).data)
 
     @action(detail=True, methods=['post'])
     def review(self, request, pk=None):
