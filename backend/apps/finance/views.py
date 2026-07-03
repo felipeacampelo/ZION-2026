@@ -1022,14 +1022,14 @@ def my_finance_dashboard(request):
     user_assignments = list(get_finance_area_assignments(user))
     selected_area_id = request.query_params.get('area')
     assignment = get_finance_area_assignment(user, selected_area_id)
-    is_manager = can_manage_finance(user)
+    # Only superusers can browse any area's workspace without being an
+    # assigned leader; other finance managers still need an assignment.
+    is_manager = bool(user.is_superuser)
 
     area = None
     if assignment:
         area = assignment.area
     elif is_manager:
-        # Managers/superusers aren't necessarily an assigned leader of any area,
-        # so they can browse any area's workspace via the area dropdown.
         area_queryset = Area.objects.all().order_by('name')
         if selected_area_id:
             area = area_queryset.filter(id=selected_area_id).first()
@@ -1041,6 +1041,8 @@ def my_finance_dashboard(request):
     if not area:
         if is_manager:
             return Response({'detail': 'Nenhuma área cadastrada.'}, status=status.HTTP_404_NOT_FOUND)
+        if can_view_finance_admin(user):
+            return Response({'detail': 'Use o dashboard administrativo para administradores.'}, status=status.HTTP_400_BAD_REQUEST)
         if user_assignments and selected_area_id:
             return Response({'detail': 'Área financeira não vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'detail': 'Nenhuma área financeira vinculada ao usuário.'}, status=status.HTTP_404_NOT_FOUND)
