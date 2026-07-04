@@ -106,6 +106,13 @@ class Product(models.Model):
 
     def sync_batch_transitions(self):
         """Refresh batch statuses and automatic transitions for this product."""
+        from apps.enrollments.waitlist_service import purge_expired_waitlist_reservations
+
+        # There's no scheduled job to expire abandoned waitlist reservations,
+        # so piggyback on this frequently-hit hook to free up their seats and
+        # stop them from lingering as PENDING_PAYMENT enrollments.
+        purge_expired_waitlist_reservations(product=self)
+
         for batch in self.batches.select_related('next_batch').all().order_by('start_date'):
             batch.sync_status()
 
