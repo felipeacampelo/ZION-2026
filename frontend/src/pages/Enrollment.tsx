@@ -1061,7 +1061,7 @@ export default function Enrollment() {
                       1
                     </span>
                     <p>
-                      O reembolso será concedido <strong>em 100% do valor pago</strong>, com até <strong>1 mês</strong> antes do evento, <em>descontando taxas</em>.
+                      O reembolso será concedido <strong>em 100% do valor total da inscrição</strong>, com até <strong>1 mês</strong> antes do evento, <em>descontando taxas</em>.
                     </p>
                   </div>
 
@@ -1070,7 +1070,7 @@ export default function Enrollment() {
                       2
                     </span>
                     <p>
-                      O reembolso será de <strong>50% do valor pago</strong>, com até <strong>1 semana</strong> antes do evento, <em>descontando taxas</em>.
+                      O reembolso será de <strong>50% do valor total da inscrição</strong>, com até <strong>1 semana</strong> antes do evento, <em>descontando taxas</em>.
                     </p>
                   </div>
 
