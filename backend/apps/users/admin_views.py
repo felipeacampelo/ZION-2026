@@ -1053,9 +1053,12 @@ def admin_dashboard_stats(request):
     pending_payments = Payment.objects.filter(status='PENDING').count()
     
     # Revenue stats
+    # Not gated by enrollment status: a cancelled enrollment whose payment
+    # was kept (not refunded, per the refund policy) should still count as
+    # revenue. Money only leaves the total when the payment itself is
+    # actually refunded (Payment.status becomes 'REFUNDED').
     paid_payments = Payment.objects.filter(
         status__in=['CONFIRMED', 'RECEIVED'],
-        enrollment__status__in=active_enrollment_statuses,
     )
     total_revenue = paid_payments.aggregate(total=Sum('amount'))['total'] or 0
     pix_revenue = Decimal('0')
@@ -1080,7 +1083,6 @@ def admin_dashboard_stats(request):
     today = timezone.localdate()
     confirmed_payments_list = Payment.objects.filter(
         status__in=['CONFIRMED', 'RECEIVED'],
-        enrollment__status__in=active_enrollment_statuses,
     ).select_related('enrollment')
 
     for payment in confirmed_payments_list:

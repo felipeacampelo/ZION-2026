@@ -367,7 +367,7 @@ class AdminDashboardStatsTests(APITestCase):
         self.assertEqual(response.data['revenue']['credit_pending_settlement'], 0.0)
         self.assertIn('social_quota', response.data)
 
-    def test_dashboard_uses_payment_record_to_classify_pix_and_excludes_inactive_enrollments(self):
+    def test_dashboard_uses_payment_record_to_classify_pix_and_keeps_unrefunded_cancelled_payments(self):
         pix_payment = Payment.objects.create(
             enrollment=self.member_enrollment,
             asaas_payment_id='pay-dashboard-pix-actual',
@@ -420,7 +420,10 @@ class AdminDashboardStatsTests(APITestCase):
         response = self.client.get(reverse('users:admin-dashboard'))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['revenue']['pix_total'], 100.0)
+        # A cancelled enrollment whose payment was never refunded (RECEIVED,
+        # not REFUNDED) still counts toward revenue: cancelling only means
+        # the participant is out, not that the money was returned.
+        self.assertEqual(response.data['revenue']['pix_total'], 200.0)
         self.assertEqual(response.data['revenue']['credit_total'], 130.0)
         self.assertEqual(response.data['payments']['confirmed'], 3)
         self.assertNotEqual(cancelled_payment.id, pix_payment.id)
