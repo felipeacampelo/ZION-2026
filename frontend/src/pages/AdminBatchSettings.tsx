@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Plus, Save, Trash2, Pencil, X } from 'lucide-react';
+import { Loader2, Plus, Save, Trash2, Pencil, X, PowerOff } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import {
+  closeAdminProductEnrollment,
   createAdminBatch,
   deleteAdminBatch,
   getAdminBatches,
@@ -195,6 +196,30 @@ export default function AdminBatchSettings() {
     }
   };
 
+  const handleCloseProductEnrollment = async (product: Product) => {
+    const confirmed = window.confirm(
+      `Encerrar inscrições de "${product.name}"? Todos os lotes desse evento serão finalizados agora e a cadeia de "próximo lote automático" entre eles será desfeita, então nada vai reabrir sozinho.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await closeAdminProductEnrollment(product.id);
+      setSuccess(`Inscrições de "${product.name}" encerradas com sucesso.`);
+      await loadData();
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setError(detail || 'Erro ao encerrar inscrições do evento.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDeleteBatch = async (batchId: number) => {
     const confirmed = window.confirm('Tem certeza que deseja excluir este lote?');
     if (!confirmed) {
@@ -255,6 +280,29 @@ export default function AdminBatchSettings() {
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         {success && <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{success}</div>}
+
+        {products.length > 0 && (
+          <div className="rounded-2xl border border-red-200 bg-red-50/60 p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Encerrar inscrições</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Finaliza todos os lotes do evento agora e desfaz qualquer "próximo lote automático" entre eles, para nada reabrir sozinho.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {products.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => void handleCloseProductEnrollment(product)}
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+                >
+                  <PowerOff className="h-4 w-4" />
+                  Encerrar inscrições — {product.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="rounded-2xl bg-white p-6 shadow-lg">
           <h3 className="mb-4 text-lg font-semibold text-gray-900">Lotes existentes</h3>

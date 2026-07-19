@@ -737,6 +737,12 @@ export const updateAdminProduct = (id: number, data: any) =>
 export const deleteAdminProduct = (id: number) =>
   api.delete(`/users/admin/products/${id}/delete/`);
 
+export const closeAdminProductEnrollment = (id: number) =>
+  api.post<{ detail: string; closed_batch_ids: number[]; batches: Batch[] }>(
+    `/users/admin/products/${id}/close-enrollment/`,
+    {},
+  );
+
 export const createAdminBatch = (data: any) =>
   api.post('/users/admin/batches/create/', data);
 

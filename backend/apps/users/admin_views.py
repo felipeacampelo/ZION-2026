@@ -12,6 +12,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.http import HttpResponse
+from django.db import transaction
 from django.db.models import Count, Sum, Q, Prefetch
 from django.utils import timezone
 from datetime import timedelta, datetime
@@ -1623,6 +1624,50 @@ def admin_product_delete(request, pk):
             {'detail': 'Produto não encontrado.'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+@transaction.atomic
+def admin_product_close_enrollment(request, pk):
+    """
+    Force-close every batch of a product: ends its enrollment window and
+    unlinks any 'next_batch' chain, so nothing auto-reopens on the next
+    status sync.
+    """
+    try:
+        product = Product.objects.get(pk=pk)
+    except Product.DoesNotExist:
+        return Response(
+            {'detail': 'Produto não encontrado.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    now = timezone.now()
+    # A hair in the past guarantees `now > end_date` still holds by the time
+    # Batch.save() recomputes its own fresh timestamp a moment later.
+    close_at = now - timedelta(seconds=1)
+    closed_batch_ids = []
+    for batch in product.batches.all():
+        changed = False
+        if batch.next_batch_id is not None:
+            batch.next_batch = None
+            changed = True
+        if batch.end_date > close_at:
+            batch.end_date = close_at
+            changed = True
+        if changed:
+            # Full save (no update_fields restriction): Batch.save() always
+            # recomputes `status` from the dates, and that recomputed value
+            # must be persisted too.
+            batch.save()
+            closed_batch_ids.append(batch.id)
+
+    return Response({
+        'detail': 'Inscrições encerradas para este evento.',
+        'closed_batch_ids': closed_batch_ids,
+        'batches': BatchSerializer(product.batches.all().order_by('start_date'), many=True).data,
+    })
 
 
 @api_view(['POST'])
