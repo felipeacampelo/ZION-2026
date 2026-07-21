@@ -872,14 +872,22 @@ function buildCampaignPayload(data: EmailCampaignWriteData) {
   return form;
 }
 
-export const createAdminEmailCampaign = (data: EmailCampaignWriteData) =>
-  api.post<EmailCampaign>('/users/admin/email-campaigns/', buildCampaignPayload(data));
+export const createAdminEmailCampaign = (data: EmailCampaignWriteData) => {
+  const payload = buildCampaignPayload(data);
+  return api.post<EmailCampaign>('/users/admin/email-campaigns/', payload, {
+    headers: payload instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+  });
+};
 
 export const getAdminEmailCampaign = (id: number) =>
   api.get<EmailCampaign>(`/users/admin/email-campaigns/${id}/`);
 
-export const updateAdminEmailCampaign = (id: number, data: EmailCampaignWriteData) =>
-  api.patch<EmailCampaign>(`/users/admin/email-campaigns/${id}/`, buildCampaignPayload(data));
+export const updateAdminEmailCampaign = (id: number, data: EmailCampaignWriteData) => {
+  const payload = buildCampaignPayload(data);
+  return api.patch<EmailCampaign>(`/users/admin/email-campaigns/${id}/`, payload, {
+    headers: payload instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+  });
+};
 
 export const previewAdminEmailCampaignRecipients = (id: number) =>
   api.post<{
