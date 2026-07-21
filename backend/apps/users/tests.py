@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from datetime import timedelta
 from unittest.mock import patch
@@ -1575,3 +1576,92 @@ class AdminEmailTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get(reverse('users:admin-email-templates-list'))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_campaign_preview_recipients_can_target_responsible_email(self):
+        self.enrollment.form_data = {
+            **self.enrollment.form_data,
+            'responsavel': {
+                'nome_responsavel': 'Ana Silva',
+                'email_responsavel': 'ana.responsavel@example.com',
+            },
+        }
+        self.enrollment.save(update_fields=['form_data'])
+        # duplicate_email_enrollment has no responsible email on file and should be skipped.
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            reverse('users:admin-email-campaigns-preview-recipients'),
+            {'product': self.product.id, 'recipient_target': 'responsible'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['sample'][0]['email'], 'ana.responsavel@example.com')
+        self.assertEqual(response.data['sample'][0]['name'], 'Ana Silva')
+
+    @patch('apps.users.admin_email_views.start_campaign_send')
+    def test_campaign_send_with_attachment_and_responsible_target(self, mock_start_campaign_send):
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+
+        self.enrollment.form_data = {
+            **self.enrollment.form_data,
+            'responsavel': {
+                'nome_responsavel': 'Ana Silva',
+                'email_responsavel': 'ana.responsavel@example.com',
+            },
+        }
+        self.enrollment.save(update_fields=['form_data'])
+
+        with override_settings(MEDIA_ROOT=tempfile.mkdtemp()):
+            self.client.force_authenticate(user=self.admin)
+            response = self.client.post(
+                reverse('users:admin-email-campaigns'),
+                {
+                    'name': 'Campanha com Anexo',
+                    'subject': 'Olá {{ nome }}',
+                    'html_content': '<p>Oi {{ nome }}</p>',
+                    'text_content': 'Oi {{ nome }}',
+                    'filters': json.dumps({'product': self.product.id, 'recipient_target': 'responsible'}),
+                    'attachment': SimpleUploadedFile('info.pdf', b'%PDF-1.4 fake pdf', content_type='application/pdf'),
+                },
+                format='multipart',
+            )
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+            campaign_id = response.data['id']
+
+            campaign = EmailCampaign.objects.get(pk=campaign_id)
+            self.assertEqual(campaign.attachment_name, 'info.pdf')
+            self.assertTrue(campaign.attachment.name)
+
+            send_response = self.client.post(
+                reverse('users:admin-email-campaign-send', args=[campaign_id]),
+                {},
+                format='json',
+            )
+            self.assertEqual(send_response.status_code, status.HTTP_200_OK)
+
+            campaign.refresh_from_db()
+            self.assertEqual(campaign.recipient_count, 1)
+            recipient = EmailCampaignRecipient.objects.get(campaign=campaign)
+            self.assertEqual(recipient.email, 'ana.responsavel@example.com')
+            mock_start_campaign_send.assert_called_once()
+
+    def test_get_recipient_contact_and_attachment_payload_helpers(self):
+        from apps.enrollments.email_service import build_attachment_payload, get_recipient_contact
+
+        email, name = get_recipient_contact(self.enrollment, 'participant')
+        self.assertEqual(email, 'maria@example.com')
+        self.assertEqual(name, 'Maria Silva')
+
+        self.enrollment.form_data = {
+            **self.enrollment.form_data,
+            'responsavel': {'nome_responsavel': 'Ana Silva', 'email_responsavel': 'ANA@Example.com'},
+        }
+        email, name = get_recipient_contact(self.enrollment, 'responsible')
+        self.assertEqual(email, 'ana@example.com')
+        self.assertEqual(name, 'Ana Silva')
+
+        self.assertIsNone(build_attachment_payload(None))

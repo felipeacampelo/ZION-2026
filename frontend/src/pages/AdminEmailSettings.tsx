@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle, ChevronDown, ChevronRight, Loader2, Mail, Save, Send, TriangleAlert } from 'lucide-react';
+import { CheckCircle, ChevronDown, ChevronRight, Loader2, Mail, Paperclip, Save, Send, TriangleAlert, X } from 'lucide-react';
 import AdminShell from '../components/AdminShell';
 import {
   createAdminEmailCampaign,
@@ -17,19 +17,13 @@ import {
   updateAdminEmailCampaign,
   updateAdminEmailTemplate,
   type EmailCampaign,
+  type EmailCampaignFilters,
   type Enrollment,
   type EmailTemplate,
   type Product,
 } from '../services/api';
 
-type CampaignFilters = {
-  product?: number;
-  status?: string;
-  payment_method?: string;
-  payment_state?: string;
-  search?: string;
-  enrollment_ids?: number[];
-};
+type CampaignFilters = EmailCampaignFilters;
 
 type CampaignForm = {
   id?: number;
@@ -39,6 +33,8 @@ type CampaignForm = {
   text_content: string;
   filters: CampaignFilters;
   status?: EmailCampaign['status'];
+  attachment_name?: string;
+  attachment_url?: string | null;
 };
 
 const emptyCampaignForm: CampaignForm = {
@@ -117,6 +113,8 @@ export default function AdminEmailSettings() {
   const [recipientOptions, setRecipientOptions] = useState<Enrollment[]>([]);
   const [selectedRecipients, setSelectedRecipients] = useState<Enrollment[]>([]);
   const [searchingRecipients, setSearchingRecipients] = useState(false);
+  const [campaignAttachment, setCampaignAttachment] = useState<File | null>(null);
+  const [removeAttachment, setRemoveAttachment] = useState(false);
 
   // ─── Data loading ────────────────────────────────────────────────────────────
 
@@ -297,11 +295,39 @@ export default function AdminEmailSettings() {
     }));
   };
 
+  const hasAttachmentChange = campaignAttachment !== null || removeAttachment;
+
+  // Creates the campaign if it doesn't exist yet, or updates it, carrying over
+  // the pending attachment change. Returns the campaign id.
+  const saveCampaign = async (name: string) => {
+    const payload = {
+      name,
+      subject: campaignForm.subject,
+      html_content: campaignForm.html_content,
+      text_content: campaignForm.text_content,
+      filters: campaignForm.filters,
+      attachmentFile: campaignAttachment,
+      attachment_clear: removeAttachment,
+    };
+    if (!campaignForm.id) {
+      const res = await createAdminEmailCampaign(payload);
+      setCampaignForm((f) => ({ ...f, id: res.data.id, attachment_name: res.data.attachment_name, attachment_url: res.data.attachment_url }));
+      setCampaignAttachment(null);
+      setRemoveAttachment(false);
+      return res.data.id;
+    }
+    const res = await updateAdminEmailCampaign(campaignForm.id, payload);
+    setCampaignForm((f) => ({ ...f, attachment_name: res.data.attachment_name, attachment_url: res.data.attachment_url }));
+    setCampaignAttachment(null);
+    setRemoveAttachment(false);
+    return campaignForm.id;
+  };
+
   const handleCampaignTest = async () => {
     if (!campaignTestEmail) return;
     setSaving(true); setError(''); setSuccess('');
     try {
-      if (!campaignForm.id) {
+      if (!campaignForm.id && !hasAttachmentChange) {
         await sendAdminEmailCampaignDraftTest({
           to_email: campaignTestEmail,
           subject: campaignForm.subject,
@@ -310,14 +336,12 @@ export default function AdminEmailSettings() {
           filters: campaignForm.filters,
         });
       } else {
-        await updateAdminEmailCampaign(campaignForm.id, {
-          name: campaignForm.name,
-          subject: campaignForm.subject,
-          html_content: campaignForm.html_content,
-          text_content: campaignForm.text_content,
-          filters: campaignForm.filters,
-        });
-        await sendAdminEmailCampaignTest(campaignForm.id, campaignTestEmail);
+        const templateLabel =
+          campaignTemplateKey === '__custom__'
+            ? 'Email personalizado'
+            : templates.find((t) => t.key === campaignTemplateKey)?.name ?? 'Email';
+        const id = await saveCampaign(campaignForm.name.trim() || generateCampaignName(templateLabel));
+        await sendAdminEmailCampaignTest(id, campaignTestEmail);
       }
       setSuccess('Teste enviado.');
     } catch (err: any) { setError(getApiErrorMessage(err, 'Erro ao enviar teste.')); }
@@ -331,21 +355,7 @@ export default function AdminEmailSettings() {
         campaignTemplateKey === '__custom__'
           ? 'Email personalizado'
           : templates.find((t) => t.key === campaignTemplateKey)?.name ?? 'Email';
-      const name = campaignForm.name.trim() || generateCampaignName(templateLabel);
-
-      let campaignId = campaignForm.id;
-      if (!campaignId) {
-        const res = await createAdminEmailCampaign({ ...campaignForm, name });
-        campaignId = res.data.id;
-      } else {
-        await updateAdminEmailCampaign(campaignId, {
-          name,
-          subject: campaignForm.subject,
-          html_content: campaignForm.html_content,
-          text_content: campaignForm.text_content,
-          filters: campaignForm.filters,
-        });
-      }
+      const campaignId = await saveCampaign(campaignForm.name.trim() || generateCampaignName(templateLabel));
 
       const res = await sendAdminEmailCampaign(campaignId);
       await loadData();
@@ -358,6 +368,8 @@ export default function AdminEmailSettings() {
       setRecipientPreview(null);
       setShowSendConfirm(false);
       setSelectedRecipients([]);
+      setCampaignAttachment(null);
+      setRemoveAttachment(false);
       setShowHistory(true);
     } catch (err: any) { setError(getApiErrorMessage(err, 'Erro ao enviar.')); }
     finally { setSaving(false); }
@@ -370,6 +382,8 @@ export default function AdminEmailSettings() {
     setRecipientPreview(null);
     setShowSendConfirm(false);
     setSelectedRecipients([]);
+    setCampaignAttachment(null);
+    setRemoveAttachment(false);
     setError('');
     setSuccess('');
   };
@@ -737,6 +751,54 @@ export default function AdminEmailSettings() {
                   </div>
                 )}
 
+                {/* Attachment */}
+                <div className="mt-5 border-t border-gray-100 pt-5">
+                  <label className={labelClass}>Anexo em PDF (opcional)</label>
+                  <p className="mb-2 text-xs text-gray-500">
+                    Anexe um arquivo PDF para ser enviado junto com o email.
+                  </p>
+
+                  {campaignAttachment ? (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-2.5">
+                      <span className="flex items-center gap-2 truncate text-sm text-gray-700">
+                        <Paperclip className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                        {campaignAttachment.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCampaignAttachment(null)}
+                        className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : campaignForm.attachment_url && !removeAttachment ? (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-2.5">
+                      <span className="flex items-center gap-2 truncate text-sm text-gray-700">
+                        <Paperclip className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                        {campaignForm.attachment_name || 'anexo.pdf'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRemoveAttachment(true)}
+                        className="flex-shrink-0 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) => {
+                        setCampaignAttachment(e.target.files?.[0] ?? null);
+                        setRemoveAttachment(false);
+                      }}
+                      className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+                    />
+                  )}
+                </div>
+
                 <div className="mt-6 flex justify-end">
                   <button
                     type="button"
@@ -834,6 +896,46 @@ export default function AdminEmailSettings() {
                     placeholder="Buscar por nome, email ou CPF"
                     className={inputClass}
                   />
+                </div>
+
+                {/* Recipient target */}
+                <div className="mt-5 border-t border-gray-100 pt-5">
+                  <p className="text-sm font-medium text-gray-700">Enviar para</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Escolha se o email vai para o próprio inscrito ou para o responsável indicado na inscrição.
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {([
+                      { value: 'participant', label: 'Email do inscrito' },
+                      { value: 'responsible', label: 'Email do responsável' },
+                    ] as const).map((option) => {
+                      const isSelected = (campaignForm.filters.recipient_target || 'participant') === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            setCampaignForm({
+                              ...campaignForm,
+                              filters: { ...campaignForm.filters, recipient_target: option.value },
+                            })
+                          }
+                          className={`rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition-colors ${
+                            isSelected
+                              ? 'border-gray-900 bg-gray-50 text-gray-900'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {campaignForm.filters.recipient_target === 'responsible' && (
+                    <p className="mt-2 text-xs text-amber-600">
+                      Inscrições sem email de responsável cadastrado serão ignoradas.
+                    </p>
+                  )}
                 </div>
 
                 {/* Specific recipients */}

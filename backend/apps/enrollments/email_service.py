@@ -457,6 +457,36 @@ EMAIL_TEMPLATE_DEFAULTS = {
 }
 
 
+def get_recipient_contact(enrollment, target='participant'):
+    """Return (email, name) for an enrollment, targeting either the participant
+    or the responsible party they registered with."""
+    form_data = enrollment.form_data or {}
+    participant_name = form_data.get('nome_completo') or enrollment.user.get_full_name() or enrollment.user.email
+
+    if target == 'responsible':
+        responsible = form_data.get('responsavel') or {}
+        if not isinstance(responsible, dict):
+            responsible = {}
+        email = (responsible.get('email_responsavel') or '').strip().lower()
+        name = responsible.get('nome_responsavel') or participant_name
+        return email, name
+
+    email = (form_data.get('email') or enrollment.user.email or '').strip().lower()
+    return email, participant_name
+
+
+def build_attachment_payload(campaign):
+    if not campaign or not campaign.attachment:
+        return None
+    try:
+        campaign.attachment.open('rb')
+        content = list(campaign.attachment.read())
+    finally:
+        campaign.attachment.close()
+    filename = campaign.attachment_name or campaign.attachment.name.rsplit('/', 1)[-1]
+    return [{'filename': filename, 'content': content}]
+
+
 def format_currency(value):
     try:
         amount = Decimal(str(value or '0'))
@@ -609,7 +639,7 @@ def get_preview_context_for_template(key):
     return preview
 
 
-def send_email_message(to_email, subject, html_content, text_content=''):
+def send_email_message(to_email, subject, html_content, text_content='', attachments=None):
     if not resend.api_key:
         logger.warning("RESEND_API_KEY not configured, skipping email")
         return False
@@ -622,6 +652,8 @@ def send_email_message(to_email, subject, html_content, text_content=''):
     }
     if text_content:
         params['text'] = text_content
+    if attachments:
+        params['attachments'] = attachments
 
     response = resend.Emails.send(params)
     logger.info('Email enviado para %s: %s', to_email, response)
@@ -638,13 +670,14 @@ def send_template_test_email(key, to_email):
     )
 
 
-def send_campaign_test_email(subject, html_content, text_content, to_email, context=None):
+def send_campaign_test_email(subject, html_content, text_content, to_email, context=None, attachments=None):
     rendered_context = context or get_preview_context_for_template('enrollment_confirmation')
     return send_email_message(
         to_email=to_email,
         subject=render_placeholders(subject, rendered_context),
         html_content=render_placeholders(html_content, rendered_context),
         text_content=render_placeholders(text_content, rendered_context),
+        attachments=attachments,
     )
 
 
@@ -830,22 +863,23 @@ def build_campaign_snapshot(campaign):
     from .models import EmailCampaignRecipient
 
     campaign.recipients.all().delete()
+    target = (campaign.filters or {}).get('recipient_target', 'participant')
 
     deduped = {}
     for enrollment in get_campaign_recipients_queryset(campaign.filters).iterator():
-        email = (enrollment.form_data.get('email') or enrollment.user.email or '').strip().lower()
+        email, name = get_recipient_contact(enrollment, target)
         if not email or email in deduped:
             continue
-        deduped[email] = enrollment
+        deduped[email] = (enrollment, name)
 
     recipients = [
         EmailCampaignRecipient(
             campaign=campaign,
             enrollment=enrollment,
             email=email,
-            name=enrollment.form_data.get('nome_completo', enrollment.user.get_full_name()) or email,
+            name=name or email,
         )
-        for email, enrollment in deduped.items()
+        for email, (enrollment, name) in deduped.items()
     ]
 
     EmailCampaignRecipient.objects.bulk_create(recipients)
@@ -878,6 +912,8 @@ def process_campaign_send(campaign_id):
     campaign.failed_count = 0
     campaign.save(update_fields=['status', 'started_at', 'finished_at', 'sent_count', 'failed_count', 'updated_at'])
 
+    attachments = build_attachment_payload(campaign)
+
     for recipient in EmailCampaignRecipient.objects.filter(campaign=campaign).order_by('id').iterator():
         try:
             context = build_email_context(enrollment=recipient.enrollment) if recipient.enrollment else get_preview_context_for_template('enrollment_confirmation')
@@ -886,6 +922,7 @@ def process_campaign_send(campaign_id):
                 subject=render_placeholders(campaign.subject, context),
                 html_content=render_placeholders(campaign.html_content, context),
                 text_content=render_placeholders(campaign.text_content, context),
+                attachments=attachments,
             )
             recipient.status = 'SENT'
             recipient.sent_at = timezone.now()

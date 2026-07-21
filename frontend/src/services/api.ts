@@ -297,25 +297,30 @@ export interface EmailCampaignRecipient {
   sent_at: string | null;
 }
 
+export type EmailCampaignFilters = {
+  product?: number;
+  status?: string;
+  payment_method?: string;
+  payment_state?: string;
+  search?: string;
+  enrollment_ids?: number[];
+  recipient_target?: 'participant' | 'responsible';
+};
+
 export interface EmailCampaign {
   id: number;
   name: string;
   subject: string;
   html_content: string;
   text_content: string;
-  filters: {
-    product?: number;
-    status?: string;
-    payment_method?: string;
-    payment_state?: string;
-    search?: string;
-    enrollment_ids?: number[];
-  };
+  filters: EmailCampaignFilters;
   status: 'DRAFT' | 'SENDING' | 'SENT' | 'FAILED' | 'PARTIAL';
   recipient_count: number;
   sent_count: number;
   failed_count: number;
   test_email: string;
+  attachment_name: string;
+  attachment_url: string | null;
   started_at: string | null;
   finished_at: string | null;
   created_by: number | null;
@@ -847,14 +852,34 @@ export const sendAdminEmailTemplateTest = (key: string, to_email: string) =>
 export const getAdminEmailCampaigns = () =>
   api.get<EmailCampaign[]>('/users/admin/email-campaigns/');
 
-export const createAdminEmailCampaign = (data: Partial<EmailCampaign>) =>
-  api.post<EmailCampaign>('/users/admin/email-campaigns/', data);
+type EmailCampaignWriteData = Partial<EmailCampaign> & {
+  attachmentFile?: File | null;
+  attachment_clear?: boolean;
+};
+
+function buildCampaignPayload(data: EmailCampaignWriteData) {
+  const { attachmentFile, attachment_clear, filters, ...rest } = data;
+  if (!attachmentFile && !attachment_clear) {
+    return filters !== undefined ? { ...rest, filters } : rest;
+  }
+  const form = new FormData();
+  Object.entries(rest).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) form.append(key, String(value));
+  });
+  if (filters !== undefined) form.append('filters', JSON.stringify(filters));
+  if (attachmentFile) form.append('attachment', attachmentFile);
+  if (attachment_clear) form.append('attachment_clear', 'true');
+  return form;
+}
+
+export const createAdminEmailCampaign = (data: EmailCampaignWriteData) =>
+  api.post<EmailCampaign>('/users/admin/email-campaigns/', buildCampaignPayload(data));
 
 export const getAdminEmailCampaign = (id: number) =>
   api.get<EmailCampaign>(`/users/admin/email-campaigns/${id}/`);
 
-export const updateAdminEmailCampaign = (id: number, data: Partial<EmailCampaign>) =>
-  api.patch<EmailCampaign>(`/users/admin/email-campaigns/${id}/`, data);
+export const updateAdminEmailCampaign = (id: number, data: EmailCampaignWriteData) =>
+  api.patch<EmailCampaign>(`/users/admin/email-campaigns/${id}/`, buildCampaignPayload(data));
 
 export const previewAdminEmailCampaignRecipients = (id: number) =>
   api.post<{
@@ -862,14 +887,7 @@ export const previewAdminEmailCampaignRecipients = (id: number) =>
     sample: Array<{ enrollment_id: number; email: string; name: string }>;
   }>(`/users/admin/email-campaigns/${id}/preview-recipients/`, {});
 
-export const previewAdminEmailCampaignRecipientsByFilters = (filters: {
-  product?: number;
-  status?: string;
-  payment_method?: string;
-  payment_state?: string;
-  search?: string;
-  enrollment_ids?: number[];
-}) =>
+export const previewAdminEmailCampaignRecipientsByFilters = (filters: EmailCampaignFilters) =>
   api.post<{
     count: number;
     sample: Array<{ enrollment_id: number; email: string; name: string }>;
@@ -883,14 +901,7 @@ export const sendAdminEmailCampaignDraftTest = (data: {
   subject: string;
   html_content: string;
   text_content?: string;
-  filters?: {
-    product?: number;
-    status?: string;
-    payment_method?: string;
-    payment_state?: string;
-    search?: string;
-    enrollment_ids?: number[];
-  };
+  filters?: EmailCampaignFilters;
 }) =>
   api.post('/users/admin/email-campaigns/send-test-draft/', data);
 

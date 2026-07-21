@@ -1,17 +1,21 @@
 """
 Admin email views for templates and bulk campaigns.
 """
+import json
+
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from .permissions import IsAdminUser
 from apps.enrollments.email_service import (
+    build_attachment_payload,
     build_campaign_snapshot,
     build_email_context,
     get_campaign_recipients_queryset,
     get_email_template_defaults,
     get_preview_context_for_template,
+    get_recipient_contact,
     get_template_tokens,
     render_email_template,
     send_campaign_test_email,
@@ -19,6 +23,8 @@ from apps.enrollments.email_service import (
     start_campaign_send,
 )
 from apps.enrollments.models import EmailCampaign, EmailCampaignRecipient, EmailTemplate
+
+RECIPIENT_TARGET_CHOICES = ('participant', 'responsible')
 
 
 class EmailTemplateSerializer(serializers.ModelSerializer):
@@ -66,6 +72,9 @@ class EmailCampaignRecipientSerializer(serializers.ModelSerializer):
 class EmailCampaignSerializer(serializers.ModelSerializer):
     recipients = EmailCampaignRecipientSerializer(many=True, read_only=True)
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
+    attachment_url = serializers.FileField(source='attachment', read_only=True, use_url=True)
+    attachment = serializers.FileField(write_only=True, required=False, allow_null=True)
+    attachment_clear = serializers.BooleanField(write_only=True, required=False, default=False)
 
     class Meta:
         model = EmailCampaign
@@ -81,6 +90,10 @@ class EmailCampaignSerializer(serializers.ModelSerializer):
             'sent_count',
             'failed_count',
             'test_email',
+            'attachment',
+            'attachment_name',
+            'attachment_url',
+            'attachment_clear',
             'started_at',
             'finished_at',
             'created_by',
@@ -94,6 +107,7 @@ class EmailCampaignSerializer(serializers.ModelSerializer):
             'recipient_count',
             'sent_count',
             'failed_count',
+            'attachment_name',
             'started_at',
             'finished_at',
             'created_by',
@@ -106,6 +120,8 @@ class EmailCampaignSerializer(serializers.ModelSerializer):
     def validate_filters(self, value):
         normalized = {}
         value = value or {}
+        if isinstance(value, str):
+            value = json.loads(value) if value.strip() else {}
 
         if value.get('product') not in (None, ''):
             normalized['product'] = value['product']
@@ -117,6 +133,8 @@ class EmailCampaignSerializer(serializers.ModelSerializer):
             normalized['payment_state'] = value['payment_state']
         if value.get('search') not in (None, ''):
             normalized['search'] = value['search']
+        if value.get('recipient_target') in RECIPIENT_TARGET_CHOICES:
+            normalized['recipient_target'] = value['recipient_target']
 
         enrollment_ids = value.get('enrollment_ids') or []
         if enrollment_ids:
@@ -127,6 +145,24 @@ class EmailCampaignSerializer(serializers.ModelSerializer):
             ]
 
         return normalized
+
+    def create(self, validated_data):
+        validated_data.pop('attachment_clear', None)
+        uploaded_file = validated_data.get('attachment')
+        if uploaded_file is not None:
+            validated_data['attachment_name'] = uploaded_file.name
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        clear_attachment = validated_data.pop('attachment_clear', False)
+        uploaded_file = validated_data.get('attachment')
+        if uploaded_file is not None:
+            validated_data['attachment_name'] = uploaded_file.name
+        elif clear_attachment:
+            instance.attachment.delete(save=False)
+            validated_data['attachment'] = None
+            validated_data['attachment_name'] = ''
+        return super().update(instance, validated_data)
 
 
 class EmailCampaignListSerializer(serializers.ModelSerializer):
@@ -159,6 +195,7 @@ class EmailCampaignPreviewFiltersSerializer(serializers.Serializer):
     payment_method = serializers.CharField(required=False)
     payment_state = serializers.CharField(required=False)
     search = serializers.CharField(required=False, allow_blank=True)
+    recipient_target = serializers.ChoiceField(choices=RECIPIENT_TARGET_CHOICES, required=False, default='participant')
     enrollment_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
         required=False,
@@ -204,12 +241,13 @@ def _get_campaign_or_404(pk):
 
 def _build_recipient_preview_payload(filters):
     queryset = get_campaign_recipients_queryset(filters)
+    target = (filters or {}).get('recipient_target', 'participant')
     sample = []
     seen = set()
     total_seen = set()
 
     for enrollment in queryset.iterator():
-        email = (enrollment.form_data.get('email') or enrollment.user.email or '').strip().lower()
+        email, name = get_recipient_contact(enrollment, target)
         if not email:
             continue
         total_seen.add(email)
@@ -219,7 +257,7 @@ def _build_recipient_preview_payload(filters):
         sample.append({
             'enrollment_id': enrollment.id,
             'email': email,
-            'name': enrollment.form_data.get('nome_completo', enrollment.user.get_full_name()) or email,
+            'name': name or email,
         })
 
     return {
@@ -376,6 +414,7 @@ def admin_email_campaign_send_test(request, pk):
         campaign.text_content,
         serializer.validated_data['to_email'],
         context=context,
+        attachments=build_attachment_payload(campaign),
     )
     campaign.test_email = serializer.validated_data['to_email']
     campaign.save(update_fields=['test_email', 'updated_at'])
