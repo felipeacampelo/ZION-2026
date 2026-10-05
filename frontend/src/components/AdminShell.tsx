@@ -23,6 +23,8 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { sendAdminAiAssistantMessage } from '../services/api';
+import AiChat from './AiChat';
 
 interface AdminShellProps {
   children: ReactNode;
@@ -358,6 +360,20 @@ export default function AdminShell({ children }: AdminShellProps) {
 
         <main className="min-w-0 flex-1 p-4 lg:p-8">{children}</main>
       </div>
+      {isAdmin && (
+        <AiChat
+          title="Assistente de dados"
+          buttonLabel="Pergunte à IA"
+          greeting="Pergunte sobre inscrições, pagamentos, lotes e impérios. Eu respondo só com números agregados, sem dados individuais."
+          suggestions={[
+            'Quantas inscrições já estão pagas?',
+            'Quanto temos em atraso?',
+            'Como está a ocupação dos lotes?',
+            'Quantas meninas nascidas em 2010 estão inscritas?',
+          ]}
+          sendMessage={sendAdminAiAssistantMessage}
+        />
+      )}
     </div>
   );
 }

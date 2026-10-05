@@ -661,6 +661,9 @@ export const getAdminAiInsights = () =>
 
 export const sendAiFaqMessage = (messages: AiChatMessage[]) =>
   api.post<{ reply: string; tools_used: string[] }>('/users/ai/faq/', { messages });
+
+export const sendAdminAiAssistantMessage = (messages: AiChatMessage[]) =>
+  api.post<{ reply: string; tools_used: string[] }>('/users/admin/ai/assistant/', { messages });
 export const exportAdminAsaasExtract = (
   params?: { start_date?: string; finish_date?: string },
   onDownloadProgress?: (progressEvent: AxiosProgressEvent) => void,

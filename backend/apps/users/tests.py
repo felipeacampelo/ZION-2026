@@ -1772,7 +1772,7 @@ class AiDemoTests(APITestCase):
     @patch('apps.users.ai_views.generate_dashboard_insights', return_value='- Tudo certo')
     def test_insights_only_sends_whitelisted_aggregate_keys(self, mock_generate):
         from django.test import override_settings
-        from apps.users.ai_views import INSIGHTS_STATS_KEYS
+        from apps.users.ai_service import DASHBOARD_AGGREGATE_KEYS
 
         self.client.force_authenticate(user=self.admin)
         with override_settings(ANTHROPIC_API_KEY='test-key'):
@@ -1781,7 +1781,7 @@ class AiDemoTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['insights'], '- Tudo certo')
         sent_stats = mock_generate.call_args.args[0]
-        self.assertTrue(set(sent_stats).issubset(INSIGHTS_STATS_KEYS))
+        self.assertTrue(set(sent_stats).issubset(DASHBOARD_AGGREGATE_KEYS))
         self.assertNotIn('Outra Pessoa Secreta', json.dumps(sent_stats, default=str))
 
     def test_faq_tool_loop_returns_only_own_enrollment_without_documents(self):
@@ -1832,3 +1832,74 @@ class AiDemoTests(APITestCase):
         self.assertNotIn('Outra Pessoa Secreta', tool_result_payload)
         self.assertNotIn('123.456.789-00', tool_result_payload)
         self.assertNotIn('resp-secreto@example.com', tool_result_payload)
+
+    def test_non_admin_cannot_use_admin_assistant(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            reverse('users:admin-ai-assistant'),
+            {'messages': [{'role': 'user', 'content': 'Quantos pagaram?'}]},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_count_enrollments_returns_only_aggregates(self):
+        from apps.users.ai_service import count_enrollments
+
+        active = count_enrollments()
+        self.assertEqual(active['total'], 2)
+        self.assertEqual(active['por_status'], {'PAID': 1, 'PENDING_PAYMENT': 1})
+
+        paid = count_enrollments(status='PAID', produto='acampamento ia')
+        self.assertEqual(paid['total'], 1)
+        self.assertNotIn('Admin Participante', json.dumps(paid))
+
+    def test_admin_assistant_tool_loop_sends_only_aggregates(self):
+        import anthropic
+        import httpx2
+        from django.test import override_settings
+
+        requests_seen = []
+        responses = [
+            {
+                'id': 'msg_1', 'type': 'message', 'role': 'assistant', 'model': 'claude-haiku-4-5',
+                'content': [{
+                    'type': 'tool_use', 'id': 'toolu_1', 'name': 'contar_inscricoes',
+                    'input': {'status': 'PAID'},
+                }],
+                'stop_reason': 'tool_use', 'stop_sequence': None,
+                'usage': {'input_tokens': 10, 'output_tokens': 5},
+            },
+            {
+                'id': 'msg_2', 'type': 'message', 'role': 'assistant', 'model': 'claude-haiku-4-5',
+                'content': [{'type': 'text', 'text': '1 inscrição está paga.'}],
+                'stop_reason': 'end_turn', 'stop_sequence': None,
+                'usage': {'input_tokens': 20, 'output_tokens': 8},
+            },
+        ]
+
+        def handler(request):
+            requests_seen.append(json.loads(request.content))
+            return httpx2.Response(200, json=responses[len(requests_seen) - 1])
+
+        mock_client = anthropic.Anthropic(
+            api_key='test-key',
+            http_client=httpx2.Client(transport=httpx2.MockTransport(handler)),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        with override_settings(ANTHROPIC_API_KEY='test-key'), \
+                patch('apps.users.ai_service._get_client', return_value=mock_client):
+            response = self.client.post(
+                reverse('users:admin-ai-assistant'),
+                {'messages': [{'role': 'user', 'content': 'Quantos já pagaram?'}]},
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['reply'], '1 inscrição está paga.')
+        self.assertEqual(response.data['tools_used'], ['contar_inscricoes'])
+
+        tool_result_payload = json.dumps(requests_seen[1]['messages'][-1], ensure_ascii=False)
+        self.assertIn('"total": 1', tool_result_payload.replace('\\"', '"'))
+        for secret in ('Admin Participante', 'Outra Pessoa Secreta', '123.456.789-00', 'resp-secreto@example.com'):
+            self.assertNotIn(secret, tool_result_payload)

@@ -59,7 +59,7 @@ from .admin_email_views import (
     admin_email_template_send_test,
     admin_email_templates_list,
 )
-from .ai_views import admin_ai_insights, ai_faq
+from .ai_views import admin_ai_assistant, admin_ai_insights, ai_faq
 from .test_email_view import test_email, email_config
 
 app_name = 'users'
@@ -126,6 +126,7 @@ urlpatterns = [
 
     # AI demo (admin only)
     path('admin/ai/insights/', admin_ai_insights, name='admin-ai-insights'),
+    path('admin/ai/assistant/', admin_ai_assistant, name='admin-ai-assistant'),
     path('ai/faq/', ai_faq, name='ai-faq'),
     
     # Email testing endpoints (admin only)

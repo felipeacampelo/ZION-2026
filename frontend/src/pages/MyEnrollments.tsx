@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, CheckCircle, Clock, XCircle, CreditCard, AlertCircle, Edit } from 'lucide-react';
-import { getEnrollments, type Enrollment } from '../services/api';
+import { getEnrollments, sendAiFaqMessage, type Enrollment } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import AiFaqChat from '../components/AiFaqChat';
+import AiChat from '../components/AiChat';
 
 export default function MyEnrollments() {
   const navigate = useNavigate();
@@ -352,7 +352,20 @@ export default function MyEnrollments() {
         </div>
       </div>
       {/* AI demo: visible to admins only */}
-      {isAdmin && <AiFaqChat />}
+      {isAdmin && (
+        <AiChat
+          title="Assistente Zion"
+          buttonLabel="Dúvidas? Pergunte à IA"
+          greeting="Olá! Posso tirar dúvidas sobre o acampamento e sobre a sua inscrição."
+          suggestions={[
+            'Qual o horário de saída?',
+            'O que preciso levar?',
+            'Minha inscrição está paga?',
+            'Quando vence minha próxima parcela?',
+          ]}
+          sendMessage={sendAiFaqMessage}
+        />
+      )}
     </div>
   );
 }

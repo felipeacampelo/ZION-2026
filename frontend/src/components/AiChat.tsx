@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Loader2, MessageCircle, Send, Sparkles, X } from 'lucide-react';
-import { sendAiFaqMessage, type AiChatMessage } from '../services/api';
+import { type AiChatMessage } from '../services/api';
 
 const brandPurple = 'rgb(165, 44, 240)';
 
-const SUGGESTIONS = [
-  'Qual o horário de saída?',
-  'O que preciso levar?',
-  'Minha inscrição está paga?',
-  'Quando vence minha próxima parcela?',
-];
-
 type ChatEntry = AiChatMessage & { toolsUsed?: string[] };
+
+type AiChatProps = {
+  title: string;
+  buttonLabel: string;
+  greeting: string;
+  suggestions: string[];
+  sendMessage: (messages: AiChatMessage[]) => Promise<{ data: { reply: string; tools_used: string[] } }>;
+};
 
 function getAiErrorMessage(err: unknown) {
   if (axios.isAxiosError(err)) {
@@ -23,7 +24,7 @@ function getAiErrorMessage(err: unknown) {
   return 'Não consegui responder agora. Tente novamente.';
 }
 
-export default function AiFaqChat() {
+export default function AiChat({ title, buttonLabel, greeting, suggestions, sendMessage }: AiChatProps) {
   const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
@@ -47,7 +48,7 @@ export default function AiFaqChat() {
     try {
       const history = next.slice(-20);
       while (history.length > 0 && history[0].role !== 'user') history.shift();
-      const res = await sendAiFaqMessage(
+      const res = await sendMessage(
         history.map(({ role, content: message }) => ({ role, content: message.slice(0, 1000) })),
       );
       setEntries([...next, { role: 'assistant', content: res.data.reply, toolsUsed: res.data.tools_used }]);
@@ -69,7 +70,7 @@ export default function AiFaqChat() {
         style={{ background: brandPurple }}
       >
         <MessageCircle className="h-5 w-5" />
-        Dúvidas? Pergunte à IA
+        {buttonLabel}
       </button>
     );
   }
@@ -79,7 +80,7 @@ export default function AiFaqChat() {
       <div className="flex items-center justify-between px-4 py-3 text-white" style={{ background: brandPurple }}>
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4" />
-          <span className="text-sm font-semibold">Assistente Zion</span>
+          <span className="text-sm font-semibold">{title}</span>
         </div>
         <button type="button" onClick={() => setOpen(false)} className="opacity-80 hover:opacity-100">
           <X className="h-5 w-5" />
@@ -90,10 +91,10 @@ export default function AiFaqChat() {
         {entries.length === 0 && (
           <div>
             <p className="text-sm text-gray-600">
-              Olá! Posso tirar dúvidas sobre o acampamento e sobre a sua inscrição.
+              {greeting}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {SUGGESTIONS.map((suggestion) => (
+              {suggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
