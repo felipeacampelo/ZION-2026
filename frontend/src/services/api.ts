@@ -653,6 +653,14 @@ export const changePassword = (data: {
 
 // Admin endpoints
 export const getAdminDashboard = () => api.get('/users/admin/dashboard/');
+
+export type AiChatMessage = { role: 'user' | 'assistant'; content: string };
+
+export const getAdminAiInsights = () =>
+  api.post<{ insights: string }>('/users/admin/ai/insights/', {});
+
+export const sendAiFaqMessage = (messages: AiChatMessage[]) =>
+  api.post<{ reply: string; tools_used: string[] }>('/users/ai/faq/', { messages });
 export const exportAdminAsaasExtract = (
   params?: { start_date?: string; finish_date?: string },
   onDownloadProgress?: (progressEvent: AxiosProgressEvent) => void,

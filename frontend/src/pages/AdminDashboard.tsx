@@ -16,6 +16,7 @@ import {
   type OverdueEnrollmentSummary,
 } from '../services/api';
 import AdminShell from '../components/AdminShell';
+import AiInsightsCard from '../components/AiInsightsCard';
 
 interface BatchStats {
   id: number;
@@ -414,6 +415,8 @@ export default function AdminDashboard() {
               )}
           </div>
         </section>
+
+        <AiInsightsCard />
 
         {stats && (
           <>

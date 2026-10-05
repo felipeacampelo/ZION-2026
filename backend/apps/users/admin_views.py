@@ -1027,6 +1027,11 @@ def admin_export_asaas_extract_json(request):
 @permission_classes([IsAdminUser])
 def admin_dashboard_stats(request):
     """Get dashboard statistics for admin."""
+    return Response(build_dashboard_stats())
+
+
+def build_dashboard_stats():
+    """Aggregated dashboard statistics (also used by the AI insights)."""
     from django.db.models import Exists, OuterRef
 
     active_enrollments = Enrollment.objects.exclude(status__in=['CANCELLED', 'EXPIRED'])
@@ -1198,7 +1203,7 @@ def admin_dashboard_stats(request):
     social_quota_enrollments = list(build_social_quota_queryset())
     social_quota_summary = build_social_quota_dashboard_summary(social_quota_enrollments)
     
-    return Response({
+    return {
         'enrollments': {
             'total': total_enrollments,
             'pending': pending_enrollments,
@@ -1245,7 +1250,7 @@ def admin_dashboard_stats(request):
         'payment_methods': list(payment_methods),
         'batches': batches_stats,
         'social_quota': social_quota_summary,
-    })
+    }
 
 
 @api_view(['GET'])

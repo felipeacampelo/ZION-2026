@@ -276,6 +276,10 @@ REST_AUTH = {
 RESEND_API_KEY = config('RESEND_API_KEY', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='onboarding@resend.dev')
 
+# AI demo (Claude). Disabled when ANTHROPIC_API_KEY is empty.
+ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
+AI_DAILY_LIMIT = config('AI_DAILY_LIMIT', default=30, cast=int)
+
 # Custom settings
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 BACKEND_URL = config('BACKEND_URL', default='http://localhost:8000')

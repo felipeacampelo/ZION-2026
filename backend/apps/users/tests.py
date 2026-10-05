@@ -1665,3 +1665,170 @@ class AdminEmailTests(APITestCase):
         self.assertEqual(name, 'Ana Silva')
 
         self.assertIsNone(build_attachment_payload(None))
+
+
+class AiDemoTests(APITestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
+
+        self.admin = User.objects.create_user(
+            email='admin-ai@example.com',
+            password='password123',
+            is_staff=True,
+        )
+        self.user = User.objects.create_user(
+            email='member-ai@example.com',
+            password='password123',
+        )
+        self.other_user = User.objects.create_user(
+            email='other-ai@example.com',
+            password='password123',
+        )
+        self.product = Product.objects.create(
+            name='Acampamento IA',
+            description='Produto para IA',
+            base_price=Decimal('100.00'),
+            max_installments=8,
+            is_active=True,
+        )
+        now = timezone.now()
+        self.batch = Batch.objects.create(
+            product=self.product,
+            name='Lote IA',
+            start_date=now - timedelta(days=1),
+            end_date=now + timedelta(days=10),
+            price=Decimal('100.00'),
+            pix_installment_price=Decimal('120.00'),
+            credit_card_price=Decimal('130.00'),
+            status='ACTIVE',
+        )
+        self.admin_enrollment = Enrollment.objects.create(
+            user=self.admin,
+            product=self.product,
+            batch=self.batch,
+            form_data={
+                'nome_completo': 'Admin Participante',
+                'cpf': '123.456.789-00',
+                'responsavel': {'email_responsavel': 'resp-secreto@example.com'},
+            },
+            status='PAID',
+            payment_method='PIX_CASH',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+        Enrollment.objects.create(
+            user=self.other_user,
+            product=self.product,
+            batch=self.batch,
+            form_data={'nome_completo': 'Outra Pessoa Secreta'},
+            status='PENDING_PAYMENT',
+            payment_method='PIX_CASH',
+            installments=1,
+            total_amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            final_amount=Decimal('100.00'),
+        )
+
+    def test_non_admin_cannot_use_ai_endpoints(self):
+        self.client.force_authenticate(user=self.user)
+        insights = self.client.post(reverse('users:admin-ai-insights'), {}, format='json')
+        faq = self.client.post(
+            reverse('users:ai-faq'),
+            {'messages': [{'role': 'user', 'content': 'Oi'}]},
+            format='json',
+        )
+        self.assertEqual(insights.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(faq.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_ai_endpoints_return_503_without_api_key(self):
+        from django.test import override_settings
+
+        self.client.force_authenticate(user=self.admin)
+        with override_settings(ANTHROPIC_API_KEY=''):
+            insights = self.client.post(reverse('users:admin-ai-insights'), {}, format='json')
+            faq = self.client.post(
+                reverse('users:ai-faq'),
+                {'messages': [{'role': 'user', 'content': 'Oi'}]},
+                format='json',
+            )
+        self.assertEqual(insights.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertEqual(faq.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    def test_ai_daily_quota_returns_429(self):
+        from django.test import override_settings
+
+        self.client.force_authenticate(user=self.admin)
+        with override_settings(ANTHROPIC_API_KEY='test-key', AI_DAILY_LIMIT=0):
+            response = self.client.post(
+                reverse('users:ai-faq'),
+                {'messages': [{'role': 'user', 'content': 'Oi'}]},
+                format='json',
+            )
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    @patch('apps.users.ai_views.generate_dashboard_insights', return_value='- Tudo certo')
+    def test_insights_only_sends_whitelisted_aggregate_keys(self, mock_generate):
+        from django.test import override_settings
+        from apps.users.ai_views import INSIGHTS_STATS_KEYS
+
+        self.client.force_authenticate(user=self.admin)
+        with override_settings(ANTHROPIC_API_KEY='test-key'):
+            response = self.client.post(reverse('users:admin-ai-insights'), {}, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['insights'], '- Tudo certo')
+        sent_stats = mock_generate.call_args.args[0]
+        self.assertTrue(set(sent_stats).issubset(INSIGHTS_STATS_KEYS))
+        self.assertNotIn('Outra Pessoa Secreta', json.dumps(sent_stats, default=str))
+
+    def test_faq_tool_loop_returns_only_own_enrollment_without_documents(self):
+        import anthropic
+        import httpx2
+        from django.test import override_settings
+
+        requests_seen = []
+        responses = [
+            {
+                'id': 'msg_1', 'type': 'message', 'role': 'assistant', 'model': 'claude-haiku-4-5',
+                'content': [{'type': 'tool_use', 'id': 'toolu_1', 'name': 'minha_inscricao', 'input': {}}],
+                'stop_reason': 'tool_use', 'stop_sequence': None,
+                'usage': {'input_tokens': 10, 'output_tokens': 5},
+            },
+            {
+                'id': 'msg_2', 'type': 'message', 'role': 'assistant', 'model': 'claude-haiku-4-5',
+                'content': [{'type': 'text', 'text': 'Sua inscrição está paga!'}],
+                'stop_reason': 'end_turn', 'stop_sequence': None,
+                'usage': {'input_tokens': 20, 'output_tokens': 8},
+            },
+        ]
+
+        def handler(request):
+            requests_seen.append(json.loads(request.content))
+            return httpx2.Response(200, json=responses[len(requests_seen) - 1])
+
+        mock_client = anthropic.Anthropic(
+            api_key='test-key',
+            http_client=httpx2.Client(transport=httpx2.MockTransport(handler)),
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        with override_settings(ANTHROPIC_API_KEY='test-key'), \
+                patch('apps.users.ai_service._get_client', return_value=mock_client):
+            response = self.client.post(
+                reverse('users:ai-faq'),
+                {'messages': [{'role': 'user', 'content': 'Minha inscrição está paga?'}]},
+                format='json',
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['reply'], 'Sua inscrição está paga!')
+        self.assertEqual(response.data['tools_used'], ['minha_inscricao'])
+
+        tool_result_payload = json.dumps(requests_seen[1]['messages'][-1], ensure_ascii=False)
+        self.assertIn('Admin Participante', tool_result_payload)
+        self.assertNotIn('Outra Pessoa Secreta', tool_result_payload)
+        self.assertNotIn('123.456.789-00', tool_result_payload)
+        self.assertNotIn('resp-secreto@example.com', tool_result_payload)
